@@ -6,7 +6,7 @@ export const createCras = async (req, res) => {
     const cras = new Cras({ nome, endereco, telefone });
     await cras.save();
     res.status(201).json(cras);
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao criar CRAS' });
   }
 };
@@ -15,7 +15,7 @@ export const getCras = async (req, res) => {
   try {
     const cras = await Cras.find();
     res.json(cras);
-  } catch (err) {
+  } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar CRAS' });
   }
 };
@@ -29,7 +29,7 @@ export const getCrasById = async (req, res) => {
       return res.status(404).json({ message: 'CRAS não encontrado' });
     }
     res.json(cras);
-  } catch (err) {
+  } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar CRAS' });
   }
 };
@@ -40,7 +40,7 @@ export const updateCras = async (req, res) => {
     const { nome, endereco, telefone } = req.body;
     const cras = await Cras.findByIdAndUpdate(id, { nome, endereco, telefone }, { new: true });
     res.json(cras);
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao atualizar CRAS' });
   }
 };
@@ -50,7 +50,7 @@ export const deleteCras = async (req, res) => {
     const { id } = req.params;
     await Cras.findByIdAndDelete(id);
     res.json({ message: 'CRAS removido' });
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao remover CRAS' });
   }
 };

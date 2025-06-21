@@ -37,7 +37,7 @@ export const login = async (req, res) => {
         agenda: user.role === 'entrevistador' ? user.agenda : undefined
       } 
     });
-  } catch (err) {
+  } catch (_) {
     console.error('Erro no login:', err);
     res.status(500).json({ message: 'Erro no login' });
   }

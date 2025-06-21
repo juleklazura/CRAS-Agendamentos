@@ -6,7 +6,7 @@ export const createLog = async (req, res) => {
     const log = new Log({ user: req.user.id, cras, action, details });
     await log.save();
     res.status(201).json(log);
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao criar log' });
   }
 };
@@ -23,7 +23,7 @@ export const getLogs = async (req, res) => {
     }
     const logs = await Log.find(filter).populate('user cras');
     res.json(logs);
-  } catch (err) {
+  } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar logs' });
   }
 };

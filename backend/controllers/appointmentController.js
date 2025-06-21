@@ -26,7 +26,7 @@ export const createAppointment = async (req, res) => {
     });
     await appointment.save();
     res.status(201).json(appointment);
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao criar agendamento', error: err.message });
   }
 };

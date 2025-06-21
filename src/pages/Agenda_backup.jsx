@@ -8,7 +8,10 @@ import {
   FormControl, 
   InputLabel, 
   Select, 
-  MenuI  // Estados do modal de criação/edição de agendamento
+  MenuItem
+} from '@mui/material';
+
+// Estados do modal de criação/edição de agendamento
   const [modalAberto, setModalAberto] = useState(false);
   const [modoEdicao, setModoEdicao] = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState(null);

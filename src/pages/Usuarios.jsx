@@ -27,7 +27,8 @@ export default function Usuarios() {
     try {
       const res = await axios.get('http://localhost:5000/api/users', { headers: { Authorization: `Bearer ${token}` } });
       setUsuarios(res.data);
-    } catch (err) {
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
       setError('Erro ao buscar usuários');
     }
     setLoading(false);
@@ -37,7 +38,8 @@ export default function Usuarios() {
     try {
       const res = await axios.get('http://localhost:5000/api/cras', { headers: { Authorization: `Bearer ${token}` } });
       setCrasList(res.data);
-    } catch (err) {
+    } catch (error) {
+      console.error('Erro ao buscar CRAS:', error);
       setError('Erro ao buscar CRAS');
     }
   }, [token]);

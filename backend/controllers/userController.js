@@ -9,7 +9,7 @@ export const createUser = async (req, res) => {
     const user = new User({ name, password: hashedPassword, role, cras, matricula });
     await user.save();
     res.status(201).json(user);
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao criar usuário', error: err.message });
   }
 };
@@ -35,7 +35,7 @@ export const getEntrevistadores = async (req, res) => {
   try {
     const users = await User.find({ role: 'entrevistador' }).select('-password');
     res.json(users);
-  } catch (err) {
+  } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar entrevistadores' });
   }
 };
@@ -86,7 +86,7 @@ export const updateUser = async (req, res) => {
     }
     const user = await User.findByIdAndUpdate(id, update, { new: true });
     res.json(user);
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao atualizar usuário' });
   }
 };
@@ -97,7 +97,7 @@ export const deleteUser = async (req, res) => {
     const { id } = req.params;
     await User.findByIdAndDelete(id);
     res.json({ message: 'Usuário removido' });
-  } catch (err) {
+  } catch (_) {
     res.status(400).json({ message: 'Erro ao remover usuário' });
   }
 };

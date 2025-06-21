@@ -100,13 +100,27 @@ export default function Sidebar() {
               component={Link}
               to={item.path}
               sx={{
-                color: 'white',
-                textDecoration: 'none',
+                color: 'white !important',
+                textDecoration: 'none !important',
                 mb: 1,
                 borderRadius: 1,
                 bgcolor: location.pathname === item.path ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                 '&:hover': {
                   bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white !important',
+                  textDecoration: 'none !important'
+                },
+                '&:visited': {
+                  color: 'white !important',
+                  textDecoration: 'none !important'
+                },
+                '&:focus': {
+                  color: 'white !important',
+                  textDecoration: 'none !important'
+                },
+                '&:active': {
+                  color: 'white !important',
+                  textDecoration: 'none !important'
                 }
               }}
             >
@@ -115,7 +129,8 @@ export default function Sidebar() {
                 primaryTypographyProps={{
                   fontSize: '0.95rem',
                   fontWeight: location.pathname === item.path ? 'bold' : 'normal',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  color: 'white !important'
                 }}
               />
             </ListItem>

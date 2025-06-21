@@ -26,7 +26,8 @@ export default function Cras() {
     try {
       const res = await axios.get('http://localhost:5000/api/cras', { headers: { Authorization: `Bearer ${token}` } });
       setCras(res.data);
-    } catch (err) {
+    } catch (error) {
+      console.error('Erro ao buscar CRAS:', error);
       setError('Erro ao buscar CRAS');
     }
     setLoading(false);

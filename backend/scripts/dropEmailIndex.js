@@ -7,7 +7,7 @@ async function dropEmailIndex() {
   try {
     await mongoose.connection.db.collection('users').dropIndex('email_1');
     console.log('Índice único do campo email removido com sucesso!');
-  } catch (err) {
+  } catch (_) {
     if (err.codeName === 'IndexNotFound') {
       console.log('Índice email_1 já não existe.');
     } else {
