@@ -1,0 +1,160 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* Reset e configurações globais */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Layout principal */
+#root {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Conteúdo principal */
+.main-content {
+  flex: 1;
+  margin-left: 240px;
+  padding: 24px;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+/* Cores e estilos dos títulos */
+h1, h2, h3, h4, h5, h6,
+.MuiTypography-h4,
+.MuiTypography-h6 {
+  color: #1a1a1a !important;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+/* Componentes com fundo branco */
+.MuiPaper-root,
+.MuiCard-root,
+.MuiTableContainer-root {
+  background-color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+  border-radius: 8px !important;
+}
+
+/* Formulários e inputs */
+.MuiInputBase-root {
+  background-color: #ffffff !important;
+}
+
+.MuiFormLabel-root {
+  color: #424242 !important;
+  font-weight: 500;
+}
+
+/* Tabelas */
+.MuiTableCell-root {
+  color: #333333 !important;
+  padding: 12px 16px !important;
+}
+
+.MuiTableCell-head {
+  color: #1a1a1a !important;
+  font-weight: 600 !important;
+  background-color: #f8f9fa !important;
+}
+
+.MuiTableRow-root:hover {
+  background-color: #f8f9fa !important;
+}
+
+/* Botões */
+.MuiButton-root {
+  text-transform: none !important;
+  font-weight: 500 !important;
+  padding: 6px 16px !important;
+}
+
+.MuiButton-containedPrimary {
+  background-color: #1E4976 !important;
+}
+
+.MuiButton-containedPrimary:hover {
+  background-color: #163558 !important;
+}
+
+/* Links */
+a {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Títulos específicos */
+#titulominhaagenda {
+  color: #000000 !important;
+  font-weight: 600;
+}
+
+/* Feedback visual */
+.MuiAlert-root {
+  border-radius: 8px !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+  }
+}

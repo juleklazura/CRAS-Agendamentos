@@ -1,0 +1,62 @@
+import Log from '../models/Log.js';
+import BlockedSlot from '../models/BlockedSlot.js';
+
+// Criar bloqueio de horário (entrevistador ou recepção)
+export const createBlockedSlot = async (req, res) => {
+  try {
+    const { data, motivo, entrevistador: entrevistadorBody } = req.body;
+    // Se for recepção, pode bloquear para qualquer entrevistador
+    let entrevistador = req.user.id;
+    if (req.user.role === 'recepcao' && entrevistadorBody) {
+      entrevistador = entrevistadorBody;
+    }
+    const cras = req.user.cras;
+    // Não permitir bloqueio duplicado
+    const exists = await BlockedSlot.findOne({ entrevistador, cras, data });
+    if (exists) return res.status(400).json({ message: 'Horário já bloqueado' });
+    const blocked = new BlockedSlot({ entrevistador, cras, data, motivo });
+    await blocked.save();
+    // Log automático
+    await Log.create({ user: entrevistador, cras, action: 'bloqueio_horario', details: `Bloqueou o horário ${new Date(data).toLocaleString()} - Motivo: ${motivo}` });
+    res.status(201).json(blocked);
+  } catch (err) {
+    res.status(400).json({ message: 'Erro ao bloquear horário' });
+  }
+};
+
+// Listar bloqueios do entrevistador logado ou, se admin ou recepção, de qualquer entrevistador
+export const getBlockedSlots = async (req, res) => {
+  try {
+    let entrevistador, cras;
+    if (req.user.role === 'admin' || req.user.role === 'recepcao') {
+      entrevistador = req.query.entrevistador;
+      cras = req.query.cras;
+      if (!entrevistador) return res.status(400).json({ message: 'Entrevistador não informado' });
+    } else {
+      entrevistador = req.user.id;
+      cras = req.user.cras;
+    }
+    const query = { entrevistador };
+    if (cras) query.cras = cras;
+    const slots = await BlockedSlot.find(query);
+    res.json(slots);
+  } catch (err) {
+    res.status(500).json({ message: 'Erro ao buscar bloqueios' });
+  }
+};
+
+// Remover bloqueio (apenas do próprio usuário)
+export const deleteBlockedSlot = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const entrevistador = req.user.id;
+    const slot = await BlockedSlot.findOne({ _id: id, entrevistador });
+    if (!slot) return res.status(404).json({ message: 'Bloqueio não encontrado' });
+    await BlockedSlot.deleteOne({ _id: id });
+    // Log automático
+    await Log.create({ user: entrevistador, cras: slot.cras, action: 'desbloqueio_horario', details: `Desbloqueou o horário ${new Date(slot.data).toLocaleString()}` });
+    res.json({ message: 'Bloqueio removido' });
+  } catch (err) {
+    res.status(400).json({ message: 'Erro ao remover bloqueio' });
+  }
+};
