@@ -47,7 +47,7 @@ Sistema completo de gerenciamento de agendamentos para Centros de Referência de
 
 ### 1. Clone o repositório
 ```bash
-git clone [URL_DO_REPOSITORIO]
+git clone https://github.com/juleklazura/CRAS-Agendamentos.git
 cd agendamentos
 ```
 
@@ -71,7 +71,7 @@ npm run dev
 ### Variáveis de Ambiente (Backend)
 Crie um arquivo `.env` no diretório `backend/`:
 ```env
-MONGODB_URI=mongodb://localhost:27017/agendamentos
+MONGODB_URI="****************"
 JWT_SECRET=seu_jwt_secret_aqui
 PORT=5000
 ```
@@ -88,25 +88,6 @@ PORT=5000
 - `/usuarios` - Gerenciamento de usuários
 - `/cras` - Gerenciamento de CRAS
 - `/logs` - Logs do sistema
-
-### **Permissões:**
-| Funcionalidade | Admin | Entrevistador | Recepção |
-|---|---|---|---|
-| Visualizar agenda geral | ✅ | ✅ (própria) | ❌ |
-| Editar na agenda geral | ❌ | ✅ (próprios) | ❌ |
-| Agenda da recepção | ❌ | ❌ | ✅ |
-| Editar agendamentos (recepção) | ❌ | ❌ | ✅ |
-| Gerenciar usuários | ✅ | ❌ | ❌ |
-| Ver todos agendamentos | ✅ | ❌ | ❌ |
-
-## 🎨 Características
-
-- ✅ **Interface Responsiva** - Funciona em desktop e mobile
-- ✅ **Paginação Inteligente** - Apenas onde necessário
-- ✅ **Performance Otimizada** - Memoização e lazy loading
-- ✅ **UX Humanizada** - Mensagens amigáveis e feedback visual
-- ✅ **Segurança** - JWT + validações backend/frontend
-- ✅ **Código Limpo** - ESLint + boas práticas React
 
 ## 🚦 Status de Desenvolvimento
 
@@ -125,23 +106,3 @@ PORT=5000
 - Relatórios avançados
 - Exportação de dados
 - Sistema de backup automático
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch (`git checkout -b feature/nova-funcionalidade`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova funcionalidade'`)
-4. Push para a branch (`git push origin feature/nova-funcionalidade`)
-5. Abra um Pull Request
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
-
-## 👨‍💻 Autor
-
-Desenvolvido para otimização de atendimentos em CRAS.
-
----
-
-**Sistema de Agendamentos CRAS** - Facilitando o acesso aos serviços de assistência social 💙
