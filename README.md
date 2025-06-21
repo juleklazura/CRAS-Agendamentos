@@ -47,7 +47,7 @@ Sistema completo de gerenciamento de agendamentos para Centros de Referência de
 
 ### 1. Clone o repositório
 ```bash
-git clone [URL_DO_REPOSITORIO]
+git clone https://github.com/juleklazura/CRAS-Agendamentos.git
 cd agendamentos
 ```
 
