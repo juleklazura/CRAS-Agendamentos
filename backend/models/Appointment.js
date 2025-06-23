@@ -7,7 +7,7 @@ const appointmentSchema = new mongoose.Schema({
   cpf: { type: String, required: true },
   telefone1: { type: String, required: true },
   telefone2: { type: String },
-  motivo: { type: String, enum: ['Atualização', 'Inclusão', 'Transferência', 'Orientações'], required: true },
+  motivo: { type: String, enum: ['Atualização Cadastral', 'Inclusão', 'Transferência de Município', 'Orientações Gerais'], required: true },
   data: { type: Date, required: true },
   status: { type: String, enum: ['agendado', 'reagendar', 'realizado', 'faltou', 'cancelado'], default: 'agendado' },
   observacoes: { type: String },

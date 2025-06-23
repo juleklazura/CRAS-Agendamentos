@@ -5,7 +5,7 @@ import { Button, TextField, Select, MenuItem, InputLabel, FormControl, Snackbar,
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import * as XLSX from 'xlsx';
+import { exportToCSV } from '../utils/csvExport';
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -107,11 +107,13 @@ export default function Usuarios() {
     setLoading(false);
   }
   function exportToExcel() {
-    const data = usuarios.map(u => ({ Nome: u.name, Matrícula: u.matricula, Papel: u.role, CRAS: u.cras?.nome || '-' }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Usuários');
-    XLSX.writeFile(wb, 'usuarios.xlsx');
+    const data = usuarios.map(u => ({ 
+      Nome: u.name, 
+      Matrícula: u.matricula, 
+      Papel: u.role, 
+      CRAS: u.cras?.nome || '-' 
+    }));
+    exportToCSV(data, 'usuarios.csv');
   }
 
   const filteredUsuarios = usuarios.filter(u =>
@@ -122,19 +124,13 @@ export default function Usuarios() {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <>
       <Sidebar />
       <Box 
         component="main" 
-        sx={{ 
-          flexGrow: 1,
-          p: 3,
-          marginLeft: '240px',
-          minHeight: '100vh',
-          backgroundColor: '#f5f5f5'
-        }}
+        className="main-content"
       >
-        <Typography variant="h4" mb={2}>Gerenciamento de Usuários</Typography>
+        <Typography variant="h4" className="main-page-title" sx={{fontWeight: 'bold'}} >Gerenciamento de Usuários</Typography>
         <TextField
           label="Buscar usuário"
           value={search}
@@ -142,7 +138,10 @@ export default function Usuarios() {
           size="small"
           sx={{ mb: 2, width: 320 }}
         />
-        <Paper sx={{ p: 2, mb: 2 }}>
+        <Paper sx={{ p: 2}}>
+          <Typography variant="h6" sx={{fontWeight: 'bold', color: 'primary.main', mt: '0 !important' }}>
+            {editId ? 'Editar Usuário' : 'Criar Novo Usuário'}
+          </Typography>
           <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
             <TextField name="name" label="Nome" value={form.name} onChange={handleChange} required size="small" />
             <TextField name="matricula" label="Matrícula" value={form.matricula} onChange={handleChange} required size="small" />
@@ -204,18 +203,20 @@ export default function Usuarios() {
               ))}
             </TableBody>
           </Table>
-          <TablePagination
-            component="div"
-            count={filteredUsuarios.length}
-            page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            labelRowsPerPage="Linhas por página"
-          />
+          <div className="pagination-container">
+            <TablePagination
+              component="div"
+              count={filteredUsuarios.length}
+              page={page}
+              onPageChange={(e, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Linhas por página"
+            />
+          </div>
         </TableContainer>
       </Box>
-    </Box>
+    </>
   );
 }

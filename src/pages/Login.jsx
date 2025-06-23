@@ -9,15 +9,18 @@ import {
   Alert,
   Container
 } from '@mui/material';
+import logo from '../assets/logo-faspg.svg';
 
 export default function Login() {
   const [matricula, setMatricula] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErro('');
+    setLoading(true);
 
     try {
       const resposta = await axios.post('http://localhost:5000/api/auth/login', {
@@ -30,51 +33,42 @@ export default function Login() {
       window.location.href = '/dashboard';
     } catch (erro) {
       setErro(erro.response?.data?.message || 'Erro ao fazer login. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          py: 4
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            width: '100%',
-            maxWidth: 400,
-            borderRadius: 2,
-            textAlign: 'center'
-          }}
-        >
-          <Typography
-            variant="h4"
-            gutterBottom
+    <div className="login-page">
+      <Container>
+        <Box>
+          <Paper
+            elevation={3}
             sx={{
-              color: '#1E4976',
-              fontWeight: 'bold',
-              mb: 3
+              p: 1,
+              borderRadius: 2,
+              textAlign: 'center'
             }}
           >
-            CRAS Agendamentos
-          </Typography>
+          <img
+            src={logo}
+            alt="FASPG Logo"
+            style={{
+              width: '100%',
+              height: 'auto',
+              marginBottom: '8px'
+            }}
+          />
 
-          <Typography
-            variant="body2"
-            sx={{ mb: 4, color: 'text.secondary' }}
-          >
-            Sistema de Gerenciamento de Agendamentos
-          </Typography>
+          <Box sx={{ px: 3, pb: 3 }}>
+            <Typography
+              variant="body2"
+              sx={{ mb: 3, color: 'black' }}
+            >
+              Sistema de Gerenciamento de Agendamentos para Cadastro Único
+            </Typography>
 
-          <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} aria-label="Formulário de login">
             <TextField
               fullWidth
               label="Matrícula"
@@ -82,6 +76,10 @@ export default function Login() {
               value={matricula}
               onChange={(e) => setMatricula(e.target.value)}
               required
+              autoComplete="username"
+              inputProps={{
+                'aria-describedby': 'matricula-help'
+              }}
               sx={{ mb: 2 }}
             />
 
@@ -93,6 +91,10 @@ export default function Login() {
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               required
+              autoComplete="current-password"
+              inputProps={{
+                'aria-describedby': 'senha-help'
+              }}
               sx={{ mb: 3 }}
             />
 
@@ -110,25 +112,24 @@ export default function Login() {
               variant="contained"
               fullWidth
               size="large"
+              disabled={loading}
               sx={{
                 bgcolor: '#1E4976',
                 '&:hover': {
                   bgcolor: '#163558'
+                },
+                '&:disabled': {
+                  bgcolor: '#93a3b0'
                 }
               }}
             >
-              Entrar
+              {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
+          </Box>
         </Paper>
-
-        <Typography
-          variant="caption"
-          sx={{ mt: 4, color: 'text.secondary' }}
-        >
-          © {new Date().getFullYear()} CRAS Agendamentos. Todos os direitos reservados.
-        </Typography>
       </Box>
     </Container>
+    </div>
   );
 }

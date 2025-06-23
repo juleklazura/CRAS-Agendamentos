@@ -1,50 +1,15 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
 /* Reset e configurações globais */
 * {
+  box-sizing: border-box;
+}
+
+/* Container para conteúdo principal - usa toda largura */
+.content-container {
+  width: 100%;
   margin: 0;
-  padding: 0;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
 }
 
@@ -60,15 +25,57 @@ body {
   display: flex;
   min-height: 100vh;
   width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
 }
 
-/* Conteúdo principal */
+/* Conteúdo principal - sempre ocupa toda largura disponível */
 .main-content {
   flex: 1;
-  margin-left: 240px;
-  padding: 24px;
+  width: calc(100vw - 280px);
+  padding: 0;
   background-color: #f5f5f5;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  transition: margin-left 0.3s ease, width 0.3s ease;
+  overflow-x: hidden;
+}
+
+/* Container para conteúdo principal - usa toda largura */
+.content-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-width: none;
+}
+
+/* Garantir que todos os containers Material-UI usem largura total */
+.MuiContainer-root {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Forçar largura total em todos os Box components principais */
+.MuiBox-root[role="main"],
+.MuiBox-root[component="main"] {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* Containers flexíveis sempre ocupam largura total */
+.MuiGrid-container {
+  width: 100% !important;
+  max-width: none !important;
 }
 
 /* Cores e estilos dos títulos */
@@ -76,17 +83,58 @@ h1, h2, h3, h4, h5, h6,
 .MuiTypography-h4,
 .MuiTypography-h6 {
   color: #1a1a1a !important;
+  margin-top: 2rem !important;
   margin-bottom: 1rem;
   font-weight: 600;
 }
 
-/* Componentes com fundo branco */
+/* Títulos específicos das páginas principais */
+.main-page-title {
+  margin-top: 2rem !important;
+  margin-bottom: 1.5rem !important;
+  font-weight: 600 !important;
+}
+
+/* Componentes com fundo branco - largura proporcional */
 .MuiPaper-root,
-.MuiCard-root,
+.MuiCard-root {
+  background-color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+
+/* Padding interno apenas para o conteúdo dos Papers/Cards */
+.MuiPaper-root > *,
+.MuiCard-root > *,
+.MuiCardContent-root {
+  padding: 16px !important;
+}
+
+/* Tabelas mantêm largura proporcional e não saem do container */
 .MuiTableContainer-root {
   background-color: #ffffff !important;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
   border-radius: 8px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+/* Classe específica para tabelas da página de agendamentos */
+.agendamentos-table-container {
+  width: 95% !important;
+  max-width: 95% !important;
+  margin: 0 auto !important;
+}
+
+/* Responsivo para tabela de agendamentos em mobile */
+@media (max-width: 768px) {
+  .agendamentos-table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 /* Formulários e inputs */
@@ -99,7 +147,71 @@ h1, h2, h3, h4, h5, h6,
   font-weight: 500;
 }
 
-/* Tabelas */
+/* Container da tabela de agenda */
+.agenda-table-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Seções de conteúdo sempre ocupam largura total */
+.page-section {
+  width: 100%;
+  min-width: 100%;
+  margin: 0 0 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  box-sizing: border-box;
+  max-width: none;
+}
+
+.agenda-header {
+  width: 100%;
+  min-width: 100%;
+  margin: 0 auto 24px auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: none;
+}
+
+.filters-section {
+  width: 100%;
+  min-width: 100%;
+  margin: 0 auto 24px auto;
+  display: flex;
+  justify-content: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: none;
+}
+
+/* Títulos centralizados */
+.page-title {
+  text-align: center;
+  margin-top: 2rem !important;
+  margin-bottom: 2rem !important;
+  font-size: 2.5rem !important;
+  color: #1a1a1a !important;
+}
+
+.section-title {
+  text-align: center;
+  margin-top: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+  color: #424242 !important;
+}
+
 .MuiTableCell-root {
   color: #333333 !important;
   padding: 12px 16px !important;
@@ -151,10 +263,421 @@ a:hover {
   border-radius: 8px !important;
 }
 
+/* Classe utilitária para layout mobile */
+.mobile-layout {
+  margin-top: 64px;
+  margin-left: 0;
+  width: 100vw;
+}
+
+/* AppBar mobile sempre visível */
+.mobile-appbar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1300 !important;
+}
+
+/* Garantir cor correta da AppBar mobile */
+.MuiAppBar-root {
+  background-color: #1E4976 !important;
+  height: 64px !important;
+}
+
+.MuiAppBar-root .MuiToolbar-root {
+  background-color: #1E4976 !important;
+  min-height: 64px !important;
+  height: 64px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.MuiAppBar-root .MuiTypography-root {
+  color: white !important;
+}
+
+.MuiAppBar-root .MuiIconButton-root {
+  color: white !important;
+}
+
+/* Remover bordas arredondadas do Drawer mobile */
+.MuiDrawer-paper {
+  border-radius: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.MuiDrawer-paperAnchorLeft {
+  border-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* Corrigir largura dos menus de seleção para tamanho padrão */
+
+/* Responsividade para desktop - garantir uso total da largura */
+@media (min-width: 900px) {
+  .main-content {
+    width: calc(100vw - 280px) !important;
+    margin-left: 10px !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .content-container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Tabelas sempre ocupam largura total no desktop mas com controle */
+  .MuiTableContainer-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+}
+
 /* Responsividade */
-@media (max-width: 768px) {
+@media (max-width: 899px) {
+  .main-content {
+    width: 100vw !important;
+    margin-left: 0 !important;
+    margin-top: 64px !important; /* Espaço para o AppBar */
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Forçar uso da largura total em todas as páginas no mobile */
+  .MuiBox-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .content-container {
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    margin: 0 !important;
+  }
+
+  .page-title {
+    font-size: 2rem !important;
+  }
+
+  /* Tabelas responsivas no mobile */
+  .MuiTableContainer-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .MuiTable-root {
+    min-width: 600px !important;
+  }
+
+  /* Ajustes para formulários no mobile */
+  .MuiFormControl-root {
+    max-width: 100% !important;
+  }
+
+  /* Container da agenda - evitar overflow */
+  .agenda-table-container {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Ajustes para formulários no mobile */
+  .MuiFormControl-root {
+    max-width: 100% !important;
+  }
+}
+
+/* Responsividade para dispositivos móveis e tablets */
+@media (max-width: 1024px) {
   .main-content {
     margin-left: 0;
-    padding: 16px;
+    width: 100vw;
+    padding: 0;
   }
+  
+  .content-container {
+    padding: 0;
+  }
+  
+  .filters-section {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .page-title {
+    font-size: 2rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0;
+  }
+  
+  .content-container {
+    padding: 0;
+  }
+  
+  .page-title {
+    font-size: 1.75rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .section-title {
+    font-size: 1.25rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Ajustar formulários em mobile */
+  .MuiTextField-root,
+  .MuiFormControl-root {
+    width: 100% !important;
+    min-width: auto !important;
+  }
+  
+  /* Tabelas responsivas - scroll horizontal */
+  .MuiTableContainer-root {
+    overflow-x: auto;
+  }
+  
+  .MuiTable-root {
+    min-width: 650px;
+  }
+  
+  /* Ajustar espaçamentos em mobile */
+  .agenda-header {
+    padding: 16px !important;
+  }
+  
+  .filters-section {
+    padding: 12px !important;
+  }
+  
+  /* Botões em mobile */
+  .MuiButton-root {
+    min-width: auto !important;
+    padding: 8px 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0;
+  }
+  
+  .page-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .section-title {
+    font-size: 1.125rem !important;
+  }
+  
+  /* Stack elementos em telas muito pequenas */
+  .MuiBox-root[style*="gap: 2"] {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  /* Ajustar modais em mobile */
+  .MuiDialog-paper {
+    margin: 8px !important;
+    width: calc(100% - 16px) !important;
+    max-width: none !important;
+  }
+}
+
+/* Exceção para página de Login - manter centralizado no meio da página */
+.login-page {
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  background-color: #1E4976 !important;
+}
+
+.login-page .MuiContainer-root {
+  max-width: 600px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.login-page .MuiBox-root {
+  width: 100% !important;
+  max-width: 500px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.login-page .MuiPaper-root {
+  max-width: 400px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+}
+
+/* Centralização de componentes nas páginas */
+.page-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Componentes principais centralizados */
+.main-content > * {
+  width: 100%;
+  max-width: 1400px;
+}
+
+/* Tabelas e papers centralizados */
+.MuiTableContainer-root,
+.MuiPaper-root:not(.MuiMenu-paper):not(.MuiPopover-paper) {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Formulários e controles alinhados à esquerda */
+.MuiFormControl-root,
+form {
+  max-width: none;
+  margin: 0;
+  text-align: left;
+}
+
+/* Controle específico para tabelas grandes */
+.main-content .MuiTable-root {
+  min-width: 100% !important;
+  table-layout: auto !important;
+}
+
+.main-content .MuiTableCell-root {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 200px !important;
+}
+
+/* Garantir que containers não excedam a largura da tela */
+.main-content > * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Alinhamento à esquerda para inputs e formulários */
+.main-content .MuiFormControl-root,
+.main-content form,
+.main-content .MuiTextField-root {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  text-align: left !important;
+}
+
+.main-content .MuiInputBase-root {
+  text-align: left !important;
+}
+
+.main-content .MuiFormLabel-root {
+  text-align: left !important;
+}
+
+/* Ajustar papers para não forçar centralização */
+.main-content .MuiPaper-root:not(.MuiMenu-paper):not(.MuiPopover-paper) {
+  text-align: left !important;
+}
+
+/* Alinhamento específico para seções de filtros */
+.main-content .filters-section {
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+}
+
+.main-content .agenda-table-container {
+  align-items: flex-start !important;
+}
+
+/* Centralização específica para seletores de agenda */
+.agenda-selectors {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-direction: column !important;
+  margin-bottom: 24px !important;
+}
+
+.agenda-selectors .MuiFormControl-root,
+.agenda-selectors .MuiTextField-root {
+  margin: 8px auto !important;
+  text-align: center !important;
+  max-width: 400px !important;
+}
+
+.agenda-selectors .MuiPaper-root {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 16px !important;
+}
+
+/* Centralização para seção de seleção de data */
+.date-selector-section {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-direction: column !important;
+  margin-bottom: 24px !important;
+}
+
+.date-selector-section .MuiBox-root {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Centralização da paginação */
+.MuiTablePagination-root {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.pagination-container {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  margin-top: 16px !important;
 }

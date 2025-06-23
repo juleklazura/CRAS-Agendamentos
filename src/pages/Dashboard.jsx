@@ -29,53 +29,63 @@ export default function Dashboard() {
   }, [user?.cras]);
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <>
       <Sidebar />
       <Box 
         component="main" 
+        className="main-content"
         sx={{ 
-          flexGrow: 1,
-          p: 3,
-          minHeight: '100vh',
-          backgroundColor: '#f5f5f5',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          width: '100%',
-          maxWidth: 1200,
-          marginLeft: '240px',
-          margin: '0 auto'
+          justifyContent: 'center',
+          textAlign: 'center'
         }}
       >
         <Typography 
           variant="h4" 
           gutterBottom
-          sx={{ color: '#1E4976' }} // Cor azul do sidebar
+          sx={{ 
+            color: '#1E4976',
+            textAlign: 'center',
+            mb: 3
+          }}
         >
           Bem-vindo, {user?.name || 'Usuário'}!
         </Typography>
         <Typography 
           variant="body1" 
           paragraph
-          sx={{ color: '#1E4976' }} // Cor azul do sidebar
+          sx={{ 
+            color: '#1E4976',
+            textAlign: 'center',
+            mb: 2
+          }}
         >
           Seu papel: <strong>{user?.role === 'admin' ? 'Administrador' : user?.role === 'entrevistador' ? 'Entrevistador' : 'Recepção'}</strong>
         </Typography>
         <Typography 
           variant="body1" 
           paragraph
-          sx={{ color: '#1E4976' }} // Cor azul do sidebar
+          sx={{ 
+            color: '#1E4976',
+            textAlign: 'center',
+            mb: 3
+          }}
         >
           CRAS: <strong>{crasNome || user?.cras || 'N/A'}</strong>
         </Typography>
         <Typography 
           variant="body2" 
           color="text.secondary" 
-          sx={{ mt: 3 }}
+          sx={{ 
+            mt: 3,
+            textAlign: 'center'
+          }}
         >
           Escolha uma opção no menu lateral para começar.
         </Typography>
       </Box>
-    </Box>
+    </>
   );
 }

@@ -24,7 +24,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Divider,
+  CircularProgress,
+  FormHelperText
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -33,78 +36,95 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditIcon from '@mui/icons-material/Edit';
 import DescriptionIcon from '@mui/icons-material/Description';
+import EventIcon from '@mui/icons-material/Event';
+import PersonIcon from '@mui/icons-material/Person';
+import PhoneIcon from '@mui/icons-material/Phone';
 import ptBR from 'date-fns/locale/pt-BR';
 
-const HORARIOS_DISPONIVEIS = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', 
-  '16:00', '16:30'
-];
+// 🎯 Importa utilitários humanizados e centralizados
+import {
+  formatarCPF,
+  formatarTelefone,
+  exibirCPFFormatado,
+  validarCPF,
+  validarTelefone,
+  motivosAtendimento,
+  horariosDisponiveis,
+  criarDataHorario
+} from '../utils/agendamentoUtils';
 
-const MOTIVOS_AGENDAMENTO = [
-  { value: 'Atualização', label: 'Atualização' },
-  { value: 'Inclusão', label: 'Inclusão' },
-  { value: 'Transferência', label: 'Transferência' },
-  { value: 'Orientações', label: 'Orientações' }
-];
+const API_BASE_URL = 'http://localhost:5000/api';
+
+// 🏢 Agenda da Recepção - Gestão Humanizada de Agendamentos
+// Permite à equipe de recepção visualizar e gerenciar agendamentos 
+// de todos os entrevistadores de forma centralizada e intuitiva
 
 export default function AgendaRecepcao() {
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+  const usuario = JSON.parse(localStorage.getItem('user'));
   
   // Estados principais
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
   const [agendamentos, setAgendamentos] = useState([]);
-  
-  // Estados para entrevistadores
   const [entrevistadores, setEntrevistadores] = useState([]);
   const [entrevistadorSelecionado, setEntrevistadorSelecionado] = useState('');
   const [crasInfo, setCrasInfo] = useState(null);
+  const [bloqueios, setBloqueios] = useState([]);
   
-  // Estados para agendamento
+  // Estados para modais
   const [modalAgendamentoAberto, setModalAgendamentoAberto] = useState(false);
-  const [horarioParaAgendamento, setHorarioParaAgendamento] = useState(null);
+  const [modalExclusaoAberto, setModalExclusaoAberto] = useState(false);
+  const [modalObservacoesAberto, setModalObservacoesAberto] = useState(false);
+  const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
+  
+  // Estados para dados dos formulários
   const [dadosAgendamento, setDadosAgendamento] = useState({
-    pessoa: '',
+    nome: '',
     cpf: '',
-    telefone1: '',
-    telefone2: '',
+    telefone: '',
+    motivo: '',
+    observacoes: ''
+  });
+  const [dadosEdicao, setDadosEdicao] = useState({
+    nome: '',
+    cpf: '',
+    telefone: '',
     motivo: '',
     observacoes: ''
   });
   
-  // Estados para exclusão
-  const [modalExclusaoAberto, setModalExclusaoAberto] = useState(false);
+  // Estados para seleções temporárias
+  const [horarioParaAgendamento, setHorarioParaAgendamento] = useState(null);
   const [agendamentoParaExcluir, setAgendamentoParaExcluir] = useState(null);
-  
-  // Estados para modal de observações
-  const [modalObservacoesAberto, setModalObservacoesAberto] = useState(false);
+  const [agendamentoParaEditar, setAgendamentoParaEditar] = useState(null);
   const [observacoesVisualizacao, setObservacoesVisualizacao] = useState('');
   const [nomeAgendamentoObservacoes, setNomeAgendamentoObservacoes] = useState('');
   
-  // Estados para edição
-  const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
-  const [agendamentoParaEditar, setAgendamentoParaEditar] = useState(null);
-  const [dadosEdicao, setDadosEdicao] = useState({
-    pessoa: '',
-    cpf: '',
-    telefone1: '',
-    telefone2: '',
-    motivo: '',
-    observacoes: ''
-  });
+  // Estado para loading
+  const [loading, setLoading] = useState(false);
   
-  const [mensagem, setMensagem] = useState({ visivel: false, texto: '', tipo: 'success' });
+  // 💬 Estado para mensagens humanizadas
+  const [mensagem, setMensagem] = useState({ 
+    visivel: false, 
+    texto: '', 
+    tipo: 'success' 
+  });
 
-  const token = localStorage.getItem('token');
-  const usuario = JSON.parse(localStorage.getItem('user'));
+  // � Função humanizada para exibir mensagens
+  const mostrarMensagem = useCallback((texto, tipo = 'success') => {
+    setMensagem({ visivel: true, texto, tipo });
+  }, []);
 
-  // Verificar se é recepção
+  // �🔒 Verificação humanizada de permissão
   useEffect(() => {
     if (usuario?.role !== 'recepcao') {
+      mostrarMensagem('🔒 Acesso restrito à equipe de recepção', 'error');
       navigate('/dashboard');
     }
-  }, [usuario, navigate]);
+  }, [usuario, navigate, mostrarMensagem]);
 
+  // 📝 Handlers humanizados para campos formatados
   // Buscar informações do CRAS
   const buscarCrasInfo = useCallback(async () => {
     try {
@@ -143,7 +163,7 @@ export default function AgendaRecepcao() {
       console.error('Headers:', erro.config?.headers);
       mostrarMensagem('Erro ao carregar entrevistadores: ' + (erro.response?.data?.message || erro.message), 'error');
     }
-  }, [usuario.cras, token]);
+  }, [usuario.cras, token, mostrarMensagem]);
 
   useEffect(() => {
     if (usuario?.cras) {
@@ -166,45 +186,7 @@ export default function AgendaRecepcao() {
     }
   }, []);
 
-  // Funções de formatação (mesmas da MinhaAgenda)
-  // Função utilitária para formatar CPF
-  const formatarCPF = (valor) => {
-    if (!valor) return '';
-    const apenasNumeros = valor.replace(/\D/g, '');
-    if (apenasNumeros.length !== 11) return valor;
-    return apenasNumeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  // Função utilitária para formatar telefone
-  const formatarTelefone = (valor) => {
-    if (!valor) return '';
-    const apenasNumeros = valor.replace(/\D/g, '');
-    if (apenasNumeros.length <= 10) {
-      return apenasNumeros.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-    }
-    return apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-  };
-
-  const handleCPFChange = (valor) => {
-    setDadosAgendamento({...dadosAgendamento, cpf: formatarCPF(valor)});
-  };
-
-  const handleTelefone1Change = (valor) => {
-    setDadosAgendamento({...dadosAgendamento, telefone1: formatarTelefone(valor)});
-  };
-
-  const handleTelefone2Change = (valor) => {
-    setDadosAgendamento({...dadosAgendamento, telefone2: formatarTelefone(valor)});
-  };
-
-  const exibirCPFFormatado = (cpf) => {
-    if (!cpf) return '-';
-    if (cpf.includes('.')) return cpf;
-    return formatarCPF(cpf);
-  };
-
-  // Buscar bloqueios do entrevistador selecionado
-  const [bloqueios, setBloqueios] = useState([]);
+  // 🔍 Buscar bloqueios do entrevistador selecionado
   const buscarBloqueios = useCallback(async () => {
     if (!token || !entrevistadorSelecionado) return;
     try {
@@ -212,12 +194,13 @@ export default function AgendaRecepcao() {
         `http://localhost:5000/api/blocked-slots?entrevistador=${entrevistadorSelecionado}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
       setBloqueios(resposta.data || []);
     } catch (erro) {
       console.error('Erro ao buscar bloqueios:', erro);
       mostrarMensagem('Erro ao carregar bloqueios', 'error');
     }
-  }, [token, entrevistadorSelecionado]);
+  }, [token, entrevistadorSelecionado, mostrarMensagem]);
 
   // Buscar agendamentos igual MinhaAgenda (todos do entrevistador, sem paginação)
   const buscarAgendamentos = useCallback(async () => {
@@ -236,7 +219,7 @@ export default function AgendaRecepcao() {
       console.error('Erro ao buscar agendamentos:', erro);
       mostrarMensagem('Erro ao carregar agendamentos', 'error');
     }
-  }, [token, entrevistadorSelecionado]);
+  }, [token, entrevistadorSelecionado, mostrarMensagem]);
 
   // Carregar agendamentos e bloqueios ao trocar entrevistador ou data
   useEffect(() => {
@@ -294,18 +277,26 @@ export default function AgendaRecepcao() {
     try {
       const dataHorario = criarDataHorario(dataSelecionada, horario);
       if (!dataHorario) throw new Error('Data inválida');
+      
       const bloqueio = bloqueios.find(b => new Date(b.data).getTime() === dataHorario.getTime());
-      if (bloqueio) {
-        await axios.delete(
-          `http://localhost:5000/api/blocked-slots/${bloqueio._id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        mostrarMensagem('Horário desbloqueado com sucesso');
-        await buscarBloqueios();
+      
+      if (!bloqueio) {
+        mostrarMensagem('Bloqueio não encontrado para este horário', 'error');
+        return;
       }
+      
+      await axios.delete(
+        `http://localhost:5000/api/blocked-slots/${bloqueio._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      mostrarMensagem('Horário desbloqueado com sucesso');
+      await buscarBloqueios();
     } catch (erro) {
       console.error('Erro ao desbloquear horário:', erro);
-      mostrarMensagem('Erro ao desbloquear horário', 'error');
+      
+      const mensagem = erro.response?.data?.message || 'Erro ao desbloquear horário';
+      mostrarMensagem(mensagem, 'error');
     }
   };
 
@@ -324,33 +315,40 @@ export default function AgendaRecepcao() {
   };
 
   // Atualizar agendamentos ao criar
+  // 📝 Função humanizada para criar agendamentos
   const criarAgendamento = async () => {
+    // 🔍 Validações humanizadas usando utilitários centralizados
     if (!dadosAgendamento.pessoa.trim()) {
-      mostrarMensagem('Nome da pessoa é obrigatório', 'error');
+      mostrarMensagem('⚠️ Por favor, preencha todos os campos obrigatórios.', 'error');
       return;
     }
-    if (!dadosAgendamento.cpf.trim()) {
-      mostrarMensagem('CPF é obrigatório', 'error');
+    
+    const validacaoCPF = validarCPF(dadosAgendamento.cpf);
+    if (!validacaoCPF.valido) {
+      mostrarMensagem(validacaoCPF.mensagem, 'error');
       return;
     }
-    const cpfApenasNumeros = dadosAgendamento.cpf.replace(/\D/g, '');
-    if (cpfApenasNumeros.length !== 11) {
-      mostrarMensagem('CPF deve ter 11 dígitos', 'error');
+    
+    const validacaoTelefone = validarTelefone(dadosAgendamento.telefone1);
+    if (!validacaoTelefone.valido) {
+      mostrarMensagem(validacaoTelefone.mensagem, 'error');
       return;
     }
-    if (!dadosAgendamento.telefone1.trim()) {
-      mostrarMensagem('Pelo menos um telefone é obrigatório', 'error');
-      return;
-    }
+    
     if (!dadosAgendamento.motivo) {
-      mostrarMensagem('Motivo é obrigatório', 'error');
+      mostrarMensagem('🎯 Por favor, selecione o motivo do atendimento', 'error');
       return;
     }
+    
+    setLoading(true);
     try {
       const dataHorario = criarDataHorario(dataSelecionada, horarioParaAgendamento);
       if (!dataHorario) throw new Error('Data inválida');
+      
+      const cpfApenasNumeros = dadosAgendamento.cpf.replace(/\D/g, '');
+      
       await axios.post(
-        'http://localhost:5000/api/appointments',
+        `${API_BASE_URL}/appointments`,
         {
           entrevistador: entrevistadorSelecionado,
           cras: usuario.cras,
@@ -365,16 +363,26 @@ export default function AgendaRecepcao() {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      mostrarMensagem('Agendamento criado com sucesso!');
+      
+      mostrarMensagem('🎉 Agendamento realizado com sucesso! O cidadão foi notificado.', 'success');
+      
       await buscarAgendamentos();
       setModalAgendamentoAberto(false);
+      setDadosAgendamento({
+        pessoa: '',
+        cpf: '',
+        telefone1: '',
+        telefone2: '',
+        motivo: '',
+        observacoes: ''
+      });
     } catch (erro) {
       console.error('Erro ao criar agendamento:', erro);
-      if (erro.response && erro.response.data && erro.response.data.message) {
-        mostrarMensagem('Erro ao criar agendamento: ' + erro.response.data.message, 'error');
-      } else {
-        mostrarMensagem('Erro ao criar agendamento', 'error');
-      }
+      const mensagemErro = erro.response?.data?.message || 
+        '😔 Ops! Algo deu errado ao criar o agendamento. Tente novamente.';
+      mostrarMensagem(mensagemErro, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -502,104 +510,110 @@ export default function AgendaRecepcao() {
     }
   };
 
-  const mostrarMensagem = (texto, tipo = 'success') => {
-    setMensagem({ visivel: true, texto, tipo });
-  };
 
-  // Função auxiliar para criar data com horário (igual MinhaAgenda)
-  const criarDataHorario = (data, horario) => {
-    if (!data || !horario) return null;
-    try {
-      const [hora, minuto] = horario.split(':');
-      const dataCompleta = new Date(data);
-      dataCompleta.setHours(parseInt(hora, 10), parseInt(minuto, 10), 0, 0);
-      return dataCompleta;
-    } catch (erro) {
-      console.error('Erro ao criar data:', erro);
-      return null;
-    }
-  };
 
   return (
-    <Box display="flex" sx={{ minHeight: '100vh', background: '#fff' }}>
+    <>
       <Sidebar />
       <Box 
-        flex={1} 
-        p={3} 
+        className="main-content"
         sx={{ 
-          width: '100%',
-          maxWidth: 1200,
-          margin: { xs: 0, md: '0 auto' },
-          marginLeft: { md: '240px' },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          background: '#fff',
-          minHeight: '100vh'
+          background: '#fff'
         }}
       >
-        <Typography variant="h4" gutterBottom color="primary">
-          Agenda da Recepção - {crasInfo?.nome || 'Carregando...'}
-        </Typography>
-
-        {/* Seletor de Entrevistador */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3, width: '100%', maxWidth: 'none' }}>
-          <Typography variant="h6" gutterBottom sx={{ textAlign: 'center' }}>
-            Selecionar Entrevistador
-          </Typography>
-          {entrevistadores.length === 0 ? (
-            <Typography color="warning.main">
-              Nenhum entrevistador encontrado para este CRAS. 
-              Verifique se existem entrevistadores cadastrados para o CRAS: {crasInfo?.nome || usuario?.cras}
+        {/* Cabeçalho centralizado */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+          <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
+            <Typography variant="h4" color="primary" fontWeight="bold" gutterBottom>
+              Agenda da Recepção - {crasInfo?.nome || 'Carregando...'}
             </Typography>
-          ) : (
-            <>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Entrevistador</InputLabel>
-                <Select
-                  value={entrevistadorSelecionado}
-                  onChange={(e) => setEntrevistadorSelecionado(e.target.value)}
-                  label="Entrevistador"
-                >
-                  {entrevistadores.map((entrevistador) => (
-                    <MenuItem key={entrevistador._id} value={entrevistador._id}>
-                      {entrevistador.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>          
-          {entrevistadorSelecionado && (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 1 }}>
-              Visualizando agenda de: {entrevistadores.find(e => e._id === entrevistadorSelecionado)?.name}
-            </Typography>
-          )}
-            </>
-          )}
+          </Box>
         </Paper>
 
-        {entrevistadorSelecionado && (
-          <>
-            {/* Seletor de Data */}
-            <Paper elevation={2} sx={{ p: 3, mb: 3, width: '100%', maxWidth: 'none' }}>
-              <Typography variant="h6" gutterBottom sx={{ textAlign: 'center' }}>
-                Selecionar Data
-              </Typography>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-                <Box display="flex" justifyContent="center">
-                  <DatePicker
-                    label="Data"
-                    value={dataSelecionada}
-                    onChange={setDataSelecionada}
-                    renderInput={(params) => <TextField {...params} sx={{ maxWidth: 400 }} />}
-                    minDate={new Date()}
-                    shouldDisableDate={(data) => data.getDay() === 0 || data.getDay() === 6}
-                  />
-                </Box>
-              </LocalizationProvider>
-            </Paper>
+        {/* Container unificado para seletores */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3, width: '100%', maxWidth: 'none' }} className="agenda-selectors">
+          
+          {/* Seletor de Entrevistador */}
+          <Box sx={{ mb: 3 }}>
+            {entrevistadores.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <PersonIcon sx={{ fontSize: 48, color: 'warning.main', mb: 2 }} />
+                <Typography color="warning.main" variant="body1" sx={{ mb: 1 }}>
+                  Nenhum entrevistador encontrado
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Verifique se existem entrevistadores cadastrados para o CRAS: {crasInfo?.nome || usuario?.cras}
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                {/* Container com entrevistador e data na mesma linha */}
+                <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  {/* Seleção do Entrevistador */}
+                  <Box sx={{ flex: 1, minWidth: 300 }}>
+                    <Typography variant="body1" fontWeight="medium" sx={{ mb: 1, textAlign: 'left' }}>
+                      Entrevistador
+                    </Typography>
+                    <FormControl sx={{ width: '100%' }}>
+                      <InputLabel>Escolha o entrevistador</InputLabel>
+                      <Select
+                        value={entrevistadorSelecionado}
+                        onChange={(e) => setEntrevistadorSelecionado(e.target.value)}
+                        label="Escolha o entrevistador"
+                      >
+                        {entrevistadores.map((entrevistador) => (
+                          <MenuItem key={entrevistador._id} value={entrevistador._id}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <PersonIcon fontSize="small" color="primary" />
+                              {entrevistador.name}
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {entrevistadorSelecionado && (
+                        <FormHelperText>
+                          Visualizando agenda de: {entrevistadores.find(e => e._id === entrevistadorSelecionado)?.name}
+                        </FormHelperText>
+                      )}
+                    </FormControl>
+                  </Box>
 
+                  {/* Seleção da Data */}
+                  {entrevistadorSelecionado && (
+                    <Box sx={{ flex: 1, minWidth: 300 }}>
+                      <Typography variant="body1" fontWeight="medium" sx={{ mb: 1, textAlign: 'left' }}>
+                        Data da Agenda
+                      </Typography>
+                      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                        <DatePicker
+                          label="Data da agenda"
+                          value={dataSelecionada}
+                          onChange={setDataSelecionada}
+                          minDate={new Date()}
+                          shouldDisableDate={(data) => data.getDay() === 0 || data.getDay() === 6}
+                          slotProps={{
+                            textField: {
+                              helperText: 'Apenas dias úteis (segunda a sexta-feira)',
+                              sx: { width: '100%' }
+                            }
+                          }}
+                        />
+                      </LocalizationProvider>
+                    </Box>
+                  )}
+                </Box>
+              </>
+            )}
+          </Box>
+        </Paper>
+
+        {entrevistadorSelecionado && dataSelecionada && (
+          <>
             {/* Tabela de Horários */}
-            <Paper elevation={2} sx={{ width: '100%', maxWidth: 1200, mt: 2 }}>
+            <Paper elevation={2} sx={{ width: '100%', mt: 1 }}>
               <Typography variant="h6" sx={{ p: 2, borderBottom: 1, borderColor: 'divider', textAlign: 'center' }}>
                 Agenda - {dataSelecionada?.toLocaleDateString('pt-BR')}
               </Typography>
@@ -620,7 +634,7 @@ export default function AgendaRecepcao() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {HORARIOS_DISPONIVEIS.map((horario) => {
+                    {horariosDisponiveis.map((horario) => {
                       const agendamento = obterAgendamento(horario);
                       const agendado = !!agendamento;
                       const bloqueado = verificarHorarioBloqueado(horario);
@@ -690,9 +704,16 @@ export default function AgendaRecepcao() {
                             <Box display="flex" gap={1} justifyContent="center">
                               {!agendado && !bloqueado ? (
                                 <Button
-                                  variant="outlined"
+                                  variant="contained"
                                   size="small"
+                                  color="primary"
                                   onClick={() => abrirModalAgendamento(horario)}
+                                  startIcon={<EventIcon />}
+                                  sx={{
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    fontWeight: 'medium'
+                                  }}
                                   disabled={dataSelecionada.getDay() === 0 || dataSelecionada.getDay() === 6}
                                 >
                                   Agendar
@@ -772,81 +793,99 @@ export default function AgendaRecepcao() {
 
         {/* Modal de Agendamento */}
         <Dialog open={modalAgendamentoAberto} onClose={() => setModalAgendamentoAberto(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            Criar Agendamento - {horarioParaAgendamento}
+          <DialogTitle sx={{ pb: 2 }}>
+            📅 Novo Agendamento
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {horarioParaAgendamento} • {dataSelecionada?.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </Typography>
           </DialogTitle>
           <DialogContent>
-            <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
               <TextField
-                label="Nome da Pessoa"
+                label="👤 Nome Completo do Cidadão"
                 value={dadosAgendamento.pessoa}
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, pessoa: e.target.value})}
                 fullWidth
                 required
+                placeholder="Digite o nome completo..."
+                helperText="Digite apenas os números do CPF"
               />
               <TextField
-                label="CPF"
+                label="📋 CPF"
                 value={dadosAgendamento.cpf}
-                onChange={(e) => handleCPFChange(e.target.value)}
+                onChange={(e) => setDadosAgendamento({...dadosAgendamento, cpf: formatarCPF(e.target.value)})}
                 fullWidth
                 required
                 placeholder="000.000.000-00"
-                helperText="Digite apenas números, a formatação é automática"
+                helperText="Digite apenas os números do CPF"
                 inputProps={{ maxLength: 14 }}
               />
               <TextField
-                label="Telefone 1"
+                label="📞 Telefone Principal"
                 value={dadosAgendamento.telefone1}
-                onChange={(e) => handleTelefone1Change(e.target.value)}
+                onChange={(e) => setDadosAgendamento({...dadosAgendamento, telefone1: formatarTelefone(e.target.value)})}
                 fullWidth
                 required
                 placeholder="(00) 00000-0000"
-                helperText="Digite apenas números, a formatação é automática"
+                helperText="Inclua o DDD (código da cidade)"
                 inputProps={{ maxLength: 15 }}
               />
               <TextField
-                label="Telefone 2 (opcional)"
+                label="📞 Telefone Secundário (Opcional)"
                 value={dadosAgendamento.telefone2}
-                onChange={(e) => handleTelefone2Change(e.target.value)}
+                onChange={(e) => setDadosAgendamento({...dadosAgendamento, telefone2: formatarTelefone(e.target.value)})}
                 fullWidth
                 placeholder="(00) 00000-0000"
+                helperText="Telefone alternativo para contato"
                 inputProps={{ maxLength: 15 }}
               />
               <FormControl fullWidth required>
-                <InputLabel>Motivo do Agendamento</InputLabel>
+                <InputLabel>🎯 Motivo do atendimento</InputLabel>
                 <Select
                   value={dadosAgendamento.motivo}
                   onChange={(e) => setDadosAgendamento({...dadosAgendamento, motivo: e.target.value})}
-                  label="Motivo do Agendamento"
+                  label="🎯 Motivo do atendimento"
                 >
-                  {MOTIVOS_AGENDAMENTO.map((motivo) => (
-                    <MenuItem key={motivo.value} value={motivo.value}>
-                      {motivo.label}
+                  {motivosAtendimento.map((motivo) => (
+                    <MenuItem key={motivo} value={motivo}>
+                      {motivo}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
               <TextField
-                label="Observações (opcional)"
+                label="📝 Observações Adicionais"
                 value={dadosAgendamento.observacoes}
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, observacoes: e.target.value})}
                 fullWidth
                 multiline
                 rows={3}
-                placeholder="Digite observações adicionais sobre o agendamento..."
+                placeholder="Informações adicionais sobre o atendimento..."
+                helperText="Campo opcional para detalhes específicos"
               />
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setModalAgendamentoAberto(false)}>Cancelar</Button>
-            <Button onClick={criarAgendamento} variant="contained">
-              Criar Agendamento
+          <DialogActions sx={{ p: 3 }}>
+            <Button 
+              onClick={() => setModalAgendamentoAberto(false)}
+              size="large"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={criarAgendamento} 
+              variant="contained"
+              size="large"
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+            >
+              {loading ? '💾 Salvando dados...' : 'Salvar Agendamento'}
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Modal de Exclusão */}
-        <Dialog open={modalExclusaoAberto} onClose={() => setModalExclusaoAberto(false)} maxWidth="sm" fullWidth>
+        <Dialog open={modalExclusaoAberto} onClose={() => setModalExclusaoAberto(false)} maxWidth="xs">
           <DialogTitle>Excluir Agendamento</DialogTitle>
           <DialogContent>
             Tem certeza que deseja excluir o agendamento de <strong>{agendamentoParaExcluir?.pessoa}</strong> para o dia <strong>{dataSelecionada?.toLocaleDateString('pt-BR')}</strong>?
@@ -952,9 +991,9 @@ export default function AgendaRecepcao() {
                   onChange={(e) => setDadosEdicao({ ...dadosEdicao, motivo: e.target.value })}
                   label="Motivo do Agendamento"
                 >
-                  {MOTIVOS_AGENDAMENTO.map((motivo) => (
-                    <MenuItem key={motivo.value} value={motivo.value}>
-                      {motivo.label}
+                  {motivosAtendimento.map((motivo) => (
+                    <MenuItem key={motivo} value={motivo}>
+                      {motivo}
                     </MenuItem>
                   ))}
                 </Select>
@@ -998,6 +1037,6 @@ export default function AgendaRecepcao() {
           </Alert>
         </Snackbar>
       </Box>
-    </Box>
+    </>
   );
 }

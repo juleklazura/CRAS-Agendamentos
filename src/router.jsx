@@ -1,4 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { memo } from 'react';
+import { useAuth } from './hooks/useApp';
+
+// Importações lazy para code splitting
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Usuarios from './pages/Usuarios';
@@ -9,31 +13,38 @@ import MinhaAgenda from './pages/MinhaAgenda';
 import Agenda from './pages/Agenda';
 import AgendaRecepcao from './pages/AgendaRecepcao';
 
-export default function Router() {
-  const ProtectedRoute = ({ element, allowedRoles }) => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    const token = localStorage.getItem('token');
-    
-    if (!token || !user) {
-      localStorage.clear(); // Limpar dados inválidos
-      return <Navigate to="/login" replace />;
-    }
+// Componente de rota protegida otimizado
+const ProtectedRoute = memo(({ element, allowedRoles }) => {
+  const { isAuthenticated, canAccess } = useAuth();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
-      return <Navigate to="/dashboard" replace />;
-    }
+  if (!canAccess(allowedRoles)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-    return element;
-  };
+  return element;
+});
 
-  const LoginRoute = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      return <Navigate to="/dashboard" replace />;
-    }
-    return <Login />;
-  };
+ProtectedRoute.displayName = 'ProtectedRoute';
 
+// Componente de rota de login otimizado
+const LoginRoute = memo(() => {
+  const { isAuthenticated } = useAuth();
+  
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <Login />;
+});
+
+LoginRoute.displayName = 'LoginRoute';
+
+// Router principal otimizado
+const Router = memo(() => {
   return (
     <BrowserRouter
       future={{
@@ -58,4 +69,8 @@ export default function Router() {
       </Routes>
     </BrowserRouter>
   );
-}
+});
+
+Router.displayName = 'Router';
+
+export default Router;

@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
-import { Button, TextField, Snackbar, Alert, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Typography, Box, TablePagination, TextField as MuiTextField } from '@mui/material';
+import { Button, TextField, Snackbar, Alert, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Typography, Box, TablePagination } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import * as XLSX from 'xlsx';
+import { exportToCSV } from '../utils/csvExport';
 
 export default function Cras() {
   const [cras, setCras] = useState([]);
@@ -91,11 +91,12 @@ export default function Cras() {
     setLoading(false);
   }
   function exportToExcel() {
-    const data = cras.map(c => ({ Nome: c.nome, Endereço: c.endereco, Telefone: c.telefone }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'CRAS');
-    XLSX.writeFile(wb, 'cras.xlsx');
+    const data = cras.map(c => ({ 
+      Nome: c.nome, 
+      Endereço: c.endereco, 
+      Telefone: c.telefone 
+    }));
+    exportToCSV(data, 'cras.csv');
   }
 
   const filteredCras = cras.filter(c =>
@@ -105,27 +106,24 @@ export default function Cras() {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <>
       <Sidebar />
       <Box 
         component="main" 
-        sx={{ 
-          flexGrow: 1,
-          p: 3,
-          marginLeft: '240px',
-          minHeight: '100vh',
-          backgroundColor: '#f5f5f5'
-        }}
+        className="main-content"
       >
-        <Typography variant="h4" mb={2}>Gerenciamento de CRAS</Typography>
-        <MuiTextField
+        <Typography variant="h4" className="main-page-title" sx={{fontWeight: 'bold'}} >Gerenciamento de CRAS</Typography>
+        <TextField
           label="Buscar CRAS"
           value={search}
           onChange={e => setSearch(e.target.value)}
           size="small"
           sx={{ mb: 2, width: 320 }}
         />
-        <Paper sx={{ p: 2, mb: 2 }}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" sx={{fontWeight: 'bold', color: 'primary.main', mt: '0 !important' }}>
+            {editId ? 'Editar CRAS' : 'Criar Novo CRAS'}
+          </Typography>
           <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
             <TextField name="nome" label="Nome" value={form.nome} onChange={handleChange} required size="small" />
             <TextField name="endereco" label="Endereço" value={form.endereco} onChange={handleChange} required size="small" />
@@ -146,7 +144,7 @@ export default function Cras() {
             <Button onClick={confirmDelete} color="error">Remover</Button>
           </DialogActions>
         </Dialog>
-        <TableContainer component={Paper} sx={{ mt: 2 }}>
+        <TableContainer component={Paper} sx={{ mt: 4 }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -170,18 +168,20 @@ export default function Cras() {
               ))}
             </TableBody>
           </Table>
-          <TablePagination
-            component="div"
-            count={filteredCras.length}
-            page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            labelRowsPerPage="Linhas por página"
-          />
+          <div className="pagination-container">
+            <TablePagination
+              component="div"
+              count={filteredCras.length}
+              page={page}
+              onPageChange={(e, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Linhas por página"
+            />
+          </div>
         </TableContainer>
       </Box>
-    </Box>
+    </>
   );
 }

@@ -18,7 +18,7 @@ async function addMotivoToExistingAppointments() {
     for (const appointment of appointmentsWithoutMotivo) {
       await Appointment.updateOne(
         { _id: appointment._id },
-        { $set: { motivo: 'Orientações' } } // Motivo padrão
+        { $set: { motivo: 'Orientações Gerais' } } // Motivo padrão
       );
       console.log(`Agendamento ${appointment._id} atualizado com motivo padrão`);
     }

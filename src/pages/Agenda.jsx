@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import axios from 'axios';
 
-// Componentes do Material-UI
+// Componentes do Material-UI otimizados
 import { 
   Box, 
   Typography, 
@@ -31,10 +31,11 @@ import {
   Card,
   CardContent,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  FormHelperText
 } from '@mui/material';
 
-// Ícones do Material-UI
+// Ícones otimizados
 import {
   Description as DescriptionIcon,
   Event as EventIcon,
@@ -56,13 +57,18 @@ import ptBR from 'date-fns/locale/pt-BR';
 // Componentes personalizados
 import Sidebar from '../components/Sidebar';
 
+// Utilitários centralizados
+import {
+  formatarCPF,
+  formatarTelefone,
+  motivosAtendimento,
+  horariosDisponiveis,
+  mensagens,
+  criarDataHorario,
+  ehFimDeSemana
+} from '../utils/agendamentoUtils';
+
 // Constantes da aplicação - movidas para fora do componente para melhor performance
-const MOTIVOS_AGENDAMENTO = [
-  { value: 'Atualização', label: 'Atualização Cadastral', icon: <AssignmentIcon /> },
-  { value: 'Inclusão', label: 'Nova Inclusão', icon: <PersonIcon /> },
-  { value: 'Transferência', label: 'Transferência', icon: <EventIcon /> },
-  { value: 'Orientações', label: 'Orientações Gerais', icon: <DescriptionIcon /> }
-];
 
 const STATUS_COLORS = {
   'livre': { color: 'success', label: 'Disponível' },
@@ -283,48 +289,21 @@ const AgendaEntrevistadores = memo(() => {
     setFeedbackState(prev => ({ ...prev, success: message }));
   }, []);
 
-  /**
-   * Funções de formatação memoizadas para melhor performance
-   */
-  const formatarCPF = useCallback((valor) => {
-    if (!valor) return '';
-    const apenasNumeros = valor.replace(/\D/g, '');
-    if (apenasNumeros.length !== 11) return valor;
-    return apenasNumeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  }, []);
-
-  const formatarTelefone = useCallback((valor) => {
-    if (!valor) return '';
-    const apenasNumeros = valor.replace(/\D/g, '');
-    
-    // Telefone celular (11 dígitos)
-    if (apenasNumeros.length === 11) {
-      return apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-    }
-    
-    // Telefone fixo (10 dígitos)
-    if (apenasNumeros.length === 10) {
-      return apenasNumeros.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-    }
-    
-    return valor;
-  }, []);
-
   // Handlers de mudança otimizados
   const handleCPFChange = useCallback((valor) => {
     const cpfFormatado = formatarCPF(valor);
     setDadosAgendamento(prev => ({ ...prev, cpf: cpfFormatado }));
-  }, [formatarCPF]);
+  }, []);
 
   const handleTelefone1Change = useCallback((valor) => {
     const telefoneFormatado = formatarTelefone(valor);
     setDadosAgendamento(prev => ({ ...prev, telefone1: telefoneFormatado }));
-  }, [formatarTelefone]);
+  }, []);
 
   const handleTelefone2Change = useCallback((valor) => {
     const telefoneFormatado = formatarTelefone(valor);
     setDadosAgendamento(prev => ({ ...prev, telefone2: telefoneFormatado }));
-  }, [formatarTelefone]);
+  }, []);
 
   /**
    * Busca todos os entrevistadores disponíveis no sistema
@@ -355,7 +334,7 @@ const AgendaEntrevistadores = memo(() => {
       
     } catch (error) {
       console.error('Erro ao carregar entrevistadores:', error);
-      setError('Não foi possível carregar os entrevistadores. Por favor, verifique sua conexão e tente novamente.');
+      setError(mensagens.erro.conexaoFalhou);
     } finally {
       setLoading(false);
     }
@@ -387,7 +366,7 @@ const AgendaEntrevistadores = memo(() => {
       
     } catch (error) {
       console.error('Erro ao carregar agendamentos:', error);
-      setError('Não foi possível carregar os agendamentos. Por favor, verifique sua conexão e tente novamente.');
+      setError(mensagens.erro.conexaoFalhou);
     }
   }, [token, selectedEntrevistador, setError]);
 
@@ -410,7 +389,7 @@ const AgendaEntrevistadores = memo(() => {
       
     } catch (error) {
       console.error('Erro ao carregar bloqueios:', error);
-      setError('Não foi possível carregar os horários bloqueados. Por favor, tente novamente.');
+      setError(mensagens.erro.conexaoFalhou);
     }
   }, [token, selectedEntrevistador, setError]);
 
@@ -433,12 +412,8 @@ const AgendaEntrevistadores = memo(() => {
     [entrevistadores, selectedEntrevistador]
   );
   
-  const horariosDisponiveis = useMemo(() => 
-    entrevistadorSelecionado?.agenda?.horariosDisponiveis || [
-      '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-      '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-      '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
-    ], 
+  const horariosAgenda = useMemo(() => 
+    entrevistadorSelecionado?.agenda?.horariosDisponiveis || horariosDisponiveis,
     [entrevistadorSelecionado?.agenda?.horariosDisponiveis]
   );
 
@@ -459,15 +434,13 @@ const AgendaEntrevistadores = memo(() => {
    * @returns {Object} Objeto com status, agendamento e bloqueio
    */
   const getStatusHorarioDetalhado = useCallback((horario) => {
-    // Cria objeto Date para o horário específico na data selecionada
-    const dataHorario = new Date(data);
-    const [hora, minuto] = horario.split(':');
-    dataHorario.setHours(Number(hora), Number(minuto), 0, 0);
+    // Cria objeto Date para o horário específico na data selecionada usando utilitário
+    const dataHorario = criarDataHorario(data, horario);
 
     // Busca agendamento para este horário específico
     const agendamento = agendamentosArray.find(agend => {
       const dataAgendamento = new Date(agend.data);
-      return dataAgendamento.getTime() === dataHorario.getTime();
+      return dataAgendamento?.getTime() === dataHorario?.getTime();
     });
 
     // Se encontrou agendamento, retorna com o status do agendamento
@@ -590,81 +563,81 @@ const AgendaEntrevistadores = memo(() => {
 
   /**
    * Cria um novo agendamento após validar todos os campos obrigatórios
-   * Exibe mensagens de erro específicas e amigáveis para cada tipo de validação
+   * Usa mensagens humanizadas dos utilitários
    */
   const criarAgendamento = useCallback(async () => {
-    // Validação do nome do paciente
-    if (!dadosAgendamento.pessoa.trim()) {
-      setError('Por favor, informe o nome completo da pessoa que será atendida.');
+    // Validações básicas com mensagens humanizadas
+    if (!dadosAgendamento.pessoa?.trim()) {
+      setError(mensagens.erro.camposObrigatorios);
       return;
     }
 
-    // Validação do CPF
-    if (!dadosAgendamento.cpf.trim()) {
-      setError('O CPF é obrigatório para prosseguir com o agendamento.');
+    if (!dadosAgendamento.cpf?.trim()) {
+      setError(mensagens.erro.cpfInvalido);
       return;
     }
 
-    // Valida se CPF tem 11 dígitos (removendo formatação)
-    const cpfApenasNumeros = dadosAgendamento.cpf.replace(/\D/g, '');
-    if (cpfApenasNumeros.length !== 11) {
-      setError('O CPF deve conter exatamente 11 dígitos. Por favor, verifique o número informado.');
+    if (!dadosAgendamento.telefone1?.trim()) {
+      setError(mensagens.erro.telefoneInvalido);
       return;
     }
 
-    // Validação do telefone
-    if (!dadosAgendamento.telefone1.trim()) {
-      setError('É necessário informar pelo menos um número de telefone para contato.');
-      return;
-    }
-
-    // Validação do motivo
     if (!dadosAgendamento.motivo) {
-      setError('Por favor, selecione o motivo do agendamento para que possamos nos preparar adequadamente.');
+      setError(mensagens.erro.camposObrigatorios);
       return;
     }
 
     // Validação do entrevistador e CRAS
+    console.log('🔍 Debug - selectedEntrevistador:', selectedEntrevistador);
+    console.log('🔍 Debug - entrevistadorSelecionado:', JSON.stringify(entrevistadorSelecionado, null, 2));
+    console.log('🔍 Debug - entrevistadorSelecionado.cras:', JSON.stringify(entrevistadorSelecionado?.cras, null, 2));
+    
     if (!entrevistadorSelecionado?.cras) {
-      setError('O entrevistador deve estar vinculado a um CRAS. Entre em contato com o administrador.');
+      console.log('❌ Entrevistador selecionado não tem CRAS associado');
+      setError(mensagens.erro.permissaoNegada);
       return;
     }
 
     try {
       setLoading(true);
       
-      // Cria objeto Date para o horário selecionado
-      const dataHorario = new Date(data);
-      const [hora, minuto] = horarioSelecionado.split(':');
-      dataHorario.setHours(Number(hora), Number(minuto), 0, 0);
+      // Cria objeto Date para o horário selecionado usando utilitário
+      const dataHorario = criarDataHorario(data, horarioSelecionado);
 
-      // Envia requisição para criar agendamento
-      await axios.post('http://localhost:5000/api/appointments', {
+      const dadosParaEnvio = {
         entrevistador: selectedEntrevistador,
-        cras: entrevistadorSelecionado.cras,
+        cras: entrevistadorSelecionado.cras._id || entrevistadorSelecionado.cras, // Garantir que seja apenas o ID
         pessoa: dadosAgendamento.pessoa,
-        cpf: cpfApenasNumeros, // Envia apenas números
+        cpf: dadosAgendamento.cpf.replace(/\D/g, ''), // Envia apenas números
         telefone1: dadosAgendamento.telefone1,
         telefone2: dadosAgendamento.telefone2,
         motivo: dadosAgendamento.motivo,
         data: dataHorario,
         status: 'agendado',
         observacoes: dadosAgendamento.observacoes
-      }, {
+      };
+
+      console.log('📤 Dados que serão enviados para a API:', JSON.stringify(dadosParaEnvio, null, 2));
+
+      // Envia requisição para criar agendamento
+      await axios.post('http://localhost:5000/api/appointments', dadosParaEnvio, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       // Feedback de sucesso
-      setSuccess(`Agendamento criado com sucesso! ${dadosAgendamento.pessoa} está agendado(a) para ${horarioSelecionado} em ${data?.toLocaleDateString('pt-BR')}.`);
+      setSuccess(mensagens.sucesso.agendamentoCriado);
       setModalAberto(false);
       
       // Recarrega os dados
       fetchAgendamentos();
       
     } catch (error) {
-      console.error('Erro ao criar agendamento:', error);
+      console.error('❌ Erro detalhado ao criar agendamento:', error);
+      console.error('📜 Resposta do servidor:', JSON.stringify(error.response?.data, null, 2));
+      console.error('🔢 Status da resposta:', error.response?.status);
+      
       const errorMessage = error.response?.data?.message || 'Ocorreu um erro inesperado ao criar o agendamento. Por favor, tente novamente.';
-      setError(errorMessage);
+      setError(`Erro ${error.response?.status || 'desconhecido'}: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -681,67 +654,98 @@ const AgendaEntrevistadores = memo(() => {
   ]);
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
+    <>
       <Sidebar />
       
       <Container 
         component="main" 
         maxWidth={false}
-        sx={{ 
-          flexGrow: 1,
-          p: 3,
-          marginLeft: '240px',
-          minHeight: '100vh'
-        }}
+        className="main-content"
       >
         {/* Cabeçalho da página */}
         <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-          <Box display="flex" alignItems="center" gap={2} mb={2}>
-            <EventIcon color="primary" sx={{ fontSize: 32 }} />
-            <Typography variant="h4" color="primary" fontWeight="bold">
-              {isEntrevistador ? 'Minha Agenda' : 'Agenda dos Entrevistadores'}
+          <Box display="flex" flexDirection="column" alignItems="center" textAlign="center" mb={0} >
+            <Box display="flex" alignItems="center" gap={1}>
+              <EventIcon color="primary" sx={{ fontSize: 32 }} />
+              <Typography variant="h4" className="main-page-title" color="primary" fontWeight="bold">
+                {isEntrevistador ? 'Minha Agenda' : 'Agenda dos Entrevistadores'}
+              </Typography>
+            </Box>
+            
+            <Typography variant="body1" color="text.secondary" mb={0}>
+              {isEntrevistador 
+                ? 'Visualize e gerencie seus agendamentos pessoais' 
+                : 'Visualize e gerencie os agendamentos dos entrevistadores do sistema'
+              }
             </Typography>
           </Box>
-          
-          <Typography variant="body1" color="text.secondary">
-            {isEntrevistador 
-              ? 'Visualize e gerencie seus agendamentos pessoais' 
-              : 'Visualize e gerencie os agendamentos dos entrevistadores do sistema'
-            }
-          </Typography>
-        </Paper>
 
-        {/* Seleção de entrevistador - só aparece para admin e recepção */}
-        {!isEntrevistador && (
-          <Card elevation={2} sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+          {/* Seleção de entrevistador - integrada no cabeçalho */}
+          {!isEntrevistador && (
+            <Box>
+              <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1} mb={2}>
                 <PersonIcon color="primary" />
-                Seleção de Entrevistador
+                Seleções da Agenda
               </Typography>
               
-              <FormControl fullWidth sx={{ maxWidth: 400 }}>
-                <InputLabel>Escolha o entrevistador</InputLabel>
-                <Select
-                  value={selectedEntrevistador}
-                  label="Escolha o entrevistador"
-                  onChange={(e) => setSelectedEntrevistador(e.target.value)}
-                  startAdornment={<PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />}
-                  disabled={loading}
-                >
-                  <MenuItem value="">
-                    <em>Selecione um entrevistador</em>
-                  </MenuItem>
-                  {entrevistadores.map((entrevistador) => (
-                    <MenuItem key={entrevistador._id} value={entrevistador._id}>
-                      {entrevistador.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </CardContent>
-          </Card>
-        )}
+              <Box display="flex" gap={3} alignItems="flex-start" flexWrap="wrap">
+                {/* Seleção de entrevistador */}
+                <Box sx={{ minWidth: 300, flex: 1 }}>
+                  <Typography variant="body1" fontWeight="medium" mb={1}>
+                    Entrevistador
+                  </Typography>
+                  <FormControl fullWidth sx={{ maxWidth: 400 }}>
+                    <InputLabel>Escolha o entrevistador</InputLabel>
+                    <Select
+                      value={selectedEntrevistador}
+                      label="Escolha o entrevistador"
+                      onChange={(e) => setSelectedEntrevistador(e.target.value)}
+                      disabled={loading}
+                    >
+                      <MenuItem value="">
+                        <em>Selecione um entrevistador</em>
+                      </MenuItem>
+                      {entrevistadores.map((entrevistador) => (
+                        <MenuItem key={entrevistador._id} value={entrevistador._id}>
+                          {entrevistador.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {selectedEntrevistador && (
+                      <FormHelperText>
+                        Visualizando agenda de: {entrevistadores.find(e => e._id === selectedEntrevistador)?.name}
+                      </FormHelperText>
+                    )}
+                  </FormControl>
+                </Box>
+
+                {/* Seleção de data - aparece na mesma linha quando entrevistador é selecionado */}
+                {selectedEntrevistador && (
+                  <Box sx={{ minWidth: 300, flex: 1 }}>
+                    <Typography variant="body1" fontWeight="medium" mb={1}>
+                      Data da Agenda
+                    </Typography>
+                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                      <DatePicker
+                        label="Data da agenda"
+                        value={data}
+                        onChange={setData}
+                        disablePast
+                        shouldDisableDate={(date) => ehFimDeSemana(date)}
+                        sx={{ maxWidth: 400, width: '100%' }}
+                        slotProps={{
+                          textField: {
+                            helperText: "Apenas dias úteis (segunda a sexta-feira)"
+                          }
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          )}
+        </Paper>
 
         {/* Para entrevistadores, mostra informações do usuário logado */}
         {isEntrevistador && (
@@ -771,37 +775,6 @@ const AgendaEntrevistadores = memo(() => {
 
         {selectedEntrevistador && (
           <>
-            <Card elevation={2} sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
-                  <AccessTimeIcon color="primary" />
-                  Selecionar Data da Agenda
-                </Typography>
-                
-                <Box sx={{ mb: 2 }}>
-                  <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-                    <DatePicker
-                      label="Data da agenda"
-                      value={data}
-                      onChange={setData}
-                      disablePast
-                      shouldDisableDate={(date) => date.getDay() === 0 || date.getDay() === 6}
-                      sx={{ maxWidth: 300 }}
-                      slotProps={{
-                        textField: {
-                          helperText: "Selecione uma data de segunda a sexta-feira"
-                        }
-                      }}
-                    />
-                  </LocalizationProvider>
-                </Box>
-                
-                <Typography variant="body2" color="text.secondary">
-                  📅 Apenas dias úteis estão disponíveis para agendamento
-                </Typography>
-              </CardContent>
-            </Card>
-
             {loading ? (
               <Box display="flex" justifyContent="center" alignItems="center" p={4}>
                 <CircularProgress />
@@ -810,7 +783,7 @@ const AgendaEntrevistadores = memo(() => {
                 </Typography>
               </Box>
             ) : (
-              <TableContainer component={Paper}>
+              <TableContainer component={Paper} sx={{ mt: 1 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -826,7 +799,7 @@ const AgendaEntrevistadores = memo(() => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {horariosDisponiveis.map((horario) => {
+                    {horariosAgenda.map((horario) => {
                       const { status, agendamento, bloqueio } = getStatusHorarioDetalhado(horario);
                       return (
                         <HorarioTableRow
@@ -938,12 +911,9 @@ const AgendaEntrevistadores = memo(() => {
                   onChange={(e) => setDadosAgendamento({...dadosAgendamento, motivo: e.target.value})}
                   label="🎯 Motivo do atendimento"
                 >
-                  {MOTIVOS_AGENDAMENTO.map((motivo) => (
-                    <MenuItem key={motivo.value} value={motivo.value}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        {motivo.icon}
-                        {motivo.label}
-                      </Box>
+                  {motivosAtendimento.map((motivo) => (
+                    <MenuItem key={motivo} value={motivo}>
+                      {motivo}
                     </MenuItem>
                   ))}
                 </Select>
@@ -1081,9 +1051,9 @@ const AgendaEntrevistadores = memo(() => {
                   onChange={(e) => setDadosEdicao({ ...dadosEdicao, motivo: e.target.value })}
                   label="Motivo do Agendamento"
                 >
-                  {MOTIVOS_AGENDAMENTO.map((motivo) => (
-                    <MenuItem key={motivo.value} value={motivo.value}>
-                      {motivo.label}
+                  {motivosAtendimento.map((motivo) => (
+                    <MenuItem key={motivo} value={motivo}>
+                      {motivo}
                     </MenuItem>
                   ))}
                 </Select>
@@ -1136,7 +1106,7 @@ const AgendaEntrevistadores = memo(() => {
           </Alert>
         </Snackbar>
       </Container>
-    </Box>
+    </>
   );
 });
 

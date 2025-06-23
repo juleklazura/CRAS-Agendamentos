@@ -28,35 +28,76 @@ export const createBlockedSlot = async (req, res) => {
 export const getBlockedSlots = async (req, res) => {
   try {
     let entrevistador, cras;
+    
+    console.log('getBlockedSlots - Usuário:', req.user.role, req.user.id);
+    console.log('Query params:', req.query);
+    
     if (req.user.role === 'admin' || req.user.role === 'recepcao') {
       entrevistador = req.query.entrevistador;
-      cras = req.query.cras;
+      cras = req.query.cras || req.user.cras;
       if (!entrevistador) return res.status(400).json({ message: 'Entrevistador não informado' });
     } else {
       entrevistador = req.user.id;
       cras = req.user.cras;
     }
+    
     const query = { entrevistador };
     if (cras) query.cras = cras;
+    
+    console.log('Query final:', query);
+    
     const slots = await BlockedSlot.find(query);
+    console.log('Bloqueios encontrados:', slots.length);
+    
     res.json(slots);
-  } catch (_) {
+  } catch (error) {
+    console.error('Erro ao buscar bloqueios:', error);
     res.status(500).json({ message: 'Erro ao buscar bloqueios' });
   }
 };
 
-// Remover bloqueio (apenas do próprio usuário)
+// Remover bloqueio (apenas do próprio usuário ou recepção/admin)
 export const deleteBlockedSlot = async (req, res) => {
   try {
     const { id } = req.params;
     const entrevistador = req.user.id;
-    const slot = await BlockedSlot.findOne({ _id: id, entrevistador });
-    if (!slot) return res.status(404).json({ message: 'Bloqueio não encontrado' });
+    
+    console.log('Tentando deletar bloqueio:', id);
+    console.log('Usuário:', req.user.role, req.user.id);
+    console.log('CRAS do usuário:', req.user.cras);
+    
+    let slot;
+    if (req.user.role === 'recepcao' || req.user.role === 'admin') {
+      // Recepção e admin podem remover qualquer bloqueio do mesmo CRAS
+      console.log('Busca por CRAS:', req.user.cras);
+      slot = await BlockedSlot.findOne({ _id: id, cras: req.user.cras });
+    } else {
+      // Entrevistador só pode remover seus próprios bloqueios
+      console.log('Busca por entrevistador:', entrevistador);
+      slot = await BlockedSlot.findOne({ _id: id, entrevistador });
+    }
+    
+    console.log('Slot encontrado:', slot);
+    
+    if (!slot) {
+      console.log('Bloqueio não encontrado para ID:', id);
+      return res.status(404).json({ message: 'Bloqueio não encontrado' });
+    }
+    
     await BlockedSlot.deleteOne({ _id: id });
+    console.log('Bloqueio removido com sucesso');
+    
     // Log automático
-    await Log.create({ user: entrevistador, cras: slot.cras, action: 'desbloqueio_horario', details: `Desbloqueou o horário ${new Date(slot.data).toLocaleString()}` });
+    await Log.create({ 
+      user: entrevistador, 
+      cras: slot.cras, 
+      action: 'desbloqueio_horario', 
+      details: `Desbloqueou o horário ${new Date(slot.data).toLocaleString()}` 
+    });
+    
     res.json({ message: 'Bloqueio removido' });
-  } catch (_) {
+  } catch (error) {
+    console.error('Erro ao remover bloqueio:', error);
     res.status(400).json({ message: 'Erro ao remover bloqueio' });
   }
 };

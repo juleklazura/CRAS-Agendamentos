@@ -5,7 +5,13 @@
   "private": true,
   "type": "module",
   "author": "Gabriel Julek",
-  "keywords": ["agendamentos", "cras", "assistencia-social", "react", "nodejs"],
+  "keywords": [
+    "agendamentos",
+    "cras",
+    "assistencia-social",
+    "react",
+    "nodejs"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -22,8 +28,7 @@
     "date-fns": "^4.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^6.30.1",
-    "xlsx": "^0.18.5"
+    "react-router-dom": "^6.30.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
