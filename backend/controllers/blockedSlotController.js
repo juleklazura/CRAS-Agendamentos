@@ -29,9 +29,6 @@ export const getBlockedSlots = async (req, res) => {
   try {
     let entrevistador, cras;
     
-    console.log('getBlockedSlots - Usuário:', req.user.role, req.user.id);
-    console.log('Query params:', req.query);
-    
     if (req.user.role === 'admin' || req.user.role === 'recepcao') {
       entrevistador = req.query.entrevistador;
       cras = req.query.cras || req.user.cras;
@@ -44,10 +41,7 @@ export const getBlockedSlots = async (req, res) => {
     const query = { entrevistador };
     if (cras) query.cras = cras;
     
-    console.log('Query final:', query);
-    
     const slots = await BlockedSlot.find(query);
-    console.log('Bloqueios encontrados:', slots.length);
     
     res.json(slots);
   } catch (error) {

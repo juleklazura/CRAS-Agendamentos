@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import axios from 'axios';
+import api from '../utils/axiosConfig';
 import Sidebar from '../components/Sidebar';
 import {
   Button,
@@ -36,10 +36,6 @@ const STATUS_OPTIONS = [
   { value: 'reagendar', label: 'Reagendar' },
   { value: 'faltou', label: 'Faltou' }
 ];
-
-// Pegue token e user fora do componente para garantir que não mudem a cada render
-const token = localStorage.getItem('token');
-const user = JSON.parse(localStorage.getItem('user'));
 
 export default function Agendamentos() {
   const [agendamentos, setAgendamentos] = useState([]);
@@ -86,10 +82,13 @@ export default function Agendamentos() {
 
   // Buscar agendamentos do backend
   const fetchAgendamentos = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
+    
     if (!token || !user) return; // Não carregar se não tem token ou user
     
     try {
-      let url = 'http://localhost:5000/api/appointments?';
+      let url = '/appointments?';
       if (user?.role === 'entrevistador') {
         url += `entrevistador=${user.id}&`;
       } else if (user?.role === 'recepcao') {
@@ -100,32 +99,22 @@ export default function Agendamentos() {
       if (orderBy) url += `&sortBy=${orderBy}`;
       if (order) url += `&order=${order}`;
 
-      // Só mostrar loading spinner se é o primeiro carregamento (sem busca)
-      if (!debouncedSearch && agendamentos.length === 0) {
-        setLoading(true);
-      }
+      setLoading(true);
       
-      const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(url);
       const allResults = res.data.results || res.data || [];
       setAgendamentos(allResults);
       setTotal(allResults.length);
-    } catch (error) {
-      console.error('Erro ao buscar agendamentos:', error);
+    } catch {
       setAgendamentos([]);
       setTotal(0);
     } finally {
-      if (loading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, [debouncedSearch, orderBy, order, agendamentos.length, loading]);
+  }, [debouncedSearch, orderBy, order]);
 
   useEffect(() => {
-    if (token && user) {
-      fetchAgendamentos();
-    }
+    fetchAgendamentos();
   }, [fetchAgendamentos]);
 
   // Ao mudar busca, volta para página 0
@@ -162,17 +151,13 @@ export default function Agendamentos() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteId || !token) return;
+    if (!deleteId) return;
 
     try {
-      await axios.delete(
-        `http://localhost:5000/api/appointments/${deleteId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.delete(`/appointments/${deleteId}`);
       setSuccess('Agendamento excluído com sucesso!');
       fetchAgendamentos();
-    } catch (error) {
-      console.error('Erro ao excluir agendamento:', error);
+    } catch {
       setError('Erro ao excluir o agendamento');
     } finally {
       setConfirmOpen(false);
@@ -203,22 +188,6 @@ export default function Agendamentos() {
     setNomeAgendamentoObservacoes(agendamento?.pessoa || 'Agendamento');
     setModalObservacoesAberto(true);
   };
-
-  if (!token || !user) {
-    return (
-      <>
-        <Sidebar />
-        <Box 
-          component="main" 
-          className="main-content"
-        >
-          <Typography variant="h6" color="error">
-            Você precisa estar logado para acessar esta página.
-          </Typography>
-        </Box>
-      </>
-    );
-  }
 
   return (
     <>

@@ -45,20 +45,10 @@ export const getEntrevistadoresByCras = async (req, res) => {
   try {
     const { crasId } = req.params;
     
-    console.log('=== DEBUG getEntrevistadoresByCras ===');
-    console.log('CRAS ID recebido:', crasId);
-    console.log('Tipo do CRAS ID:', typeof crasId);
-    console.log('Usuário da requisição:', req.user?.name, 'Role:', req.user?.role);
-    
     const entrevistadores = await User.find({
       role: 'entrevistador',
       cras: crasId
     }).select('-password').populate('cras');
-    
-    console.log('Entrevistadores encontrados:', entrevistadores.length);
-    entrevistadores.forEach(ent => {
-      console.log(`- ${ent.name} (CRAS: ${ent.cras?.nome})`);
-    });
     
     res.json(entrevistadores);
   } catch (error) {

@@ -588,12 +588,7 @@ const AgendaEntrevistadores = memo(() => {
     }
 
     // Validação do entrevistador e CRAS
-    console.log('🔍 Debug - selectedEntrevistador:', selectedEntrevistador);
-    console.log('🔍 Debug - entrevistadorSelecionado:', JSON.stringify(entrevistadorSelecionado, null, 2));
-    console.log('🔍 Debug - entrevistadorSelecionado.cras:', JSON.stringify(entrevistadorSelecionado?.cras, null, 2));
-    
     if (!entrevistadorSelecionado?.cras) {
-      console.log('❌ Entrevistador selecionado não tem CRAS associado');
       setError(mensagens.erro.permissaoNegada);
       return;
     }
@@ -617,8 +612,6 @@ const AgendaEntrevistadores = memo(() => {
         observacoes: dadosAgendamento.observacoes
       };
 
-      console.log('📤 Dados que serão enviados para a API:', JSON.stringify(dadosParaEnvio, null, 2));
-
       // Envia requisição para criar agendamento
       await axios.post('http://localhost:5000/api/appointments', dadosParaEnvio, {
         headers: { Authorization: `Bearer ${token}` }
@@ -632,10 +625,6 @@ const AgendaEntrevistadores = memo(() => {
       fetchAgendamentos();
       
     } catch (error) {
-      console.error('❌ Erro detalhado ao criar agendamento:', error);
-      console.error('📜 Resposta do servidor:', JSON.stringify(error.response?.data, null, 2));
-      console.error('🔢 Status da resposta:', error.response?.status);
-      
       const errorMessage = error.response?.data?.message || 'Ocorreu um erro inesperado ao criar o agendamento. Por favor, tente novamente.';
       setError(`Erro ${error.response?.status || 'desconhecido'}: ${errorMessage}`);
     } finally {

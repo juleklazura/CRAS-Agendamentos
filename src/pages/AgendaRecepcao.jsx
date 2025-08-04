@@ -156,11 +156,6 @@ export default function AgendaRecepcao() {
         mostrarMensagem('Nenhum entrevistador encontrado para este CRAS. ID: ' + usuario.cras, 'error');
       }
     } catch (erro) {
-      console.error('=== ERRO DETALHADO ===');
-      console.error('Erro ao buscar entrevistadores:', erro);
-      console.error('Status:', erro.response?.status);
-      console.error('Dados do erro:', erro.response?.data);
-      console.error('Headers:', erro.config?.headers);
       mostrarMensagem('Erro ao carregar entrevistadores: ' + (erro.response?.data?.message || erro.message), 'error');
     }
   }, [usuario.cras, token, mostrarMensagem]);

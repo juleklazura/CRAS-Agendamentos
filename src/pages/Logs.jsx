@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import api from '../utils/axiosConfig';
 import Sidebar from '../components/Sidebar';
 import { Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Snackbar, Alert, Typography, Box, Button, TablePagination, TextField as MuiTextField } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -13,18 +13,17 @@ export default function Logs() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const token = localStorage.getItem('token');
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/logs', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/logs');
       setLogs(res.data);
     } catch {
       setError('Erro ao buscar logs');
     }
     setLoading(false);
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchLogs();

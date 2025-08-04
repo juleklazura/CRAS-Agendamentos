@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import api from '../utils/axiosConfig';
 import Sidebar from '../components/Sidebar';
 import { Button, TextField, Select, MenuItem, InputLabel, FormControl, Snackbar, Alert, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Typography, Box, TablePagination } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -20,29 +20,26 @@ export default function Usuarios() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const token = localStorage.getItem('token');
 
   const fetchUsuarios = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/users', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/users');
       setUsuarios(res.data);
-    } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
+    } catch {
       setError('Erro ao buscar usuários');
     }
     setLoading(false);
-  }, [token]);
+  }, []);
 
   const fetchCras = useCallback(async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/cras', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/cras');
       setCrasList(res.data);
-    } catch (error) {
-      console.error('Erro ao buscar CRAS:', error);
+    } catch {
       setError('Erro ao buscar CRAS');
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchUsuarios();
@@ -69,10 +66,10 @@ export default function Usuarios() {
     }
     try {
       if (editId) {
-        await axios.put(`http://localhost:5000/api/users/${editId}`, form, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/users/${editId}`, form);
         setSuccess('Usuário atualizado com sucesso!');
       } else {
-        await axios.post('http://localhost:5000/api/users', form, { headers: { Authorization: `Bearer ${token}` } });
+        await api.post('/users', form);
         setSuccess('Usuário criado com sucesso!');
       }
       setForm({ name: '', matricula: '', password: '', role: 'entrevistador', cras: '' });
@@ -98,7 +95,7 @@ export default function Usuarios() {
     setConfirmOpen(false);
     setLoading(true);
     try {
-      await axios.delete(`http://localhost:5000/api/users/${deleteId}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/users/${deleteId}`);
       fetchUsuarios();
       setSuccess('Usuário removido com sucesso!');
     } catch {

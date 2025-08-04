@@ -5,59 +5,44 @@ import mongoose from 'mongoose';
 // Agendar (Entrevistador, Recepção)
 export const createAppointment = async (req, res) => {
   try {
-    console.log('📝 Dados recebidos para criar agendamento:', req.body);
-    console.log('👤 Usuário autenticado:', req.user);
-    
     const { entrevistador, cras, pessoa, cpf, telefone1, telefone2, motivo, data, status, observacoes } = req.body;
     
     // Validar dados obrigatórios
     if (!entrevistador) {
-      console.log('❌ Entrevistador não informado');
       return res.status(400).json({ message: 'Entrevistador é obrigatório' });
     }
     if (!mongoose.Types.ObjectId.isValid(entrevistador)) {
-      console.log('❌ ID do entrevistador inválido:', entrevistador);
       return res.status(400).json({ message: 'ID do entrevistador é inválido' });
     }
     if (!cras) {
-      console.log('❌ CRAS não informado');
       return res.status(400).json({ message: 'CRAS é obrigatório' });
     }
     if (!mongoose.Types.ObjectId.isValid(cras)) {
-      console.log('❌ ID do CRAS inválido:', cras);
       return res.status(400).json({ message: 'ID do CRAS é inválido' });
     }
     if (!pessoa) {
-      console.log('❌ Nome da pessoa não informado');
       return res.status(400).json({ message: 'Nome da pessoa é obrigatório' });
     }
     if (!cpf) {
-      console.log('❌ CPF não informado');
       return res.status(400).json({ message: 'CPF é obrigatório' });
     }
     if (!telefone1) {
-      console.log('❌ Telefone não informado');
       return res.status(400).json({ message: 'Telefone é obrigatório' });
     }
     if (!motivo) {
-      console.log('❌ Motivo não informado');
       return res.status(400).json({ message: 'Motivo é obrigatório' });
     }
     if (!data) {
-      console.log('❌ Data não informada');
       return res.status(400).json({ message: 'Data é obrigatória' });
     }
     
     // Validação: não permitir agendamento em sábado ou domingo
     const dataAgendamento = new Date(data);
-    console.log('📅 Data do agendamento:', dataAgendamento);
     const diaSemana = dataAgendamento.getDay();
     if (diaSemana === 0 || diaSemana === 6) {
-      console.log('❌ Tentativa de agendamento em fim de semana');
       return res.status(400).json({ message: 'Não é permitido agendar para sábado ou domingo.' });
     }
     
-    console.log('✅ Todas as validações passaram, criando agendamento...');
     const appointment = new Appointment({ 
       entrevistador, 
       cras, 
@@ -72,12 +57,10 @@ export const createAppointment = async (req, res) => {
       createdBy: req.user.id 
     });
     
-    console.log('💾 Salvando agendamento no banco...');
     await appointment.save();
-    console.log('✅ Agendamento salvo com sucesso:', appointment._id);
     res.status(201).json(appointment);
   } catch (err) {
-    console.error('❌ Erro ao criar agendamento:', err);
+    console.error('Erro ao criar agendamento:', err);
     res.status(400).json({ message: 'Erro ao criar agendamento', error: err.message });
   }
 };
@@ -86,7 +69,25 @@ export const createAppointment = async (req, res) => {
 export const getAppointments = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.cras) filter.cras = req.query.cras;
+    
+    // Se filtrar por CRAS, buscar todos os entrevistadores desse CRAS
+    if (req.query.cras) {
+      // Buscar todos os entrevistadores do CRAS especificado
+      const entrevistadoresDoCras = await User.find({ 
+        cras: req.query.cras, 
+        role: 'entrevistador' 
+      }).select('_id');
+      
+      const idsEntrevistadores = entrevistadoresDoCras.map(user => user._id);
+      
+      if (idsEntrevistadores.length > 0) {
+        filter.entrevistador = { $in: idsEntrevistadores };
+      } else {
+        // Se não há entrevistadores no CRAS, retornar lista vazia
+        return res.json({ results: [], total: 0 });
+      }
+    }
+    
     if (req.query.entrevistador) filter.entrevistador = req.query.entrevistador;
 
     // Busca global
@@ -189,8 +190,6 @@ export const confirmPresence = async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log('Confirmando presença para ID:', id);
-    
     // Validar se o ID é válido
     if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ message: 'ID de agendamento inválido' });
@@ -207,11 +206,9 @@ export const confirmPresence = async (req, res) => {
     ).populate('entrevistador cras createdBy');
     
     if (!appointment) {
-      console.log('Agendamento não encontrado para ID:', id);
       return res.status(404).json({ message: 'Agendamento não encontrado' });
     }
     
-    console.log('Presença confirmada:', appointment);
     res.json(appointment);
   } catch (error) {
     console.error('Erro ao confirmar presença:', error);

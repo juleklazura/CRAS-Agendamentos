@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import api from '../utils/axiosConfig';
 import Sidebar from '../components/Sidebar';
-import { Button, TextField, Snackbar, Alert, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Typography, Box, TablePagination } from '@mui/material';
+import { Button, TextField, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Typography, Box, Snackbar, Alert, TablePagination } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -19,19 +19,18 @@ export default function Cras() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const token = localStorage.getItem('token');
 
   const fetchCras = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/cras', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/cras');
       setCras(res.data);
     } catch (error) {
       console.error('Erro ao buscar CRAS:', error);
       setError('Erro ao buscar CRAS');
     }
     setLoading(false);
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchCras();
@@ -53,10 +52,10 @@ export default function Cras() {
     }
     try {
       if (editId) {
-        await axios.put(`http://localhost:5000/api/cras/${editId}`, form, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/cras/${editId}`, form);
         setSuccess('CRAS atualizado com sucesso!');
       } else {
-        await axios.post('http://localhost:5000/api/cras', form, { headers: { Authorization: `Bearer ${token}` } });
+        await api.post('/cras', form);
         setSuccess('CRAS criado com sucesso!');
       }
       setForm({ nome: '', endereco: '', telefone: '' });
@@ -82,7 +81,7 @@ export default function Cras() {
     setConfirmOpen(false);
     setLoading(true);
     try {
-      await axios.delete(`http://localhost:5000/api/cras/${deleteId}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/cras/${deleteId}`);
       fetchCras();
       setSuccess('CRAS removido com sucesso!');
     } catch {
