@@ -823,16 +823,16 @@ const AgendaEntrevistadores = memo(() => {
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
               <TextField
-                label="👤 Nome completo da pessoa"
+                label="👤 Nome Completo"
                 value={dadosAgendamento.pessoa}
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, pessoa: e.target.value})}
                 fullWidth
                 required
-                placeholder="Digite o nome completo"
+                placeholder="Digite o nome completo da pessoa"
                 helperText="Nome da pessoa que será atendida"
               />
               <TextField
-                label="🆔 CPF"
+                label="📋 CPF"
                 value={dadosAgendamento.cpf}
                 onChange={(e) => handleCPFChange(e.target.value)}
                 onKeyDown={(e) => {
@@ -848,12 +848,12 @@ const AgendaEntrevistadores = memo(() => {
                 }}
                 fullWidth
                 required
-                placeholder="000.000.000-00"
+                placeholder="Digite o CPF (000.000.000-00)"
                 helperText="Digite apenas números, a formatação é automática"
                 inputProps={{ maxLength: 14 }}
               />
               <TextField
-                label="📞 Telefone principal"
+                label="📞 Telefone Principal"
                 value={dadosAgendamento.telefone1}
                 onChange={(e) => handleTelefone1Change(e.target.value)}
                 onKeyDown={(e) => {
@@ -869,12 +869,12 @@ const AgendaEntrevistadores = memo(() => {
                 }}
                 fullWidth
                 required
-                placeholder="(00) 00000-0000"
+                placeholder="Digite o telefone (00) 00000-0000"
                 helperText="Número principal para contato"
                 inputProps={{ maxLength: 15 }}
               />
               <TextField
-                label="📱 Telefone alternativo"
+                label="📞 Telefone Alternativo (Opcional)"
                 value={dadosAgendamento.telefone2}
                 onChange={(e) => handleTelefone2Change(e.target.value)}
                 onKeyDown={(e) => {
@@ -889,7 +889,7 @@ const AgendaEntrevistadores = memo(() => {
                   }
                 }}
                 fullWidth
-                placeholder="(00) 00000-0000"
+                placeholder="Digite o telefone alternativo (00) 00000-0000"
                 helperText="Número adicional (opcional)"
                 inputProps={{ maxLength: 15 }}
               />
@@ -908,13 +908,13 @@ const AgendaEntrevistadores = memo(() => {
                 </Select>
               </FormControl>
               <TextField
-                label="📝 Observações importantes"
+                label="📝 Observações (Opcional)"
                 value={dadosAgendamento.observacoes}
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, observacoes: e.target.value})}
                 fullWidth
                 multiline
                 rows={3}
-                placeholder="Informações adicionais que podem ser úteis para o atendimento..."
+                placeholder="Digite observações adicionais (opcional)"
                 helperText="Campo opcional para detalhes específicos"
               />
             </Box>
@@ -998,7 +998,7 @@ const AgendaEntrevistadores = memo(() => {
               <TextField
                 fullWidth
                 margin="dense"
-                label="Nome da Pessoa"
+                label="👤 Nome Completo"
                 value={dadosEdicao.pessoa}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, pessoa: e.target.value })}
                 required
@@ -1008,7 +1008,7 @@ const AgendaEntrevistadores = memo(() => {
               <TextField
                 fullWidth
                 margin="dense"
-                label="CPF"
+                label="📋 CPF"
                 value={dadosEdicao.cpf}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, cpf: e.target.value })}
                 required
@@ -1018,7 +1018,7 @@ const AgendaEntrevistadores = memo(() => {
               <TextField
                 fullWidth
                 margin="dense"
-                label="Telefone Principal"
+                label="📞 Telefone Principal"
                 value={dadosEdicao.telefone1}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, telefone1: e.target.value })}
                 sx={{ mb: 2 }}
@@ -1027,18 +1027,18 @@ const AgendaEntrevistadores = memo(() => {
               <TextField
                 fullWidth
                 margin="dense"
-                label="Telefone Secundário"
+                label="📞 Telefone Alternativo (Opcional)"
                 value={dadosEdicao.telefone2}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, telefone2: e.target.value })}
                 sx={{ mb: 2 }}
               />
               
               <FormControl fullWidth margin="dense" sx={{ mb: 2 }}>
-                <InputLabel>Motivo do Agendamento</InputLabel>
+                <InputLabel>🎯 Motivo do atendimento</InputLabel>
                 <Select
                   value={dadosEdicao.motivo}
                   onChange={(e) => setDadosEdicao({ ...dadosEdicao, motivo: e.target.value })}
-                  label="Motivo do Agendamento"
+                  label="🎯 Motivo do atendimento"
                 >
                   {motivosAtendimento.map((motivo) => (
                     <MenuItem key={motivo} value={motivo}>
@@ -1051,12 +1051,12 @@ const AgendaEntrevistadores = memo(() => {
               <TextField
                 fullWidth
                 margin="dense"
-                label="Observações"
+                label="📝 Observações (Opcional)"
                 value={dadosEdicao.observacoes}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, observacoes: e.target.value })}
                 multiline
                 rows={3}
-                placeholder="Informações adicionais sobre o agendamento..."
+                placeholder="Digite observações adicionais (opcional)"
               />
             </Box>
           </DialogContent>

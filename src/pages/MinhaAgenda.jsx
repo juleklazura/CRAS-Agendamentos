@@ -641,40 +641,49 @@ export default function MinhaAgenda() {
             <DialogContent>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                 <TextField
-                  label="Nome da Pessoa"
+                  label="👤 Nome Completo"
                   value={dadosAgendamento.pessoa}
                   onChange={(e) => setDadosAgendamento(prev => ({ ...prev, pessoa: e.target.value }))}
                   fullWidth
                   required
+                  placeholder="Digite o nome completo da pessoa"
+                  helperText="Nome da pessoa que será atendida"
                 />
                 <TextField
-                  label="CPF"
+                  label="📋 CPF"
                   value={dadosAgendamento.cpf}
                   onChange={(e) => handleCPFChange(e.target.value)}
                   fullWidth
                   required
-                  placeholder="000.000.000-00"
+                  placeholder="Digite o CPF (000.000.000-00)"
+                  helperText="Digite apenas números, a formatação é automática"
+                  inputProps={{ maxLength: 14 }}
                 />
                 <TextField
-                  label="Telefone 1"
+                  label="📞 Telefone Principal"
                   value={dadosAgendamento.telefone1}
                   onChange={(e) => handleTelefoneChange(e.target.value, 'telefone1')}
                   fullWidth
                   required
-                  placeholder="(00) 00000-0000"
+                  placeholder="Digite o telefone (00) 00000-0000"
+                  helperText="Número principal para contato"
+                  inputProps={{ maxLength: 15 }}
                 />
                 <TextField
-                  label="Telefone 2 (opcional)"
+                  label="📞 Telefone Alternativo (Opcional)"
                   value={dadosAgendamento.telefone2}
                   onChange={(e) => handleTelefoneChange(e.target.value, 'telefone2')}
                   fullWidth
-                  placeholder="(00) 00000-0000"
+                  placeholder="Digite o telefone alternativo (00) 00000-0000"
+                  helperText="Número adicional (opcional)"
+                  inputProps={{ maxLength: 15 }}
                 />
                 <FormControl fullWidth required>
-                  <InputLabel>Motivo do Atendimento</InputLabel>
+                  <InputLabel>🎯 Motivo do atendimento</InputLabel>
                   <Select
                     value={dadosAgendamento.motivo}
                     onChange={(e) => setDadosAgendamento(prev => ({ ...prev, motivo: e.target.value }))}
+                    label="🎯 Motivo do atendimento"
                   >
                     {motivosAtendimento.map(motivo => (
                       <MenuItem key={motivo} value={motivo}>
@@ -684,13 +693,14 @@ export default function MinhaAgenda() {
                   </Select>
                 </FormControl>
                 <TextField
-                  label="Observações (opcional)"
+                  label="📝 Observações (Opcional)"
                   value={dadosAgendamento.observacoes}
                   onChange={(e) => setDadosAgendamento(prev => ({ ...prev, observacoes: e.target.value }))}
                   fullWidth
                   multiline
                   rows={3}
-                  placeholder="Digite observações adicionais sobre o agendamento..."
+                  placeholder="Digite observações adicionais (opcional)"
+                  helperText="Campo opcional para detalhes específicos"
                 />
               </Box>
             </DialogContent>
@@ -771,37 +781,49 @@ export default function MinhaAgenda() {
             <DialogContent>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                 <TextField
-                  label="Nome da Pessoa"
+                  label="👤 Nome Completo"
                   value={dadosEdicao.pessoa}
                   onChange={(e) => setDadosEdicao(prev => ({ ...prev, pessoa: e.target.value }))}
                   fullWidth
                   required
+                  placeholder="Digite o nome completo da pessoa"
+                  helperText="Nome da pessoa que será atendida"
                 />
                 <TextField
-                  label="CPF"
+                  label="📋 CPF"
                   value={dadosEdicao.cpf}
                   onChange={(e) => handleCPFChange(e.target.value, true)}
                   fullWidth
                   required
+                  placeholder="Digite o CPF (000.000.000-00)"
+                  helperText="Digite apenas números, a formatação é automática"
+                  inputProps={{ maxLength: 14 }}
                 />
                 <TextField
-                  label="Telefone 1"
+                  label="📞 Telefone Principal"
                   value={dadosEdicao.telefone1}
                   onChange={(e) => handleTelefoneChange(e.target.value, 'telefone1', true)}
                   fullWidth
                   required
+                  placeholder="Digite o telefone (00) 00000-0000"
+                  helperText="Número principal para contato"
+                  inputProps={{ maxLength: 15 }}
                 />
                 <TextField
-                  label="Telefone 2 (opcional)"
+                  label="📞 Telefone Alternativo (Opcional)"
                   value={dadosEdicao.telefone2}
                   onChange={(e) => handleTelefoneChange(e.target.value, 'telefone2', true)}
                   fullWidth
+                  placeholder="Digite o telefone alternativo (00) 00000-0000"
+                  helperText="Número adicional (opcional)"
+                  inputProps={{ maxLength: 15 }}
                 />
                 <FormControl fullWidth required>
-                  <InputLabel>Motivo do Atendimento</InputLabel>
+                  <InputLabel>🎯 Motivo do atendimento</InputLabel>
                   <Select
                     value={dadosEdicao.motivo}
                     onChange={(e) => setDadosEdicao(prev => ({ ...prev, motivo: e.target.value }))}
+                    label="🎯 Motivo do atendimento"
                   >
                     {motivosAtendimento.map(motivo => (
                       <MenuItem key={motivo} value={motivo}>
@@ -811,12 +833,14 @@ export default function MinhaAgenda() {
                   </Select>
                 </FormControl>
                 <TextField
-                  label="Observações (opcional)"
+                  label="📝 Observações (Opcional)"
                   value={dadosEdicao.observacoes}
                   onChange={(e) => setDadosEdicao(prev => ({ ...prev, observacoes: e.target.value }))}
                   fullWidth
                   multiline
                   rows={3}
+                  placeholder="Digite observações adicionais (opcional)"
+                  helperText="Campo opcional para detalhes específicos"
                 />
               </Box>
             </DialogContent>

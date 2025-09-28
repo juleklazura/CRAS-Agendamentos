@@ -797,13 +797,13 @@ export default function AgendaRecepcao() {
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
               <TextField
-                label="👤 Nome Completo do Cidadão"
+                label="👤 Nome Completo"
                 value={dadosAgendamento.pessoa}
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, pessoa: e.target.value})}
                 fullWidth
                 required
-                placeholder="Digite o nome completo..."
-                helperText="Digite apenas os números do CPF"
+                placeholder="Digite o nome completo da pessoa"
+                helperText="Nome da pessoa que será atendida"
               />
               <TextField
                 label="📋 CPF"
@@ -811,8 +811,8 @@ export default function AgendaRecepcao() {
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, cpf: formatarCPF(e.target.value)})}
                 fullWidth
                 required
-                placeholder="000.000.000-00"
-                helperText="Digite apenas os números do CPF"
+                placeholder="Digite o CPF (000.000.000-00)"
+                helperText="Digite apenas números, a formatação é automática"
                 inputProps={{ maxLength: 14 }}
               />
               <TextField
@@ -821,17 +821,17 @@ export default function AgendaRecepcao() {
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, telefone1: formatarTelefone(e.target.value)})}
                 fullWidth
                 required
-                placeholder="(00) 00000-0000"
-                helperText="Inclua o DDD (código da cidade)"
+                placeholder="Digite o telefone (00) 00000-0000"
+                helperText="Número principal para contato"
                 inputProps={{ maxLength: 15 }}
               />
               <TextField
-                label="📞 Telefone Secundário (Opcional)"
+                label="📞 Telefone Alternativo (Opcional)"
                 value={dadosAgendamento.telefone2}
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, telefone2: formatarTelefone(e.target.value)})}
                 fullWidth
-                placeholder="(00) 00000-0000"
-                helperText="Telefone alternativo para contato"
+                placeholder="Digite o telefone alternativo (00) 00000-0000"
+                helperText="Número adicional (opcional)"
                 inputProps={{ maxLength: 15 }}
               />
               <FormControl fullWidth required>
@@ -849,13 +849,13 @@ export default function AgendaRecepcao() {
                 </Select>
               </FormControl>
               <TextField
-                label="📝 Observações Adicionais"
+                label="📝 Observações (Opcional)"
                 value={dadosAgendamento.observacoes}
                 onChange={(e) => setDadosAgendamento({...dadosAgendamento, observacoes: e.target.value})}
                 fullWidth
                 multiline
                 rows={3}
-                placeholder="Informações adicionais sobre o atendimento..."
+                placeholder="Digite observações adicionais (opcional)"
                 helperText="Campo opcional para detalhes específicos"
               />
             </Box>
@@ -944,47 +944,58 @@ export default function AgendaRecepcao() {
               <TextField
                 fullWidth
                 margin="dense"
-                label="Nome da Pessoa"
+                label="👤 Nome Completo"
                 value={dadosEdicao.pessoa}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, pessoa: e.target.value })}
                 required
+                placeholder="Digite o nome completo da pessoa"
+                helperText="Nome da pessoa que será atendida"
                 sx={{ mb: 2 }}
               />
               
               <TextField
                 fullWidth
                 margin="dense"
-                label="CPF"
+                label="📋 CPF"
                 value={dadosEdicao.cpf}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, cpf: e.target.value })}
                 required
+                placeholder="Digite o CPF (000.000.000-00)"
+                helperText="Digite apenas números, a formatação é automática"
+                inputProps={{ maxLength: 14 }}
                 sx={{ mb: 2 }}
               />
               
               <TextField
                 fullWidth
                 margin="dense"
-                label="Telefone Principal"
+                label="📞 Telefone Principal"
                 value={dadosEdicao.telefone1}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, telefone1: e.target.value })}
+                placeholder="Digite o telefone (00) 00000-0000"
+                helperText="Número principal para contato"
+                inputProps={{ maxLength: 15 }}
                 sx={{ mb: 2 }}
               />
               
               <TextField
                 fullWidth
                 margin="dense"
-                label="Telefone Secundário"
+                label="📞 Telefone Alternativo (Opcional)"
                 value={dadosEdicao.telefone2}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, telefone2: e.target.value })}
+                placeholder="Digite o telefone alternativo (00) 00000-0000"
+                helperText="Número adicional (opcional)"
+                inputProps={{ maxLength: 15 }}
                 sx={{ mb: 2 }}
               />
               
               <FormControl fullWidth margin="dense" sx={{ mb: 2 }}>
-                <InputLabel>Motivo do Agendamento</InputLabel>
+                <InputLabel>🎯 Motivo do atendimento</InputLabel>
                 <Select
                   value={dadosEdicao.motivo}
                   onChange={(e) => setDadosEdicao({ ...dadosEdicao, motivo: e.target.value })}
-                  label="Motivo do Agendamento"
+                  label="🎯 Motivo do atendimento"
                 >
                   {motivosAtendimento.map((motivo) => (
                     <MenuItem key={motivo} value={motivo}>
@@ -997,12 +1008,13 @@ export default function AgendaRecepcao() {
               <TextField
                 fullWidth
                 margin="dense"
-                label="Observações"
+                label="📝 Observações (Opcional)"
                 value={dadosEdicao.observacoes}
                 onChange={(e) => setDadosEdicao({ ...dadosEdicao, observacoes: e.target.value })}
                 multiline
                 rows={3}
-                placeholder="Informações adicionais sobre o agendamento..."
+                placeholder="Digite observações adicionais (opcional)"
+                helperText="Campo opcional para detalhes específicos"
               />
             </Box>
           </DialogContent>
