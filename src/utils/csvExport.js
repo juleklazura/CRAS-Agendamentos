@@ -1,42 +1,58 @@
-// Utilitário para exportar dados em CSV
+// Utilitário para exportação de dados em formato CSV
+// Permite que usuários baixem relatórios de agendamentos e logs
+
+/**
+ * Função principal para exportar array de objetos como arquivo CSV
+ * @param {Array} data - Array de objetos com dados para exportar
+ * @param {string} filename - Nome do arquivo (sem extensão)
+ */
 export const exportToCSV = (data, filename) => {
+  // Validação de entrada
   if (!data || data.length === 0) {
     console.warn('Nenhum dado para exportar');
     return;
   }
 
-  // Obter cabeçalhos das chaves do primeiro objeto
+  // Extrai cabeçalhos das chaves do primeiro objeto
   const headers = Object.keys(data[0]);
   
-  // Criar conteúdo CSV
+  // Constrói conteúdo CSV com formatação adequada
   const csvContent = [
-    // Cabeçalho
+    // Linha de cabeçalho
     headers.join(','),
-    // Dados
+    
+    // Linhas de dados com tratamento de caracteres especiais
     ...data.map(row => 
       headers.map(header => {
         const value = row[header];
-        // Escapar aspas e adicionar aspas se contém vírgula, aspas ou quebra de linha
+        
+        // Tratamento especial para strings com caracteres que quebram CSV
         if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+          // Escapa aspas duplas e envolve em aspas
           return `"${value.replace(/"/g, '""')}"`;
         }
-        return value || '';
+        
+        return value || '';  // Retorna valor ou string vazia
       }).join(',')
     )
   ].join('\n');
 
-  // Criar blob e fazer download
+  // Criação e download do arquivo
+  // BOM (\uFEFF) garante codificação UTF-8 correta no Excel
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   
+  // Configuração do link de download
   link.setAttribute('href', url);
   link.setAttribute('download', `${filename}.csv`);
   link.style.visibility = 'hidden';
   
+  // Executa download e limpa recursos
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   
+  // Libera memória do blob
   URL.revokeObjectURL(url);
 };

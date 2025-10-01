@@ -1,14 +1,18 @@
+// Controller para gerenciamento de agendamentos
+// Centraliza toda lógica de negócio relacionada aos agendamentos
 import Appointment from '../models/Appointment.js';
 import User from '../models/User.js';
 import Log from '../models/Log.js';
 import mongoose from 'mongoose';
 
-// Agendar (Entrevistador, Recepção)
+// Função para criar novo agendamento (Entrevistador, Recepção)
+// Realiza validações rigorosas antes de persistir no banco
 export const createAppointment = async (req, res) => {
   try {
     const { entrevistador, cras, pessoa, cpf, telefone1, telefone2, motivo, data, status, observacoes } = req.body;
     
-    // Validar dados obrigatórios
+    // Validações de dados obrigatórios
+    // Cada validação retorna erro específico para melhor UX
     if (!entrevistador) {
       return res.status(400).json({ message: 'Entrevistador é obrigatório' });
     }
@@ -37,13 +41,14 @@ export const createAppointment = async (req, res) => {
       return res.status(400).json({ message: 'Data é obrigatória' });
     }
     
-    // Validação: não permitir agendamento em sábado ou domingo
+    // Validação de regra de negócio: não permitir agendamento em fins de semana
     const dataAgendamento = new Date(data);
     const diaSemana = dataAgendamento.getDay();
     if (diaSemana === 0 || diaSemana === 6) {
       return res.status(400).json({ message: 'Não é permitido agendar para sábado ou domingo.' });
     }
     
+    // Criação do novo agendamento com dados validados
     const appointment = new Appointment({ 
       entrevistador, 
       cras, 
@@ -98,43 +103,46 @@ export const getAppointments = async (req, res) => {
       }
     }
     
+    // Filtro por entrevistador específico (se fornecido)
     if (req.query.entrevistador) filter.entrevistador = req.query.entrevistador;
 
-    // Busca global
+    // Sistema de busca global por texto
+    // Permite buscar por nome, CPF ou telefones
     if (req.query.search) {
       const search = req.query.search.trim();
       filter.$or = [
-        { pessoa: { $regex: search, $options: 'i' } },
-        { cpf: { $regex: search, $options: 'i' } },
-        { telefone1: { $regex: search, $options: 'i' } },
-        { telefone2: { $regex: search, $options: 'i' } }
+        { pessoa: { $regex: search, $options: 'i' } },     // Nome da pessoa
+        { cpf: { $regex: search, $options: 'i' } },        // CPF
+        { telefone1: { $regex: search, $options: 'i' } },  // Telefone principal
+        { telefone2: { $regex: search, $options: 'i' } }   // Telefone secundário
       ];
     }
 
-    // Ordenação
+    // Sistema de ordenação dinâmica
     let sort = {};
     if (req.query.sortBy) {
       let field = req.query.sortBy;
+      // Para campos relacionados, ordena pelo nome do objeto populado
       if (["cras", "entrevistador", "createdBy"].includes(field)) {
-        // Ordenação por campos populados: usar nome
         field = field + ".name";
       }
       sort[field] = req.query.order === 'desc' ? -1 : 1;
     } else {
+      // Ordenação padrão por data
       sort = { data: 1 };
     }
 
-    // Total para paginação (sempre calcular antes da paginação)
+    // Calcula total de registros para paginação (antes de aplicar limit/skip)
     const total = await Appointment.countDocuments(filter);
 
-    // Query principal
+    // Query principal com população de dados relacionados
     let query = Appointment.find(filter)
-      .populate('entrevistador cras createdBy')
+      .populate('entrevistador cras createdBy')  // Traz dados completos dos relacionamentos
       .sort(sort);
     
     let results = await query.exec();
 
-    // Ordenação manual por campos populados (ex: entrevistador.name) - só se necessário
+    // Ordenação manual para campos populados (necessaria devido à limitação do MongoDB)
     if (req.query.sortBy && ["cras", "entrevistador", "createdBy"].includes(req.query.sortBy)) {
       const field = req.query.sortBy;
       const order = req.query.order === 'desc' ? -1 : 1;

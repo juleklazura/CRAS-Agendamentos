@@ -1,7 +1,27 @@
+// Importações principais do React
+// useEffect: para efeitos colaterais e ciclo de vida
+// useState: para gerenciar estado local do componente
+// useCallback: para memoizar funções e evitar re-renderizações desnecessárias
+// useMemo: para memoizar valores computados
+// memo: para memoizar o componente inteiro
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+
+// Axios para fazer requisições HTTP para o backend
 import axios from 'axios';
 
-// Componentes do Material-UI otimizados
+// Componentes do Material-UI para interface
+// Box: container flexível para layout
+// Typography: componente para textos com tipografia padronizada
+// FormControl/InputLabel/Select/MenuItem: componentes para formulários e seletores
+// Paper: componente com sombra para destacar conteúdo
+// Table*: componentes para tabelas de dados
+// Snackbar/Alert: componentes para notificações e alertas
+// Dialog*: componentes para modais e janelas de diálogo
+// Button/IconButton: botões de ação
+// Chip: componente para tags e rótulos
+// Grid: sistema de grid para layout responsivo
+// Card*: componentes para cartões de conteúdo
+// CircularProgress: indicador de carregamento
 import { 
   Box, 
   Typography, 
@@ -35,7 +55,16 @@ import {
   FormHelperText
 } from '@mui/material';
 
-// Ícones otimizados
+// Ícones do Material-UI para identificar visualmente as ações e conteúdos
+// Description: ícone de documento/observações
+// Event: ícone de evento/agendamento
+// Person: ícone de pessoa
+// Phone: ícone de telefone
+// Assignment: ícone de tarefa/motivo
+// AccessTime: ícone de horário
+// CheckCircle: ícone de confirmação/sucesso
+// Block: ícone de bloqueio
+// Edit/Delete: ícones de edição e exclusão
 import {
   Description as DescriptionIcon,
   Event as EventIcon,
@@ -49,15 +78,26 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 
-// Provedor de datas
+// Biblioteca de seleção de datas localizada para português brasileiro
+// AdapterDateFns: adaptador para usar a biblioteca date-fns com Material-UI
+// LocalizationProvider: provedor de contexto para localização
+// DatePicker: componente de seleção de data
+// ptBR: localização em português brasileiro
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import ptBR from 'date-fns/locale/pt-BR';
 
-// Componentes personalizados
+// Componente personalizado da sidebar para navegação
+// Contém o menu lateral com as opções do sistema
 import Sidebar from '../components/Sidebar';
 
-// Utilitários centralizados
+// Utilitários centralizados para regras de negócio
+// formatarCPF/formatarTelefone: funções para formatação de dados
+// motivosAtendimento: lista dos motivos disponíveis
+// horariosDisponiveis: lista dos horários de atendimento
+// mensagens: mensagens padronizadas do sistema
+// criarDataHorario: função para criar objeto Date com data e hora específicas
+// ehFimDeSemana: função para verificar se uma data é sábado ou domingo
 import {
   formatarCPF,
   formatarTelefone,

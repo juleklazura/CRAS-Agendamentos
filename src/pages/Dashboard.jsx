@@ -1,27 +1,38 @@
+// Componente Dashboard - Página inicial do sistema
+// Exibe boas-vindas personalizadas e informações do usuário logado
 import React, { useEffect, useState } from 'react';
-import Sidebar from '../components/Sidebar';
+import Sidebar from '../components/Sidebar';  // Navegação lateral
 import { Box, Typography } from '@mui/material';
 
+// Componente principal do dashboard
 export default function Dashboard() {
+  // Recupera dados do usuário logado do localStorage
   const user = JSON.parse(localStorage.getItem('user'));
+  
+  // Estado para armazenar nome do CRAS (obtido via API)
   const [crasNome, setCrasNome] = useState('');
 
+  // Effect para buscar nome completo do CRAS
+  // Necessário pois o user só tem o ID do CRAS
   useEffect(() => {
     async function fetchCras() {
       if (user?.cras && typeof user.cras === 'string') {
         try {
           const token = localStorage.getItem('token');
+          
+          // Busca dados completos do CRAS via API
           const response = await fetch(`http://localhost:5000/api/cras/${user.cras}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
+          
           if (response.ok) {
             const data = await response.json();
-            setCrasNome(data.nome || user.cras);
+            setCrasNome(data.nome || user.cras);  // Usa nome ou fallback para ID
           } else {
-            setCrasNome(user.cras);
+            setCrasNome(user.cras);  // Fallback em caso de erro
           }
         } catch {
-          setCrasNome(user.cras);
+          setCrasNome(user.cras);  // Fallback em caso de exceção
         }
       }
     }

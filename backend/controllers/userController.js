@@ -1,16 +1,23 @@
+// Controller para gerenciamento de usuários
+// Controla criação, edição, listagem e exclusão de usuários do sistema
 import User from '../models/User.js';
 import Log from '../models/Log.js';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';  // Para hash seguro de senhas
 
-// Criar usuário (apenas admin)
+// Função para criar novo usuário (apenas administradores)
+// Valida dados, gera hash da senha e registra ação em log
 export const createUser = async (req, res) => {
   try {
     const { name, password, role, cras, matricula } = req.body;
+    
+    // Gera hash seguro da senha antes de armazenar
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Cria novo usuário com dados validados
     const user = new User({ name, password: hashedPassword, role, cras, matricula });
     await user.save();
     
-    // Criar log da ação
+    // Registra criação do usuário no sistema de auditoria
     await Log.create({
       user: req.user.id,
       cras: req.user.cras,
@@ -25,14 +32,18 @@ export const createUser = async (req, res) => {
   }
 };
 
-// Listar usuários (admin)
+// Função para listar usuários com controle de permissões
+// Administradores veem todos, outros perfis veem apenas entrevistadores
 export const getUsers = async (req, res) => {
   try {
     let query = {};
-    // Se for recepção ou entrevistador, filtra apenas entrevistadores
+    
+    // Controle de acesso: recepção e entrevistadores só veem entrevistadores
     if (req.user.role !== 'admin') {
       query.role = 'entrevistador';
     }
+    
+    // Busca usuários excluindo senha e populando dados do CRAS
     const users = await User.find(query).select('-password').populate('cras');
     res.json(users);
   } catch (error) {
@@ -41,7 +52,8 @@ export const getUsers = async (req, res) => {
   }
 };
 
-// Listar entrevistadores (todos os usuários autenticados)
+// Função para listar apenas entrevistadores (para todos os usuários autenticados)
+// Usada para popular seletores de entrevistador em formulários
 export const getEntrevistadores = async (req, res) => {
   try {
     const users = await User.find({ role: 'entrevistador' }).select('-password');
@@ -51,11 +63,13 @@ export const getEntrevistadores = async (req, res) => {
   }
 };
 
-// Buscar entrevistadores por CRAS (para recepção)
+// Função para buscar entrevistadores por CRAS específico
+// Utilizada pela recepção para filtrar entrevistadores do próprio CRAS
 export const getEntrevistadoresByCras = async (req, res) => {
   try {
     const { crasId } = req.params;
     
+    // Busca apenas entrevistadores do CRAS especificado
     const entrevistadores = await User.find({
       role: 'entrevistador',
       cras: crasId

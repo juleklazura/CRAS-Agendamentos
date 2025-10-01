@@ -1,13 +1,19 @@
+// Controller para gerenciamento de unidades CRAS
+// Controla operações CRUD para as unidades do Centro de Referência de Assistência Social
 import Cras from '../models/Cras.js';
 import Log from '../models/Log.js';
 
+// Função para criar nova unidade CRAS (apenas administradores)
+// Registra criação no sistema de auditoria
 export const createCras = async (req, res) => {
   try {
     const { nome, endereco, telefone } = req.body;
+    
+    // Cria nova unidade CRAS
     const cras = new Cras({ nome, endereco, telefone });
     await cras.save();
     
-    // Criar log da ação
+    // Registra criação no log de auditoria
     await Log.create({
       user: req.user.id,
       cras: cras._id,
@@ -21,6 +27,8 @@ export const createCras = async (req, res) => {
   }
 };
 
+// Função para listar todas as unidades CRAS
+// Acessível para todos os usuários autenticados
 export const getCras = async (req, res) => {
   try {
     const cras = await Cras.find();
@@ -30,14 +38,16 @@ export const getCras = async (req, res) => {
   }
 };
 
-// Buscar CRAS por ID
+// Função para buscar unidade CRAS específica por ID
 export const getCrasById = async (req, res) => {
   try {
     const { id } = req.params;
     const cras = await Cras.findById(id);
+    
     if (!cras) {
       return res.status(404).json({ message: 'CRAS não encontrado' });
     }
+    
     res.json(cras);
   } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar CRAS' });

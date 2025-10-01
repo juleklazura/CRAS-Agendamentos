@@ -1,5 +1,9 @@
+// Componente de Login do Sistema CRAS
+// Interface de autenticação com validação e feedback visual
 import React, { useState } from 'react';
-import axios from 'axios';
+import axios from 'axios';  // Cliente HTTP para comunicação com backend
+
+// Componentes de interface do Material-UI
 import {
   Box,
   Paper,
@@ -9,31 +13,43 @@ import {
   Alert,
   Container
 } from '@mui/material';
+
+// Logo oficial da FASPG
 import logo from '../assets/logo-faspg.svg';
 
+// Componente principal de login
 export default function Login() {
-  const [matricula, setMatricula] = useState('');
-  const [senha, setSenha] = useState('');
-  const [erro, setErro] = useState('');
-  const [loading, setLoading] = useState(false);
+  // Estados para controle do formulário
+  const [matricula, setMatricula] = useState('');    // Matrícula do usuário
+  const [senha, setSenha] = useState('');            // Senha do usuário
+  const [erro, setErro] = useState('');              // Mensagens de erro
+  const [loading, setLoading] = useState(false);     // Estado de carregamento
 
+  // Função principal de autenticação
+  // Valida credenciais e redireciona em caso de sucesso
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErro('');
-    setLoading(true);
+    setErro('');      // Limpa erros anteriores
+    setLoading(true); // Ativa indicador de carregamento
 
     try {
+      // Envia credenciais para o endpoint de autenticação
       const resposta = await axios.post('http://localhost:5000/api/auth/login', {
         matricula,
         password: senha
       });
 
+      // Armazena token e dados do usuário no localStorage
       localStorage.setItem('token', resposta.data.token);
       localStorage.setItem('user', JSON.stringify(resposta.data.user));
+      
+      // Redireciona para o dashboard após login bem-sucedido
       window.location.href = '/dashboard';
     } catch (erro) {
+      // Exibe erro específico ou mensagem genérica
       setErro(erro.response?.data?.message || 'Erro ao fazer login. Tente novamente.');
     } finally {
+      // Sempre desativa o loading, independente do resultado
       setLoading(false);
     }
   };

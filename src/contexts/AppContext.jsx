@@ -1,44 +1,49 @@
+// Contexto global da aplicação para gerenciamento de estado compartilhado
+// Centraliza informações do usuário, autenticação, notificações e cache
 import React, { createContext, useCallback, useMemo, useReducer } from 'react';
 
-// Estado inicial da aplicação
+// Estado inicial da aplicação com estrutura organizada
 const initialState = {
-  // Dados do usuário logado
-  user: null,
-  token: null,
+  // Dados do usuário logado e autenticação
+  user: null,     // objeto com dados do usuário (nome, role, cras, etc)
+  token: null,    // JWT token para autenticação nas APIs
   
-  // Estados de carregamento global
+  // Estados de carregamento global para UX
   loading: false,
   
-  // Notificações globais
+  // Sistema de notificações globais
   notification: {
     open: false,
     message: '',
     severity: 'info' // 'success', 'error', 'warning', 'info'
   },
   
-  // Cache de dados frequentemente acessados
+  // Cache de dados frequentemente acessados para otimizar performance
   cache: {
-    cras: [],
-    entrevistadores: [],
-    lastUpdate: null
+    cras: [],              // lista de CRAS cadastrados
+    entrevistadores: [],   // lista de entrevistadores
+    lastUpdate: null       // timestamp da última atualização do cache
   }
 };
 
-// Actions do reducer
+// Ações disponíveis para o reducer
+// Padronizar nomes facilita manutenção e evita erros de digitacao
 const ACTIONS = {
-  SET_USER: 'SET_USER',
-  SET_LOADING: 'SET_LOADING',
-  SHOW_NOTIFICATION: 'SHOW_NOTIFICATION',
-  HIDE_NOTIFICATION: 'HIDE_NOTIFICATION',
-  UPDATE_CACHE: 'UPDATE_CACHE',
-  CLEAR_CACHE: 'CLEAR_CACHE',
-  LOGOUT: 'LOGOUT'
+  SET_USER: 'SET_USER',                   // define dados do usuário logado
+  SET_LOADING: 'SET_LOADING',             // controla estado de carregamento
+  SHOW_NOTIFICATION: 'SHOW_NOTIFICATION', // exibe notificação
+  HIDE_NOTIFICATION: 'HIDE_NOTIFICATION', // oculta notificação
+  UPDATE_CACHE: 'UPDATE_CACHE',           // atualiza cache de dados
+  CLEAR_CACHE: 'CLEAR_CACHE',             // limpa cache
+  LOGOUT: 'LOGOUT'                        // faz logout completo
 };
 
-// Reducer para gerenciar estado global
+// Reducer para gerenciar estado global da aplicação
+// Centraliza todas as mudanças de estado de forma previsível
 const appReducer = (state, action) => {
   switch (action.type) {
     case ACTIONS.SET_USER:
+      // Define dados do usuário e token de autenticação
       return {
         ...state,
         user: action.payload.user,
@@ -46,6 +51,7 @@ const appReducer = (state, action) => {
       };
       
     case ACTIONS.SET_LOADING:
+      // Controla estado global de carregamento
       return {
         ...state,
         loading: action.payload

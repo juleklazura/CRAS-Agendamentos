@@ -1,5 +1,9 @@
+// Componente de navegação lateral (Sidebar)
+// Responsivo e adaptado para diferentes perfis de usuário
 import React, { useState, memo, useMemo, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+
+// Componentes de interface do Material-UI
 import { 
   Box, 
   Typography, 
@@ -16,6 +20,8 @@ import {
   ListItemIcon,
   Avatar
 } from '@mui/material';
+
+// Ícones para o menu de navegação
 import { 
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -26,10 +32,13 @@ import {
   History as HistoryIcon,
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
+
 import { useAuth } from '../hooks/useApp';
 
-// Configuração otimizada dos menus por perfil
+// Configuração otimizada dos menus por perfil de usuário
+// Cada role tem acesso apenas às funcionalidades relevantes
 const MENU_CONFIG = {
+  // Menu completo para administradores
   admin: [
     { label: 'Painel Principal', path: '/dashboard', icon: DashboardIcon },
     { label: 'Usuários', path: '/usuarios', icon: PeopleIcon },
@@ -38,11 +47,13 @@ const MENU_CONFIG = {
     { label: 'Agenda Geral', path: '/agenda', icon: CalendarIcon },
     { label: 'Histórico', path: '/logs', icon: HistoryIcon },
   ],
+  // Menu para entrevistadores - foco na própria agenda
   entrevistador: [
     { label: 'Painel Principal', path: '/dashboard', icon: DashboardIcon },
     { label: 'Minha Agenda', path: '/minha-agenda', icon: CalendarIcon },
     { label: 'Agendamentos', path: '/agendamentos', icon: EventIcon }
   ],
+  // Menu para recepção - foco no atendimento
   recepcao: [
     { label: 'Painel Principal', path: '/dashboard', icon: DashboardIcon },
     { label: 'Agenda Recepção', path: '/agenda-recepcao', icon: AssignmentIcon },

@@ -1,9 +1,11 @@
-// 🏥 Utilitários Centralizados do Sistema de Agendamentos CRAS
-// Humanização: Centralizamos todas as funções comuns para melhor manutenção e consistência
+// Utilitários centralizados do Sistema de Agendamentos CRAS
+// Centraliza todas as funções comuns para melhor manutenção e consistência
 
 /**
- * 📋 Formata CPF para exibição amigável
+ * Formata CPF para exibição amigável
  * Transforma números em formato legível: 000.000.000-00
+ * @param {string} valor - CPF em formato numérico
+ * @returns {string} CPF formatado
  */
 export const formatarCPF = (valor) => {
   if (!valor) return '';
@@ -15,8 +17,10 @@ export const formatarCPF = (valor) => {
 };
 
 /**
- * 📱 Formata telefone para exibição amigável
- * Adapta automaticamente para fixo ou celular
+ * Formata telefone para exibição amigável
+ * Adapta automaticamente para telefone fixo ou celular
+ * @param {string} valor - Telefone em formato numérico
+ * @returns {string} Telefone formatado
  */
 export const formatarTelefone = (valor) => {
   if (!valor) return '';
@@ -36,8 +40,10 @@ export const formatarTelefone = (valor) => {
 };
 
 /**
- * 👁️ Exibe CPF formatado de forma inteligente
+ * Exibe CPF formatado de forma inteligente
  * Verifica se já está formatado antes de aplicar formatação
+ * @param {string} cpf - CPF para exibição
+ * @returns {string} CPF formatado ou traço se vazio
  */
 export const exibirCPFFormatado = (cpf) => {
   if (!cpf) return '-';

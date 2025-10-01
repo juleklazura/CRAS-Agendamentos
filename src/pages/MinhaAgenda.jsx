@@ -1,7 +1,29 @@
+// Hooks do React para gerenciamento de estado e efeitos
+// useEffect: executa efeitos colaterais (chamadas de API, listeners)
+// useState: gerencia estado local do componente
+// useCallback: memoiza funções para evitar recriação desnecessária
+// useMemo: memoiza valores computados para otimizar performance
 import { useEffect, useState, useCallback, useMemo } from 'react';
+
+// Hook de navegação do React Router para redirecionamentos
 import { useNavigate } from 'react-router-dom';
+
+// Cliente HTTP para comunicação com o backend
 import axios from 'axios';
+
+// Componente da sidebar para navegação lateral
 import Sidebar from '../components/Sidebar';
+// Componentes da biblioteca Material-UI para interface de usuário
+// Box: container flexível para layout
+// Typography: textos com tipografia padronizada
+// Button: botões de ação
+// Dialog*: componentes para modais e janelas de diálogo
+// Snackbar/Alert: notificações e mensagens de feedback
+// Table*: componentes para exibição tabular de dados
+// TextField: campos de entrada de texto
+// FormControl/Select: componentes de formulário e seletores
+// Card*: componentes para organizar conteúdo em cartões
+// CircularProgress: indicador visual de carregamento
 import {
   Box,
   Typography,
@@ -29,16 +51,32 @@ import {
   CardContent,
   CircularProgress,
 } from '@mui/material';
+// Biblioteca de seleção de datas com localização brasileira
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+
+// Ícones para as ações da interface
+// DeleteIcon: exclusão de registros
+// CheckCircleIcon: confirmação de presença
+// CancelIcon: cancelamento de ações
+// EditIcon: edição de registros
+// DescriptionIcon: visualização de observações
+// EventIcon: representação de eventos/agendamentos
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditIcon from '@mui/icons-material/Edit';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EventIcon from '@mui/icons-material/Event';
+
+// Localização em português brasileiro para o date picker
 import ptBR from 'date-fns/locale/pt-BR';
 
+// Utilitários compartilhados para regras de negócio
+// formatarCPF/formatarTelefone: formatação de dados de contato
+// motivosAtendimento: lista dos motivos de atendimento disponíveis
+// horariosDisponiveis: lista dos horários de funcionamento
+// criarDataHorario: cria objeto Date combinando data e horário
 import {
   formatarCPF,
   formatarTelefone,
@@ -47,10 +85,13 @@ import {
   criarDataHorario
 } from '../utils/agendamentoUtils';
 
-// 🌍 Configuração de ambiente otimizada
+// Configuração de URL base da API
+// Usa variável de ambiente se disponível, senão usa localhost como fallback
+// Isso permite facilitar deploy em diferentes ambientes
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// 🚀 Estados iniciais otimizados
+// Estados iniciais para otimizar renderizações
+// Definir objetos constantes evita recriação desnecessária a cada render
 const INITIAL_FORM_STATE = {
   pessoa: '',
   cpf: '',
@@ -60,43 +101,49 @@ const INITIAL_FORM_STATE = {
   observacoes: ''
 };
 
+// Estado inicial para mensagens de feedback ao usuário
 const INITIAL_MESSAGE_STATE = { 
   visivel: false, 
   texto: '', 
   tipo: 'success' 
 };
 
-// � Mensagens padronizadas do sistema
+// Mensagens padronizadas do sistema para feedback consistente
+// Centralizar as mensagens facilita manutenção e internacionalização futura
 const MESSAGES = {
   SUCCESS: {
-    AGENDAMENTO_CRIADO: '✅ Agendamento criado com sucesso!',
-    AGENDAMENTO_EXCLUIDO: '✅ Agendamento excluído com sucesso!',
-    AGENDAMENTO_EDITADO: '✅ Agendamento editado com sucesso!',
-    PRESENCA_CONFIRMADA: '✅ Presença confirmada com sucesso!',
-    PRESENCA_REMOVIDA: '✅ Confirmação de presença removida!'
+    AGENDAMENTO_CRIADO: 'Agendamento criado com sucesso!',
+    AGENDAMENTO_EXCLUIDO: 'Agendamento excluído com sucesso!',
+    AGENDAMENTO_EDITADO: 'Agendamento editado com sucesso!',
+    PRESENCA_CONFIRMADA: 'Presença confirmada com sucesso!',
+    PRESENCA_REMOVIDA: 'Confirmação de presença removida!'
   },
   ERROR: {
-    AGENDAMENTO_CRIACAO: '❌ Não foi possível criar o agendamento. Tente novamente.',
-    AGENDAMENTO_EXCLUSAO: '❌ Não foi possível excluir o agendamento. Tente novamente.',
-    AGENDAMENTO_EDICAO: '❌ Não foi possível editar o agendamento. Tente novamente.',
-    CARREGAR_DADOS: '❌ Não foi possível carregar os dados. Tente novamente.',
-    VALIDACAO_FORMULARIO: '⚠️ Por favor, verifique os campos obrigatórios.'
+    AGENDAMENTO_CRIACAO: 'Não foi possível criar o agendamento. Tente novamente.',
+    AGENDAMENTO_EXCLUSAO: 'Não foi possível excluir o agendamento. Tente novamente.',
+    AGENDAMENTO_EDICAO: 'Não foi possível editar o agendamento. Tente novamente.',
+    CARREGAR_DADOS: 'Não foi possível carregar os dados. Tente novamente.',
+    VALIDACAO_FORMULARIO: 'Por favor, verifique os campos obrigatórios.'
   }
 };
 
-// �🔄 Estados de loading granulares
+// Estados de loading granulares para controlar carregamento de ações específicas
+// Permite mostrar feedback visual específico para cada operação
 const INITIAL_LOADING_STATE = {
-  agendamentos: false,
-  creating: false,
-  updating: false,
-  deleting: false,
-  confirming: false
+  agendamentos: false,  // carregamento da lista de agendamentos
+  creating: false,      // criação de novo agendamento
+  updating: false,      // atualização de agendamento existente
+  deleting: false,      // exclusão de agendamento
+  confirming: false     // confirmação de presença
 };
 
+// Componente principal da agenda pessoal do entrevistador
+// Permite ao usuário gerenciar seus próprios agendamentos e bloqueios
 export default function MinhaAgenda() {
   const navigate = useNavigate();
 
-  // 🔐 Dados do usuário otimizados
+  // Dados do usuário otimizados com useMemo
+  // Evita re-parse do localStorage a cada render
   const { token, usuario, usuarioId, usuarioCras } = useMemo(() => {
     const token = localStorage.getItem('token');
     const usuario = JSON.parse(localStorage.getItem('user') || 'null');
@@ -108,7 +155,8 @@ export default function MinhaAgenda() {
     };
   }, []);
 
-  // 📅 Estados principais
+  // Estado para data selecionada com lógica inteligente de inicialização
+  // Se for fim de semana, automaticamente seleciona a próxima segunda-feira
   const [dataSelecionada, setDataSelecionada] = useState(() => {
     const hoje = new Date();
     // Se for fim de semana, já seleciona próxima segunda
@@ -124,54 +172,63 @@ export default function MinhaAgenda() {
     return hoje;
   });
   
-  const [agendamentos, setAgendamentos] = useState([]);
-  const [bloqueios, setBloqueios] = useState([]);
-  const [mensagem, setMensagem] = useState(INITIAL_MESSAGE_STATE);
-  const [loading, setLoading] = useState(INITIAL_LOADING_STATE);
+  // Estados principais para gerenciamento de dados
+  const [agendamentos, setAgendamentos] = useState([]);  // lista de agendamentos do dia
+  const [bloqueios, setBloqueios] = useState([]);        // lista de horários bloqueados
+  const [mensagem, setMensagem] = useState(INITIAL_MESSAGE_STATE);  // mensagens de feedback
+  const [loading, setLoading] = useState(INITIAL_LOADING_STATE);    // estados de carregamento
 
-  // 🎭 Estados de modais
+  // Estados para controle de modais
+  // Organizar em objeto facilita gerenciamento de múltiplos modais
   const [modals, setModals] = useState({
-    agendamento: false,
-    bloqueio: false,
-    exclusao: false,
-    observacoes: false,
-    edicao: false
+    agendamento: false,  // modal de criação/edição de agendamento
+    bloqueio: false,     // modal de bloqueio de horário
+    exclusao: false,     // modal de confirmação de exclusão
+    observacoes: false,  // modal de visualização de observações
+    edicao: false        // modal de edição de agendamento
   });
 
-  // 📝 Estados de formulários
+  // Estados de formulários separados para criação e edição
+  // Manter separados evita conflitos entre ações simultâneas
   const [dadosAgendamento, setDadosAgendamento] = useState(INITIAL_FORM_STATE);
   const [dadosEdicao, setDadosEdicao] = useState(INITIAL_FORM_STATE);
 
-  // 🎯 Estados de contexto
+  // Estados de contexto para ações específicas
+  // Armazena informações temporárias necessárias para operações
   const [contexto, setContexto] = useState({
-    horarioSelecionado: null,
-    agendamentoSelecionado: null,
-    observacoesVisualizacao: '',
-    nomeAgendamentoObservacoes: ''
+    horarioSelecionado: null,        // horário clicado pelo usuário
+    agendamentoSelecionado: null,    // agendamento sendo editado/excluído
+    observacoesVisualizacao: '',     // texto das observações no modal
+    nomeAgendamentoObservacoes: ''   // nome da pessoa para contexto no modal
   });
 
-  // 🚀 Funções utilitárias otimizadas
+  // Funções utilitárias otimizadas com useCallback para performance
+  
+  // Helper para atualizar estado de modais de forma eficiente
   const updateModal = useCallback((modalName, isOpen) => {
     setModals(prev => ({ ...prev, [modalName]: isOpen }));
   }, []);
 
-  // 💬 Função humanizada para exibir mensagens com auto-hide inteligente
+  // Função para exibir mensagens com auto-hide inteligente
+  // Duração varia conforme tipo: erro = 4s, sucesso = 3s, outros = 5s
   const mostrarMensagem = useCallback((texto, tipo = 'success') => {
     setMensagem({ visivel: true, texto, tipo });
     
-    // 🕒 Auto-hide inteligente: erro = 4s, sucesso = 3s, outros = 5s
+    // Auto-hide inteligente baseado no tipo da mensagem
     const delay = tipo === 'error' ? 4000 : tipo === 'success' ? 3000 : 5000;
     setTimeout(() => {
       setMensagem(prev => ({ ...prev, visivel: false }));
     }, delay);
   }, []);
 
-  // 🔄 Helper para gerenciar estados de loading
+  // Helper para gerenciar estados de loading granulares
   const updateLoading = useCallback((key, value) => {
     setLoading(prev => ({ ...prev, [key]: value }));
   }, []);
 
-  // 📱 Handlers de formatação otimizados
+  // Handlers de formatação otimizados para campos de entrada
+  
+  // Handler para formatação automática de CPF (xxx.xxx.xxx-xx)
   const handleCPFChange = useCallback((valor, isEdicao = false) => {
     const cpfFormatado = formatarCPF(valor);
     if (isEdicao) {
@@ -181,6 +238,7 @@ export default function MinhaAgenda() {
     }
   }, []);
 
+  // Handler para formatação automática de telefone ((xx) xxxxx-xxxx)
   const handleTelefoneChange = useCallback((valor, campo, isEdicao = false) => {
     const telefoneFormatado = formatarTelefone(valor);
     if (isEdicao) {
@@ -190,36 +248,43 @@ export default function MinhaAgenda() {
     }
   }, []);
 
-  // 🔍 Verificação de autenticação
+  // Verificação de autenticação e autorização
+  // Garante que apenas entrevistadores autenticados acessem esta página
   useEffect(() => {
     if (!token || !usuario || usuario.role !== 'entrevistador') {
-      localStorage.clear();
-      navigate('/login');
+      localStorage.clear();  // Limpa dados inválidos
+      navigate('/login');    // Redireciona para login
     }
   }, [token, usuario, navigate]);
 
-  // 📊 API calls otimizadas
+  // Funções de API otimizadas para comunicação com o backend
+  
+  // Função para buscar agendamentos do usuário logado
   const buscarAgendamentos = useCallback(async () => {
     if (!token || !usuarioId) return;
     
     try {
+      // Busca apenas agendamentos do entrevistador logado
       const { data } = await axios.get(
         `${API_BASE_URL}/appointments?entrevistador=${usuarioId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
+      // Normaliza resposta da API - pode vir como results ou array direto
       const agendamentos = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
       setAgendamentos(agendamentos);
     } catch (erro) {
       console.error('Erro ao buscar agendamentos:', erro);
-      mostrarMensagem('😓 Não foi possível carregar seus agendamentos. Tente novamente.', 'error');
+      mostrarMensagem('Não foi possível carregar seus agendamentos. Tente novamente.', 'error');
     }
   }, [token, usuarioId, mostrarMensagem]);
 
+  // Função para buscar horários bloqueados do sistema
   const buscarBloqueios = useCallback(async () => {
     if (!token) return;
     
     try {
+      // Busca todos os bloqueios ativos no sistema
       const { data } = await axios.get(
         `${API_BASE_URL}/blocked-slots`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -227,18 +292,21 @@ export default function MinhaAgenda() {
       setBloqueios(data || []);
     } catch (erro) {
       console.error('Erro ao buscar bloqueios:', erro);
-      mostrarMensagem('😓 Não foi possível verificar horários bloqueados. Tente novamente.', 'error');
+      mostrarMensagem('Não foi possível verificar horários bloqueados. Tente novamente.', 'error');
     }
   }, [token, mostrarMensagem]);
 
-  // 🔄 Carregamento inicial otimizado
+  // Carregamento inicial otimizado
+  // Executa busca de dados assim que o usuário e token estiverem disponíveis
   useEffect(() => {
     if (token && usuario) {
+      // Executa as duas buscas em paralelo para melhor performance
       Promise.all([buscarAgendamentos(), buscarBloqueios()]);
     }
   }, [token, usuario, buscarAgendamentos, buscarBloqueios]);
 
-  // 🎯 Verificações de status otimizadas
+  // Verifica se um horário específico está bloqueado
+  // Compara timestamp exato para determinar bloqueio
   const verificarHorarioBloqueado = useCallback((data, horario) => {
     const dataHorario = criarDataHorario(data, horario);
     if (!dataHorario) return false;
@@ -249,19 +317,24 @@ export default function MinhaAgenda() {
     });
   }, [bloqueios]);
 
+  // Busca agendamento específico para uma data e horário
+  // Faz comparação precisa de data/hora e filtra por entrevistador
   const obterAgendamento = useCallback((data, horario) => {
     if (!data || !horario || !agendamentos.length) return null;
     
+    // Constrói objeto Date preciso para comparação
     const [hora, minuto] = horario.split(':');
     const dataProcurada = new Date(data);
     dataProcurada.setHours(parseInt(hora, 10), parseInt(minuto, 10), 0, 0);
     
     return agendamentos.find(agendamento => {
+      // Filtra apenas agendamentos do entrevistador logado
       if (agendamento.entrevistador && usuarioId &&
           String(agendamento.entrevistador._id || agendamento.entrevistador) !== String(usuarioId)) {
         return false;
       }
       
+      // Compara data e hora com precisão total
       const dataAgendamento = new Date(agendamento.data);
       return (
         dataAgendamento.getFullYear() === dataProcurada.getFullYear() &&
@@ -284,43 +357,51 @@ export default function MinhaAgenda() {
       return false;
     }
     
+    // Validação de CPF - deve ter exatamente 11 dígitos
     const cpfApenasNumeros = dados.cpf.replace(/\D/g, '');
     if (cpfApenasNumeros.length !== 11) {
-      mostrarMensagem('📋 CPF deve ter exatamente 11 números', 'error');
+      mostrarMensagem('CPF deve ter exatamente 11 números', 'error');
       return false;
     }
     
+    // Validação de telefone obrigatório
     if (!dados.telefone1.trim()) {
-      mostrarMensagem('📞 Por favor, informe um telefone para contato', 'error');
+      mostrarMensagem('Por favor, informe um telefone para contato', 'error');
       return false;
     }
     
+    // Validação de motivo obrigatório
     if (!dados.motivo) {
-      mostrarMensagem('🎯 Por favor, selecione o motivo do atendimento', 'error');
+      mostrarMensagem('Por favor, selecione o motivo do atendimento', 'error');
       return false;
     }
     
+    // Validação de CRAS do usuário
     if (!usuarioCras) {
-      mostrarMensagem('❌ Erro: CRAS não identificado para o usuário. Contate o administrador.', 'error');
+      mostrarMensagem('Erro: CRAS não identificado para o usuário. Contate o administrador.', 'error');
       return false;
     }
     
     return true;
   }, [mostrarMensagem, usuarioCras]);
 
+  // Função principal para criar novo agendamento
+  // Valida dados, monta payload e envia para API
   const criarAgendamento = useCallback(async () => {
     if (!validarFormulario(dadosAgendamento)) return;
 
     updateLoading('creating', true);
     try {
+      // Cria objeto Date preciso combinando data e horário
       const dataHorario = criarDataHorario(dataSelecionada, contexto.horarioSelecionado);
       if (!dataHorario) throw new Error('Data inválida');
 
+      // Monta payload para envio à API
       const dadosParaEnvio = {
         entrevistador: usuarioId,
         cras: usuarioCras,
         pessoa: dadosAgendamento.pessoa,
-        cpf: dadosAgendamento.cpf.replace(/\\D/g, ''),
+        cpf: dadosAgendamento.cpf.replace(/\\D/g, ''),  // Remove formatação
         telefone1: dadosAgendamento.telefone1,
         telefone2: dadosAgendamento.telefone2,
         motivo: dadosAgendamento.motivo,
@@ -329,31 +410,38 @@ export default function MinhaAgenda() {
         observacoes: dadosAgendamento.observacoes
       };
 
+      // Envia requisição para criar agendamento na API
       await axios.post(
         `${API_BASE_URL}/appointments`,
         dadosParaEnvio,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      // Feedback de sucesso e fechamento do modal
       mostrarMensagem(MESSAGES.SUCCESS.AGENDAMENTO_CRIADO);
       updateModal('agendamento', false);
       
-      // Buscar agendamentos sem bloquear o fechamento do modal
+      // Atualiza lista de agendamentos sem bloquear o fechamento do modal
       buscarAgendamentos();
       
     } catch (erro) {
       console.error('Erro ao criar agendamento:', erro);
       mostrarMensagem(MESSAGES.ERROR.AGENDAMENTO_CRIACAO, 'error');
     } finally {
+      // Sempre remove o loading, independente de sucesso ou erro
       updateLoading('creating', false);
     }
   }, [dadosAgendamento, dataSelecionada, contexto.horarioSelecionado, usuarioId, usuarioCras, token, validarFormulario, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
 
-  // ✅ Funções de confirmação otimizadas
+  // Funções de confirmação otimizadas para controle de presença
+  
+  // Função para confirmar presença do usuário em agendamento
+  // Atualiza status do agendamento para 'realizado'
   const confirmarPresenca = useCallback(async (agendamento) => {
     if (!agendamento?._id) return;
 
     try {
+      // Chama endpoint específico para confirmação de presença
       await axios.patch(
         `${API_BASE_URL}/appointments/${agendamento._id}/confirm`,
         {},
@@ -361,10 +449,10 @@ export default function MinhaAgenda() {
       );
 
       mostrarMensagem('Presença confirmada com sucesso!');
-      buscarAgendamentos();
+      buscarAgendamentos();  // Atualiza lista para refletir mudança
     } catch (erro) {
       console.error('Erro ao confirmar presença:', erro);
-      mostrarMensagem('😓 Não foi possível confirmar a presença. Tente novamente.', 'error');
+      mostrarMensagem('Não foi possível confirmar a presença. Tente novamente.', 'error');
     }
   }, [token, mostrarMensagem, buscarAgendamentos]);
 
