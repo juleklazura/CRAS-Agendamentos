@@ -18,7 +18,13 @@ export default function Logs() {
     setLoading(true);
     try {
       const res = await api.get('/logs');
-      setLogs(res.data);
+      // Ordenar logs por data decrescente (mais novo primeiro)
+      const logsOrdenados = res.data.sort((a, b) => {
+        const dataA = new Date(a.date);
+        const dataB = new Date(b.date);
+        return dataB.getTime() - dataA.getTime();
+      });
+      setLogs(logsOrdenados);
     } catch {
       setError('Erro ao buscar logs');
     }
@@ -35,7 +41,14 @@ export default function Logs() {
       CRAS: l.cras?.nome || '-',
       Ação: l.action,
       Detalhes: l.details,
-      Data: l.date ? new Date(l.date).toLocaleString() : '-'
+      Data: l.date ? new Date(l.date).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }) : '-'
     }));
     exportToCSV(data, 'logs.csv');
   }
@@ -127,7 +140,16 @@ export default function Logs() {
                     <TableCell>{l.cras?.nome || '-'}</TableCell>
                     <TableCell>{l.action}</TableCell>
                     <TableCell>{l.details}</TableCell>
-                    <TableCell>{l.date ? new Date(l.date).toLocaleString() : '-'}</TableCell>
+                    <TableCell>
+                      {l.date ? new Date(l.date).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      }) : '-'}
+                    </TableCell>
                   </TableRow>
                 ))
               )}

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="gradientBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#f0f8ff;stop-opacity:0.9" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fundo circular sutil -->
+  <circle cx="24" cy="24" r="22" fill="url(#gradientBg)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  
+  <!-- Calendário base -->
+  <rect x="12" y="14" width="24" height="20" rx="2" fill="white" stroke="rgba(25,118,210,0.3)" stroke-width="1"/>
+  
+  <!-- Topo do calendário -->
+  <rect x="12" y="14" width="24" height="5" rx="2" fill="#1976d2"/>
+  
+  <!-- Espirais do calendário -->
+  <circle cx="16" cy="12" r="1.5" fill="#1976d2"/>
+  <circle cx="32" cy="12" r="1.5" fill="#1976d2"/>
+  <rect x="15" y="10" width="2" height="4" fill="rgba(255,255,255,0.8)"/>
+  <rect x="31" y="10" width="2" height="4" fill="rgba(255,255,255,0.8)"/>
+  
+  <!-- Grade do calendário -->
+  <line x1="16" y1="22" x2="32" y2="22" stroke="#e0e0e0" stroke-width="1"/>
+  <line x1="16" y1="26" x2="32" y2="26" stroke="#e0e0e0" stroke-width="1"/>
+  <line x1="16" y1="30" x2="32" y2="30" stroke="#e0e0e0" stroke-width="1"/>
+  
+  <line x1="20" y1="19" x2="20" y2="34" stroke="#e0e0e0" stroke-width="1"/>
+  <line x1="24" y1="19" x2="24" y2="34" stroke="#e0e0e0" stroke-width="1"/>
+  <line x1="28" y1="19" x2="28" y2="34" stroke="#e0e0e0" stroke-width="1"/>
+  
+  <!-- Marcações de agendamento -->
+  <circle cx="18" cy="24" r="2" fill="#4caf50"/>
+  <circle cx="26" cy="28" r="2" fill="#ff9800"/>
+  <circle cx="30" cy="32" r="2" fill="#f44336"/>
+  
+  <!-- Letra C estilizada no canto -->
+  <text x="8" y="44" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" stroke="#1976d2" stroke-width="0.5">C</text>
+</svg>

@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Log from '../models/Log.js';
 import bcrypt from 'bcryptjs';
 
 // Criar usuário (apenas admin)
@@ -8,8 +9,18 @@ export const createUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ name, password: hashedPassword, role, cras, matricula });
     await user.save();
+    
+    // Criar log da ação
+    await Log.create({
+      user: req.user.id,
+      cras: req.user.cras,
+      action: 'criar_usuario',
+      details: `Usuário criado: ${name} (${role}) - Matrícula: ${matricula || 'N/A'}`
+    });
+    
     res.status(201).json(user);
-  } catch (_) {
+  } catch (err) {
+    console.error('Erro ao criar usuário:', err);
     res.status(400).json({ message: 'Erro ao criar usuário', error: err.message });
   }
 };
@@ -75,6 +86,15 @@ export const updateUser = async (req, res) => {
       };
     }
     const user = await User.findByIdAndUpdate(id, update, { new: true });
+    
+    // Criar log da ação
+    await Log.create({
+      user: req.user.id,
+      cras: req.user.cras,
+      action: 'editar_usuario',
+      details: `Usuário editado: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`
+    });
+    
     res.json(user);
   } catch (_) {
     res.status(400).json({ message: 'Erro ao atualizar usuário' });
@@ -85,7 +105,23 @@ export const updateUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Buscar dados do usuário antes de excluir para o log
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+    
     await User.findByIdAndDelete(id);
+    
+    // Criar log da ação
+    await Log.create({
+      user: req.user.id,
+      cras: req.user.cras,
+      action: 'excluir_usuario',
+      details: `Usuário excluído: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`
+    });
+    
     res.json({ message: 'Usuário removido' });
   } catch (_) {
     res.status(400).json({ message: 'Erro ao remover usuário' });

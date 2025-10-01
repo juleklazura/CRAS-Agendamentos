@@ -1,49 +1,76 @@
-# Scripts do Backend
+# Scripts de Gerenciamento do Sistema CRAS
 
-Este diretório contém scripts utilitários para o sistema de agendamentos.
+Esta pasta contém scripts utilitários para gerenciar o banco de dados e realizar operações administrativas no sistema.
 
-## 📁 Estrutura dos Scripts
+## 📋 Scripts Disponíveis
 
-### ✅ **Scripts de Produção/Migração** (incluídos no Git)
-Scripts seguros que podem ser executados em produção:
+### 👤 Gerenciamento de Usuários
+- **`createAdminUser.js`** - Cria usuário administrador
+- **`createRecepcaoUser.js`** - Cria usuário de recepção  
+- **`listUsers.js`** - Lista todos os usuários do sistema
+- **`verificarUsuarios.js`** - Verifica integridade dos usuários
 
-- `createAdminUser.js` - Cria usuário administrador
-- `createRecepcaoUser.js` - Cria usuário de recepção
-- `listUsers.js` - Lista usuários do sistema
-- `verificarUsuarios.js` - Verifica integridade dos usuários
-- `addMotivoField.js` - Migração: adiciona campo motivo
-- `dropEmailIndex.js` - Migração: remove índice de email
-- `updateAppointments.js` - Migração: atualiza agendamentos
-- `updateCreatedBy.js` - Migração: atualiza campo createdBy
+### 📅 Gerenciamento de Agendamentos
+- **`testarCriacaoAgendamento.js`** - Testa criação de agendamentos
+- **`testarCriacaoAgendamentoAdmin.js`** - Testa criação como admin
+- **`updateAppointments.js`** - Atualiza estrutura de agendamentos
+- **`updateCreatedBy.js`** - Atualiza campo createdBy
+- **`limparAgendamentos.js`** - ⚠️ Exclui TODOS os agendamentos
+- **`limparAgendamentosPorEntrevistador.js`** - ⚠️ Exclui agendamentos de um entrevistador específico
 
-### ⚠️ **Scripts de Desenvolvimento/Teste** (excluídos do Git)
-Scripts perigosos que podem apagar dados - **APENAS PARA DESENVOLVIMENTO**:
+### 🔧 Correções e Manutenção
+- **`addMotivoField.js`** - Adiciona campo motivo aos agendamentos
+- **`corrigirMotivosAgendamentos.js`** - Corrige motivos dos agendamentos
+- **`verificarECorrigirMotivos.js`** - Verifica e corrige motivos
+- **`verificarMotivos.js`** - Apenas verifica motivos
+- **`dropEmailIndex.js`** - Remove índice de email duplicado
 
-- `createTestUsers.js` - ❌ Cria usuários de teste
-- `deleteAllAppointments.js` - ❌ **PERIGO**: Apaga TODOS os agendamentos
-- `deleteAllUsers.js` - ❌ **PERIGO**: Apaga TODOS os usuários
-- `deleteUser0000.js` - ❌ Remove usuário específico
-- `preencherAgendaTeste.js` - ❌ Cria agendamentos de teste
-- `preencherAgendaTeste1000.js` - ❌ Cria 1000 agendamentos de teste
-- `testarCrasIds.js` - ❌ Script de teste de CRAS
-- `testarRotaRecepcao.js` - ❌ Teste de rotas da recepção
+### 🧪 Dados de Teste
+- **`createTestData.js`** - Cria dados de teste para desenvolvimento
 
 ## 🚀 Como Executar os Scripts
 
+### Navegue até a pasta backend:
 ```bash
-# No diretório backend/
-node scripts/nomeDoScript.js
+cd backend
 ```
 
-## ⚠️ **ATENÇÃO**
+### Exemplos de uso:
 
-- **Scripts de teste/desenvolvimento** estão no `.gitignore` e não devem ser commitados
-- **NUNCA** execute scripts de delete em produção
-- Scripts de migração devem ser executados com backup do banco
-- Sempre teste scripts em ambiente de desenvolvimento primeiro
+```bash
+# Criar usuário admin
+node scripts/createAdminUser.js
 
-## 🔒 Segurança
+# Listar todos os usuários
+node scripts/listUsers.js
 
-Os scripts perigosos estão excluídos do Git para evitar execução acidental em produção. 
+# Limpar TODOS os agendamentos (CUIDADO!)
+node scripts/limparAgendamentos.js
 
-Se você precisar dos scripts de desenvolvimento, pode criar localmente ou solicitar ao desenvolvedor.
+# Limpar agendamentos de um entrevistador específico
+node scripts/limparAgendamentosPorEntrevistador.js "email@entrevistador.com"
+
+# Criar dados de teste
+node scripts/createTestData.js
+```
+
+## ⚠️ Scripts Destrutivos
+
+**ATENÇÃO:** Os seguintes scripts fazem alterações IRREVERSÍVEIS no banco de dados:
+
+- `limparAgendamentos.js` - Exclui TODOS os agendamentos do sistema
+- `limparAgendamentosPorEntrevistador.js` - Exclui todos os agendamentos de um entrevistador
+
+**Use com extremo cuidado e sempre faça backup antes!**
+
+## � Logs
+
+Todos os scripts destrutivos registram suas ações no sistema de logs para auditoria.
+
+## 🔍 Troubleshooting
+
+Se um script falhar:
+1. Verifique se o MongoDB está rodando
+2. Confirme as variáveis de ambiente no `.env`
+3. Verifique se você está na pasta `backend`
+4. Consulte as mensagens de erro detalhadas

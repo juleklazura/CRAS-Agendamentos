@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Log from '../models/Log.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -22,6 +23,15 @@ export const login = async (req, res) => {
       cras: user.cras ? user.cras.toString() : null,
       agenda: user.role === 'entrevistador' ? user.agenda : undefined
     }, process.env.JWT_SECRET || 'segredo_super_secreto', { expiresIn: '8h' });
+    
+    // Criar log da ação
+    await Log.create({
+      user: user._id,
+      cras: user.cras,
+      action: 'login',
+      details: `Login realizado por ${user.name} (${user.role}) - Matrícula: ${user.matricula}`
+    });
+    
     res.json({ 
       token, 
       user: { 

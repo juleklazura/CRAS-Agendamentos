@@ -348,9 +348,12 @@ a:hover {
     width: 100vw !important;
     margin-left: 0 !important;
     margin-top: 64px !important; /* Espaço para o AppBar */
+    position: relative !important;
+    z-index: 1 !important;
     padding: 0 !important;
     box-sizing: border-box !important;
     overflow-x: hidden !important;
+    min-height: calc(100vh - 64px) !important;
   }
   
   /* Forçar uso da largura total em todas as páginas no mobile */
@@ -358,6 +361,36 @@ a:hover {
     width: 100% !important;
     max-width: 100% !important;
     margin-left: 0 !important;
+  }
+
+  /* Garantir que todo conteúdo fique abaixo do AppBar */
+  .main-content > * {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  /* Evitar overlay do drawer sobre o conteúdo */
+  .MuiDrawer-root {
+    z-index: 1400 !important;
+  }
+
+  .MuiDrawer-paper {
+    z-index: 1400 !important;
+  }
+
+  /* Garantir que o backdrop do drawer funcione corretamente */
+  .MuiBackdrop-root {
+    z-index: 1350 !important;
+  }
+
+  /* Garantir que os itens do menu ficam abaixo do header */
+  .MuiDrawer-paper .MuiList-root {
+    padding-top: 8px !important;
+  }
+
+  .MuiDrawer-paper .MuiListItem-root {
+    position: relative !important;
+    z-index: auto !important;
   }
 
   .content-container {

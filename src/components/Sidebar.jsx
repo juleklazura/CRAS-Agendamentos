@@ -13,7 +13,8 @@ import {
   Toolbar,
   useTheme,
   useMediaQuery,
-  ListItemIcon
+  ListItemIcon,
+  Avatar
 } from '@mui/material';
 import { 
   Menu as MenuIcon,
@@ -133,7 +134,7 @@ const Sidebar = memo(() => {
     <Box
       sx={{
         p: 2,
-        pt: isMobile ? 0.5 : 2,
+        pt: isMobile ? 1 : 2, // Mais padding no mobile para evitar sobreposição
         pb: 2,
         display: 'flex',
         flexDirection: 'column',
@@ -143,35 +144,37 @@ const Sidebar = memo(() => {
     >
       {/* Cabeçalho - só aparece no desktop */}
       {!isMobile && (
-        <Box sx={{ mb: 3, textAlign: 'center' }}>
-          <Typography 
-            variant="h6" 
+        <Box sx={{ mb: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Avatar 
+            src="/cras-icon.svg" 
+            alt="CRAS"
             sx={{ 
-              fontWeight: 'bold',
-              color: 'white !important',
-              fontSize: '1.2rem',
-              lineHeight: 1.2,
-              wordBreak: 'break-word'
+              width: 48, 
+              height: 48, 
+              mb: 1,
+              backgroundColor: 'transparent'
             }}
-          >
-            CRAS
-          </Typography>
+          />
           <Typography 
             variant="h6" 
             sx={{ 
               fontWeight: 'bold',
               color: 'white !important',
               fontSize: '1.1rem',
-              lineHeight: 1.2
+              lineHeight: 1.1,
+              textAlign: 'center'
             }}
           >
-            Agendamentos
+            CRAS{'\n'}Agendamentos
           </Typography>
         </Box>
       )}
 
       {/* Menu */}
-      <List sx={{ flexGrow: 1 }}>
+      <List sx={{ 
+        flexGrow: 1,
+        pt: isMobile ? 2 : 1 // Mais padding no topo para mobile
+      }}>
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -245,7 +248,7 @@ const Sidebar = memo(() => {
             height: '64px'
           }}
         >
-          <Toolbar>
+          <Toolbar sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <IconButton
               edge="start"
               color="inherit"
@@ -257,7 +260,9 @@ const Sidebar = memo(() => {
             </IconButton>
             <Typography variant="h6" noWrap component="div" sx={{ 
               flexGrow: 1,
-              color: 'white !important'
+              color: 'white !important',
+              textAlign: 'center',
+              mr: 6 // Compensar espaço do ícone para centralizar
             }}>
               CRAS Agendamentos
             </Typography>
@@ -275,10 +280,13 @@ const Sidebar = memo(() => {
             keepMounted: true, // Melhor performance no mobile
           }}
           sx={{
+            zIndex: 1400, // Acima do AppBar (1300)
             '& .MuiDrawer-paper': {
               width: 280,
               bgcolor: '#1E4976 !important',
-              color: 'white'
+              color: 'white',
+              zIndex: 1400,
+              paddingTop: '64px' // Espaço para o AppBar
             }
           }}
         >

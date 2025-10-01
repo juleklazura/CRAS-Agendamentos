@@ -17,7 +17,12 @@ export const createBlockedSlot = async (req, res) => {
     const blocked = new BlockedSlot({ entrevistador, cras, data, motivo });
     await blocked.save();
     // Log automático
-    await Log.create({ user: entrevistador, cras, action: 'bloqueio_horario', details: `Bloqueou o horário ${new Date(data).toLocaleString()} - Motivo: ${motivo}` });
+    await Log.create({ 
+      user: req.user.id, 
+      cras, 
+      action: 'bloquear_horario', 
+      details: `Bloqueou o horário ${new Date(data).toLocaleString('pt-BR')} - Motivo: ${motivo}` 
+    });
     res.status(201).json(blocked);
   } catch (_) {
     res.status(400).json({ message: 'Erro ao bloquear horário' });
@@ -83,10 +88,10 @@ export const deleteBlockedSlot = async (req, res) => {
     
     // Log automático
     await Log.create({ 
-      user: entrevistador, 
+      user: req.user.id, 
       cras: slot.cras, 
-      action: 'desbloqueio_horario', 
-      details: `Desbloqueou o horário ${new Date(slot.data).toLocaleString()}` 
+      action: 'desbloquear_horario', 
+      details: `Desbloqueou o horário ${new Date(slot.data).toLocaleString('pt-BR')}` 
     });
     
     res.json({ message: 'Bloqueio removido' });

@@ -4,6 +4,6 @@ import { auth, authorize } from '../middlewares/auth.js';
 const router = express.Router();
 
 router.post('/', auth, createLog);
-router.get('/', auth, authorize(['admin', 'entrevistador']), getLogs);
+router.get('/', auth, authorize(['admin', 'entrevistador', 'recepcao']), getLogs);
 
 export default router;

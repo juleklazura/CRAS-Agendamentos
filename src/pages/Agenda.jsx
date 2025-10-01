@@ -572,8 +572,10 @@ const AgendaEntrevistadores = memo(() => {
       return;
     }
 
-    if (!dadosAgendamento.cpf?.trim()) {
-      setError(mensagens.erro.cpfInvalido);
+    // Validação do CPF - verifica se tem 11 dígitos após remover pontuação
+    const cpfLimpo = (dadosAgendamento.cpf || '').toString().replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) {
+      setError(`CPF inválido. Digite 11 dígitos (atual: ${cpfLimpo.length})`);
       return;
     }
 
@@ -603,7 +605,7 @@ const AgendaEntrevistadores = memo(() => {
         entrevistador: selectedEntrevistador,
         cras: entrevistadorSelecionado.cras._id || entrevistadorSelecionado.cras, // Garantir que seja apenas o ID
         pessoa: dadosAgendamento.pessoa,
-        cpf: dadosAgendamento.cpf.replace(/\D/g, ''), // Envia apenas números
+        cpf: cpfLimpo, // Usa a variável já limpa
         telefone1: dadosAgendamento.telefone1,
         telefone2: dadosAgendamento.telefone2,
         motivo: dadosAgendamento.motivo,

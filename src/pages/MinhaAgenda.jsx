@@ -27,6 +27,7 @@ import {
   MenuItem,
   Card,
   CardContent,
+  CircularProgress,
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -46,7 +47,8 @@ import {
   criarDataHorario
 } from '../utils/agendamentoUtils';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// 🌍 Configuração de ambiente otimizada
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // 🚀 Estados iniciais otimizados
 const INITIAL_FORM_STATE = {
@@ -62,6 +64,33 @@ const INITIAL_MESSAGE_STATE = {
   visivel: false, 
   texto: '', 
   tipo: 'success' 
+};
+
+// � Mensagens padronizadas do sistema
+const MESSAGES = {
+  SUCCESS: {
+    AGENDAMENTO_CRIADO: '✅ Agendamento criado com sucesso!',
+    AGENDAMENTO_EXCLUIDO: '✅ Agendamento excluído com sucesso!',
+    AGENDAMENTO_EDITADO: '✅ Agendamento editado com sucesso!',
+    PRESENCA_CONFIRMADA: '✅ Presença confirmada com sucesso!',
+    PRESENCA_REMOVIDA: '✅ Confirmação de presença removida!'
+  },
+  ERROR: {
+    AGENDAMENTO_CRIACAO: '❌ Não foi possível criar o agendamento. Tente novamente.',
+    AGENDAMENTO_EXCLUSAO: '❌ Não foi possível excluir o agendamento. Tente novamente.',
+    AGENDAMENTO_EDICAO: '❌ Não foi possível editar o agendamento. Tente novamente.',
+    CARREGAR_DADOS: '❌ Não foi possível carregar os dados. Tente novamente.',
+    VALIDACAO_FORMULARIO: '⚠️ Por favor, verifique os campos obrigatórios.'
+  }
+};
+
+// �🔄 Estados de loading granulares
+const INITIAL_LOADING_STATE = {
+  agendamentos: false,
+  creating: false,
+  updating: false,
+  deleting: false,
+  confirming: false
 };
 
 export default function MinhaAgenda() {
@@ -98,6 +127,7 @@ export default function MinhaAgenda() {
   const [agendamentos, setAgendamentos] = useState([]);
   const [bloqueios, setBloqueios] = useState([]);
   const [mensagem, setMensagem] = useState(INITIAL_MESSAGE_STATE);
+  const [loading, setLoading] = useState(INITIAL_LOADING_STATE);
 
   // 🎭 Estados de modais
   const [modals, setModals] = useState({
@@ -125,8 +155,20 @@ export default function MinhaAgenda() {
     setModals(prev => ({ ...prev, [modalName]: isOpen }));
   }, []);
 
+  // 💬 Função humanizada para exibir mensagens com auto-hide inteligente
   const mostrarMensagem = useCallback((texto, tipo = 'success') => {
     setMensagem({ visivel: true, texto, tipo });
+    
+    // 🕒 Auto-hide inteligente: erro = 4s, sucesso = 3s, outros = 5s
+    const delay = tipo === 'error' ? 4000 : tipo === 'success' ? 3000 : 5000;
+    setTimeout(() => {
+      setMensagem(prev => ({ ...prev, visivel: false }));
+    }, delay);
+  }, []);
+
+  // 🔄 Helper para gerenciar estados de loading
+  const updateLoading = useCallback((key, value) => {
+    setLoading(prev => ({ ...prev, [key]: value }));
   }, []);
 
   // 📱 Handlers de formatação otimizados
@@ -242,7 +284,7 @@ export default function MinhaAgenda() {
       return false;
     }
     
-    const cpfApenasNumeros = dados.cpf.replace(/\\D/g, '');
+    const cpfApenasNumeros = dados.cpf.replace(/\D/g, '');
     if (cpfApenasNumeros.length !== 11) {
       mostrarMensagem('📋 CPF deve ter exatamente 11 números', 'error');
       return false;
@@ -269,6 +311,7 @@ export default function MinhaAgenda() {
   const criarAgendamento = useCallback(async () => {
     if (!validarFormulario(dadosAgendamento)) return;
 
+    updateLoading('creating', true);
     try {
       const dataHorario = criarDataHorario(dataSelecionada, contexto.horarioSelecionado);
       if (!dataHorario) throw new Error('Data inválida');
@@ -292,7 +335,7 @@ export default function MinhaAgenda() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      mostrarMensagem('Agendamento criado com sucesso!');
+      mostrarMensagem(MESSAGES.SUCCESS.AGENDAMENTO_CRIADO);
       updateModal('agendamento', false);
       
       // Buscar agendamentos sem bloquear o fechamento do modal
@@ -300,9 +343,11 @@ export default function MinhaAgenda() {
       
     } catch (erro) {
       console.error('Erro ao criar agendamento:', erro);
-      mostrarMensagem('😓 Não foi possível criar o agendamento. Tente novamente.', 'error');
+      mostrarMensagem(MESSAGES.ERROR.AGENDAMENTO_CRIACAO, 'error');
+    } finally {
+      updateLoading('creating', false);
     }
-  }, [dadosAgendamento, dataSelecionada, contexto.horarioSelecionado, usuarioId, usuarioCras, token, validarFormulario, mostrarMensagem, updateModal, buscarAgendamentos]);
+  }, [dadosAgendamento, dataSelecionada, contexto.horarioSelecionado, usuarioId, usuarioCras, token, validarFormulario, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
 
   // ✅ Funções de confirmação otimizadas
   const confirmarPresenca = useCallback(async (agendamento) => {
@@ -344,20 +389,23 @@ export default function MinhaAgenda() {
   const excluirAgendamento = useCallback(async () => {
     if (!contexto.agendamentoParaExcluir) return;
 
+    updateLoading('deleting', true);
     try {
       await axios.delete(
         `${API_BASE_URL}/appointments/${contexto.agendamentoParaExcluir._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      mostrarMensagem('Agendamento excluído com sucesso!');
+      mostrarMensagem(MESSAGES.SUCCESS.AGENDAMENTO_EXCLUIDO);
       updateModal('exclusao', false);
       buscarAgendamentos();
     } catch (erro) {
       console.error('Erro ao excluir agendamento:', erro);
-      mostrarMensagem('😓 Não foi possível excluir o agendamento. Tente novamente.', 'error');
+      mostrarMensagem(MESSAGES.ERROR.AGENDAMENTO_EXCLUSAO, 'error');
+    } finally {
+      updateLoading('deleting', false);
     }
-  }, [contexto.agendamentoParaExcluir, token, mostrarMensagem, updateModal, buscarAgendamentos]);
+  }, [contexto.agendamentoParaExcluir, token, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
 
   const salvarEdicao = useCallback(async () => {
     if (!validarFormulario(dadosEdicao) || !contexto.agendamentoParaEditar) return;
@@ -423,8 +471,48 @@ export default function MinhaAgenda() {
       <Sidebar />
       <Box className="main-content">
           {/* Header */}
-          <Box sx={{ mt: 4, mb: 3, textAlign: 'center' }}>
-            <Typography variant="h4" component="h1" className="main-page-title" sx={{ fontWeight: 'bold' }}>
+          <Box sx={{ 
+            mt: { xs: 1, sm: 2, md: 4 }, 
+            mb: { xs: 2, sm: 3, md: 3 }, 
+            textAlign: 'center',
+            pt: { xs: 1, sm: 0 },
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              className="main-page-title" 
+              sx={{ 
+                fontFamily: 'Poppins, Roboto, Arial, sans-serif',
+                fontWeight: 700,
+                fontSize: {
+                  xs: '1.8rem',
+                  sm: '2.2rem',
+                  md: '2.5rem',
+                  lg: '2.8rem'
+                },
+                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                letterSpacing: '0.5px',
+                lineHeight: 1.2,
+                position: 'relative',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  bottom: '-8px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: { xs: '60px', sm: '80px' },
+                  height: '3px',
+                  background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                  borderRadius: '2px'
+                }
+              }}
+            >
               📅 Minha Agenda
             </Typography>
           </Box>
@@ -706,8 +794,13 @@ export default function MinhaAgenda() {
             </DialogContent>
             <DialogActions>
               <Button onClick={() => updateModal('agendamento', false)}>Cancelar</Button>
-              <Button onClick={criarAgendamento} variant="contained">
-                Criar Agendamento
+              <Button 
+                onClick={criarAgendamento} 
+                variant="contained"
+                disabled={loading.creating}
+                startIcon={loading.creating ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+              >
+                {loading.creating ? '💾 Criando...' : 'Criar Agendamento'}
               </Button>
             </DialogActions>
           </Dialog>
@@ -739,7 +832,7 @@ export default function MinhaAgenda() {
             <DialogTitle>Excluir Agendamento</DialogTitle>
             <DialogContent>
               <Typography>
-                Tem certeza que deseja excluir o agendamento de <strong>{contexto.agendamentoSelecionado?.pessoa}</strong>?
+                Tem certeza que deseja excluir o agendamento de <strong>{contexto.agendamentoParaExcluir?.pessoa}</strong>?
               </Typography>
             </DialogContent>
             <DialogActions>

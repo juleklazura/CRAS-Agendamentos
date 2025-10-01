@@ -21,7 +21,9 @@ export const getLogs = async (req, res) => {
     } else if (req.query.cras) {
       filter.cras = req.query.cras;
     }
-    const logs = await Log.find(filter).populate('user cras');
+    const logs = await Log.find(filter)
+      .populate('user cras')
+      .sort({ date: -1 }); // Ordenar por data decrescente (mais novo primeiro)
     res.json(logs);
   } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar logs' });

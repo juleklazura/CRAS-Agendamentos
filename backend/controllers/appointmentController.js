@@ -1,5 +1,6 @@
 import Appointment from '../models/Appointment.js';
 import User from '../models/User.js';
+import Log from '../models/Log.js';
 import mongoose from 'mongoose';
 
 // Agendar (Entrevistador, Recepção)
@@ -58,6 +59,15 @@ export const createAppointment = async (req, res) => {
     });
     
     await appointment.save();
+    
+    // Criar log da ação
+    await Log.create({
+      user: req.user.id,
+      cras: cras,
+      action: 'criar_agendamento',
+      details: `Agendamento criado para ${pessoa} em ${new Date(data).toLocaleString('pt-BR')} - Motivo: ${motivo}`
+    });
+    
     res.status(201).json(appointment);
   } catch (err) {
     console.error('Erro ao criar agendamento:', err);
@@ -165,7 +175,16 @@ export const updateAppointment = async (req, res) => {
     const update = req.body;
     update.updatedBy = req.user.id;
     update.updatedAt = new Date();
-    const appointment = await Appointment.findByIdAndUpdate(id, update, { new: true });
+    const appointment = await Appointment.findByIdAndUpdate(id, update, { new: true }).populate('cras');
+    
+    // Criar log da ação
+    await Log.create({
+      user: req.user.id,
+      cras: appointment.cras._id,
+      action: 'editar_agendamento',
+      details: `Agendamento editado para ${appointment.pessoa} em ${new Date(appointment.data).toLocaleString('pt-BR')}`
+    });
+    
     res.json(appointment);
   } catch (error) {
     console.error('Erro ao atualizar agendamento:', error);
@@ -177,7 +196,23 @@ export const updateAppointment = async (req, res) => {
 export const deleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Buscar dados do agendamento antes de excluir para o log
+    const appointment = await Appointment.findById(id).populate('cras');
+    if (!appointment) {
+      return res.status(404).json({ message: 'Agendamento não encontrado' });
+    }
+    
     await Appointment.findByIdAndDelete(id);
+    
+    // Criar log da ação
+    await Log.create({
+      user: req.user.id,
+      cras: appointment.cras._id,
+      action: 'excluir_agendamento',
+      details: `Agendamento excluído de ${appointment.pessoa} em ${new Date(appointment.data).toLocaleString('pt-BR')}`
+    });
+    
     res.json({ message: 'Agendamento removido' });
   } catch (error) {
     console.error('Erro ao remover agendamento:', error);
