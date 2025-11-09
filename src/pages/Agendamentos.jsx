@@ -1,6 +1,12 @@
+// Componente Agendamentos - Lista e gerencia todos os agendamentos do sistema
+// Permite visualizar, filtrar, editar e excluir agendamentos com controle de permissões
+// Implementa paginação, busca, ordenação e exportação de dados
+// Acesso controlado por perfil: admin vê todos, entrevistador vê seus, recepção vê do CRAS
 import { useEffect, useState, useCallback, useRef } from 'react';
-import api from '../utils/axiosConfig';
-import Sidebar from '../components/Sidebar';
+import api from '../utils/axiosConfig';  // Cliente HTTP configurado com interceptors
+import Sidebar from '../components/Sidebar';  // Componente de navegação lateral
+
+// Componentes Material-UI para interface
 import {
   Button,
   TextField,
@@ -23,48 +29,61 @@ import {
   Box,
   TablePagination
 } from '@mui/material';
+
+// Ícones para ações da interface
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import DescriptionIcon from '@mui/icons-material/Description';
+
+// Utilitário para exportação de dados em CSV
 import { exportToCSV } from '../utils/csvExport';
 
+// Opções de status disponíveis para agendamentos
+// Define todos os possíveis estados de um agendamento no sistema
 const STATUS_OPTIONS = [
-  { value: 'agendado', label: 'Agendado' },
-  { value: 'realizado', label: 'Realizado' },
-  { value: 'cancelado', label: 'Cancelado' },
-  { value: 'reagendar', label: 'Reagendar' },
-  { value: 'faltou', label: 'Faltou' }
+  { value: 'agendado', label: 'Agendado' },    // Status inicial após criação
+  { value: 'realizado', label: 'Realizado' },  // Atendimento foi concluído
+  { value: 'cancelado', label: 'Cancelado' },  // Cancelado pelo usuário/sistema
+  { value: 'reagendar', label: 'Reagendar' },  // Precisa ser reagendado
+  { value: 'faltou', label: 'Faltou' }         // Pessoa não compareceu
 ];
 
+/**
+ * Componente principal para listagem e gerenciamento de agendamentos
+ * Funcionalidades: listagem, busca, ordenação, paginação, edição, exclusão, exportação
+ * Controle de acesso baseado no perfil do usuário logado
+ */
 export default function Agendamentos() {
-  const [agendamentos, setAgendamentos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Estados principais para dados e interface
+  const [agendamentos, setAgendamentos] = useState([]);       // Lista de agendamentos carregados
+  const [loading, setLoading] = useState(true);               // Estado de carregamento
+  const [error, setError] = useState('');                     // Mensagens de erro
+  const [success, setSuccess] = useState('');                 // Mensagens de sucesso
+  const [confirmOpen, setConfirmOpen] = useState(false);      // Modal de confirmação de exclusão
+  const [deleteId, setDeleteId] = useState(null);            // ID do agendamento a ser excluído
+  const [search, setSearch] = useState('');                   // Termo de busca atual
+  const [debouncedSearch, setDebouncedSearch] = useState(''); // Busca com debounce para performance
   
-  // Estados para modal de observações
+  // Estados para modal de visualização de observações
   const [modalObservacoesAberto, setModalObservacoesAberto] = useState(false);
-  const [observacoesVisualizacao, setObservacoesVisualizacao] = useState('');
-  const [nomeAgendamentoObservacoes, setNomeAgendamentoObservacoes] = useState('');
+  const [observacoesVisualizacao, setObservacoesVisualizacao] = useState('');     // Texto das observações para modal
+  const [nomeAgendamentoObservacoes, setNomeAgendamentoObservacoes] = useState(''); // Nome da pessoa para modal
 
-  // Estados para ordenação
-  const [orderBy, setOrderBy] = useState('data');
-  const [order, setOrder] = useState('asc');
+  // Estados para ordenação da tabela
+  const [orderBy, setOrderBy] = useState('data');    // Campo para ordenação (data, nome, etc.)
+  const [order, setOrder] = useState('asc');         // Direção da ordenação (asc/desc)
 
-  // Paginação
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [total, setTotal] = useState(0);
+  // Estados para paginação da tabela
+  const [page, setPage] = useState(0);               // Página atual (zero-indexed)
+  const [rowsPerPage, setRowsPerPage] = useState(20); // Itens por página
+  const [total, setTotal] = useState(0);             // Total de registros
 
-  // Ref para manter o foco no input de busca
+  // Ref para manter o foco no input de busca após operações
   const searchInputRef = useRef(null);
 
-  // Debounce para a busca
+  // Implementa debounce na busca para evitar muitas requisições
+  // Aguarda 500ms após parar de digitar antes de executar a busca
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -72,29 +91,42 @@ export default function Agendamentos() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Função para formatar CPF para exibição
+  /**
+   * Formata CPF para exibição na tabela
+   * Aceita CPF com ou sem formatação e padroniza para xxx.xxx.xxx-xx
+   * @param {string} cpf - CPF em qualquer formato
+   * @returns {string} CPF formatado ou '-' se inválido
+   */
   const formatarCPFExibicao = (cpf) => {
     if (!cpf) return '-';
-    if (cpf.includes('.')) return cpf;
+    if (cpf.includes('.')) return cpf; // Já formatado
     const apenasNumeros = cpf.replace(/\D/g, '').slice(0, 11);
     return apenasNumeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
-  // Buscar agendamentos do backend
+  /**
+   * Busca agendamentos do backend com filtros baseados no perfil do usuário
+   * Admin: vê todos os agendamentos
+   * Entrevistador: vê apenas seus agendamentos
+   * Recepção: vê agendamentos do CRAS onde trabalha
+   */
   const fetchAgendamentos = useCallback(async () => {
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user'));
     
-    if (!token || !user) return; // Não carregar se não tem token ou user
+    if (!token || !user) return; // Validação de autenticação
     
     try {
+      // Monta URL com filtros baseados no perfil
       let url = '/appointments?';
       if (user?.role === 'entrevistador') {
-        url += `entrevistador=${user.id}&`;
+        url += `entrevistador=${user.id}&`;           // Filtra por entrevistador
       } else if (user?.role === 'recepcao') {
-        url += `cras=${user.cras}&`;
+        url += `cras=${user.cras}&`;                  // Filtra por CRAS
       }
-      // Não enviar page e pageSize para fazer paginação no frontend
+      // Admin não tem filtro, vê todos os agendamentos
+      
+      // Adiciona parâmetros de busca e ordenação
       if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`;
       if (orderBy) url += `&sortBy=${orderBy}`;
       if (order) url += `&order=${order}`;
@@ -117,19 +149,26 @@ export default function Agendamentos() {
     fetchAgendamentos();
   }, [fetchAgendamentos]);
 
-  // Ao mudar busca, volta para página 0
+  // Ao mudar busca ou itens por página, volta para primeira página
+  // Evita exibir páginas vazias quando filtros reduzem resultados
   useEffect(() => {
     setPage(0);
   }, [debouncedSearch, rowsPerPage]);
 
-  // Manter foco no input de busca após carregamento
+  // Mantém foco no input de busca após carregamento para melhor UX
+  // Permite que usuário continue digitando sem perder foco
   useEffect(() => {
     if (!loading && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [loading, agendamentos]);
 
-  // Função para ordenar ao clicar no cabeçalho
+  /**
+   * Gerencia ordenação da tabela ao clicar nos cabeçalhos
+   * Alterna entre ascendente/descendente no mesmo campo
+   * Volta para primeira página ao mudar ordenação
+   * @param {string} campo - Campo para ordenar (data, nome, etc.)
+   */
   const handleSort = (campo) => {
     if (orderBy === campo) {
       setOrder(order === 'asc' ? 'desc' : 'asc');
@@ -137,26 +176,37 @@ export default function Agendamentos() {
       setOrderBy(campo);
       setOrder('asc');
     }
-    setPage(0);
+    setPage(0); // Volta para primeira página
   };
 
-  // Busca e ordenação agora são feitas no backend, paginação no frontend
+  // Implementa paginação no frontend após busca/ordenação no backend
+  // Garante performance mesmo com muitos registros
   const startIndex = page * rowsPerPage;
   const endIndex = startIndex + rowsPerPage;
   const paginatedAgendamentos = agendamentos.slice(startIndex, endIndex);
 
+  /**
+   * Inicia processo de exclusão de agendamento
+   * Abre modal de confirmação para evitar exclusões acidentais
+   * @param {string} id - ID do agendamento a ser excluído
+   */
   const handleDelete = async (id) => {
     setDeleteId(id);
     setConfirmOpen(true);
   };
 
+  /**
+   * Confirma e executa a exclusão do agendamento
+   * Chama API de exclusão e atualiza lista local
+   * Exibe feedback de sucesso ou erro ao usuário
+   */
   const confirmDelete = async () => {
     if (!deleteId) return;
 
     try {
       await api.delete(`/appointments/${deleteId}`);
       setSuccess('Agendamento excluído com sucesso!');
-      fetchAgendamentos();
+      fetchAgendamentos(); // Recarrega lista após exclusão
     } catch {
       setError('Erro ao excluir o agendamento');
     } finally {
@@ -165,6 +215,11 @@ export default function Agendamentos() {
     }
   };
 
+  /**
+   * Exporta dados dos agendamentos para arquivo CSV
+   * Aplica os mesmos filtros da visualização atual
+   * Formata dados para legibilidade no arquivo exportado
+   */
   const exportToExcel = () => {
     const data = agendamentos.map(a => ({
       Entrevistador: a.entrevistador?.name || '-',

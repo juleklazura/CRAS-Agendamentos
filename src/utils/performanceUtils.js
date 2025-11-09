@@ -1,22 +1,26 @@
+// Utilitários de Performance Otimizados
+// Funções e classes para melhorar performance da aplicação
 import React from 'react';
 import axios from 'axios';
 
-// 🚀 Utilitários de Performance Otimizados
-
 /**
- * 📦 Cache simples para funções custosas
+ * Cache simples para funções custosas
+ * Implementa cache com TTL (time to live) e limite de tamanho
+ * Útil para evitar recálculos desnecessários e requisições repetidas
  */
 export class SimpleCache {
   constructor(maxSize = 100, ttl = 5 * 60 * 1000) { // 5 minutos default
-    this.cache = new Map();
-    this.maxSize = maxSize;
-    this.ttl = ttl;
+    this.cache = new Map();     // Armazenamento do cache
+    this.maxSize = maxSize;     // Tamanho máximo do cache
+    this.ttl = ttl;             // Tempo de vida dos itens (TTL)
   }
 
+  // Recupera item do cache verificando validade
   get(key) {
     const item = this.cache.get(key);
     if (!item) return null;
     
+    // Verifica se item expirou
     if (Date.now() - item.timestamp > this.ttl) {
       this.cache.delete(key);
       return null;
@@ -25,8 +29,9 @@ export class SimpleCache {
     return item.value;
   }
 
+  // Adiciona item ao cache com timestamp
   set(key, value) {
-    // Limpar cache se exceder tamanho máximo
+    // Limpa cache se exceder tamanho máximo (FIFO)
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
@@ -38,13 +43,17 @@ export class SimpleCache {
     });
   }
 
+  // Limpa todo o cache
   clear() {
     this.cache.clear();
   }
 }
 
 /**
- * 🔄 Debounce otimizado para inputs
+ * Debounce otimizado para inputs e buscas
+ * Evita execução excessiva de funções durante digitação
+ * @param {Function} func - Função a ser executada
+ * @param {number} delay - Delay em milissegundos (padrão 300ms)
  */
 export const debounce = (func, delay = 300) => {
   let timeoutId;

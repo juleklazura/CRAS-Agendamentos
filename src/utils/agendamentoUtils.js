@@ -159,11 +159,11 @@ export const motivosAtendimento = [
 ];
 
 /**
- * ⏰ Horários disponíveis - CRAS funciona das 8h às 17h
- * Lista corrigida sem horários de 7h (muito cedo) e sem 17h (fechamento)
+ * ⏰ Horários disponíveis - CRAS funciona das 8h30 às 17h
+ * Lista corrigida - Início às 08:30 (não 08:00)
  */
 export const horariosDisponiveis = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
   '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
 ];
 

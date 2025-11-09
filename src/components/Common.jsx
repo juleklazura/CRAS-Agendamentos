@@ -1,3 +1,5 @@
+// Componentes comuns reutilizáveis do sistema
+// Centraliza componentes que são usados em múltiplas páginas para consistência
 import React, { memo } from 'react';
 import {
   Snackbar,
@@ -14,7 +16,13 @@ import {
 } from '@mui/material';
 
 /**
- * 📢 Componente de notificação global otimizado
+ * Componente de notificação global otimizado
+ * Exibe mensagens de feedback para o usuário (sucesso, erro, aviso, info)
+ * @param {boolean} open - Se a notificação está visível
+ * @param {string} message - Texto da mensagem
+ * @param {string} severity - Tipo da mensagem (success, error, warning, info)
+ * @param {function} onClose - Função para fechar a notificação
+ * @param {number} autoHideDuration - Tempo em ms para auto-ocultar
  */
 export const NotificationSnackbar = memo(({ 
   open, 
@@ -43,7 +51,8 @@ export const NotificationSnackbar = memo(({
 NotificationSnackbar.displayName = 'NotificationSnackbar';
 
 /**
- * ⏳ Componente de loading global otimizado
+ * Componente de loading global otimizado
+ * Exibe indicador de carregamento com backdrop para bloquear interações
  */
 export const GlobalLoader = memo(({ open, message = 'Carregando...' }) => (
   <Backdrop

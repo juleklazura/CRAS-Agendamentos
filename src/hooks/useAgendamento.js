@@ -1,28 +1,47 @@
+// Hook personalizado para gerenciamento de agendamentos
+// Centraliza toda lógica de negócio relacionada a agendamentos, bloqueios e usuários
+// Fornece API consistente para operações CRUD com tratamento de erro padronizado
+// Otimizado para reutilização em diferentes componentes
 import { useState, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import axios from 'axios';  // Cliente HTTP para requisições
 import { validarCPF, validarTelefone, mensagens } from '../utils/agendamentoUtils';
 
+// URL base da API configurada
 const API_BASE_URL = 'http://localhost:5000/api';
 
 /**
- * 🎯 Hook personalizado para gerenciar agendamentos
+ * Hook principal para gerenciamento de agendamentos
  * Centraliza toda a lógica de CRUD de agendamentos para reutilização
+ * Implementa padrões de loading, error handling e success feedback
+ * @returns {Object} API completa para gerenciar agendamentos
  */
 export const useAgendamento = () => {
-  // Estados consolidados
+  // Estados consolidados em objeto único para melhor performance
+  // Evita múltiplos re-renders quando vários estados mudam simultaneamente
   const [state, setState] = useState({
-    agendamentos: [],
-    loading: false,
-    error: null,
-    success: null
+    agendamentos: [],  // Lista de agendamentos carregados
+    loading: false,    // Estado de carregamento das operações
+    error: null,       // Mensagens de erro para exibição
+    success: null      // Mensagens de sucesso para feedback
   });
 
-  // Helper para atualizar estado de forma otimizada
+  /**
+   * Helper para atualizar estado de forma otimizada
+   * Usa função de callback para evitar dependências desnecessárias
+   * @param {Object} updates - Propriedades a serem atualizadas
+   */
   const updateState = useCallback((updates) => {
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // Função para fazer requisições com tratamento de erro padrão
+  /**
+   * Wrapper genérico para requisições com tratamento padrão
+   * Gerencia estados de loading, erro e sucesso automaticamente
+   * Fornece consistência em todas as operações da API
+   * @param {Function} requestFn - Função que faz a requisição
+   * @param {string} successMessage - Mensagem de sucesso (opcional)
+   * @returns {Promise} Resultado da requisição
+   */
   const makeRequest = useCallback(async (requestFn, successMessage = null) => {
     updateState({ loading: true, error: null, success: null });
     
@@ -35,13 +54,14 @@ export const useAgendamento = () => {
       });
       return result;
     } catch (error) {
+      // Extrai mensagem de erro do backend ou usa mensagem padrão
       const errorMessage = error.response?.data?.message || mensagens.erro.erroInesperado;
       updateState({ 
         loading: false, 
         error: errorMessage,
         success: null 
       });
-      throw error;
+      throw error; // Re-throw para permitir tratamento específico se necessário
     }
   }, [updateState]);
 

@@ -109,7 +109,8 @@ import {
 } from '../utils/agendamentoUtils';
 
 // Constantes da aplicação - movidas para fora do componente para melhor performance
-
+// Mapeamento de cores e labels para diferentes status de agendamento
+// Usado para feedback visual consistente no sistema
 const STATUS_COLORS = {
   'livre': { color: 'success', label: 'Disponível' },
   'agendado': { color: 'primary', label: 'Agendado' },
@@ -117,7 +118,21 @@ const STATUS_COLORS = {
   'bloqueado': { color: 'warning', label: 'Bloqueado' }
 };
 
-// Componente memoizado para linha da tabela
+/**
+ * Componente memoizado para linha da tabela de horários
+ * Renderiza uma linha individual da grade de horários com todas as informações do agendamento
+ * Memoizado para evitar re-renderizações desnecessárias quando props não mudam
+ * 
+ * @param {string} horario - Horário no formato "HH:MM" 
+ * @param {string} status - Status do horário (livre/agendado/realizado/bloqueado)
+ * @param {Object} agendamento - Dados do agendamento se existir
+ * @param {Object} bloqueio - Dados do bloqueio se existir
+ * @param {Function} formatarCPF - Função para formatar CPF
+ * @param {Function} abrirModalObservacoes - Função para abrir modal de observações
+ * @param {Function} abrirModalAgendamento - Função para abrir modal de novo agendamento
+ * @param {Function} abrirModalEdicao - Função para abrir modal de edição
+ * @param {boolean} isEntrevistador - Se o usuário logado é entrevistador
+ */
 const HorarioTableRow = memo(({ 
   horario, 
   status, 
@@ -131,20 +146,25 @@ const HorarioTableRow = memo(({
 }) => (
   <TableRow 
     sx={{
+      // Destaque visual para agendamentos realizados com fundo verde claro
       backgroundColor: status === 'realizado' ? '#e8f5e8' : 'inherit',
       transition: 'background 0.2s',
       cursor: 'pointer',
+      // Efeito hover suave com sombra azul para melhor UX
       '&:hover': {
         backgroundColor: '#e3e9f7',
         boxShadow: '0 2px 8px 0 rgba(30,73,118,0.08)'
       }
     }}
   >
+    {/* Coluna do horário - exibe hora formatada */}
     <TableCell>
       <Typography variant="body2" fontWeight="medium">
         {horario}
       </Typography>
     </TableCell>
+    
+    {/* Coluna do status - cores condicionais com ícones para clareza visual */}
     <TableCell>
       <Typography
         variant="body2"
@@ -156,14 +176,21 @@ const HorarioTableRow = memo(({
         }
         fontWeight="medium"
       >
+        {/* Ícones emoji para tornar o status mais visual e intuitivo */}
         {status === 'agendado' ? '📅 Agendado' :
          status === 'realizado' ? '✅ Realizado' :
          status === 'bloqueado' ? '🚫 Bloqueado' :
          '✨ Disponível'}
       </Typography>
     </TableCell>
+    
+    {/* Nome da pessoa - exibe nome do agendamento ou indicação de bloqueio */}
     <TableCell>{agendamento?.pessoa || (bloqueio ? 'Horário Bloqueado' : '-')}</TableCell>
+    
+    {/* CPF formatado - usa função utilitária para formatação */}
     <TableCell>{agendamento ? formatarCPF(agendamento.cpf) : '-'}</TableCell>
+    
+    {/* Telefones - exibe telefone principal e alternativo se existir */}
     <TableCell>
       {agendamento ? (
         <Box>
@@ -174,7 +201,11 @@ const HorarioTableRow = memo(({
         </Box>
       ) : '-'}
     </TableCell>
+    
+    {/* Motivo do atendimento ou bloqueio */}
     <TableCell>{agendamento?.motivo || (bloqueio?.motivo || '-')}</TableCell>
+    
+    {/* Botão para visualizar observações - aparece só se existir observações */}
     <TableCell>
       {agendamento?.observacoes ? (
         <IconButton
@@ -187,8 +218,13 @@ const HorarioTableRow = memo(({
         </IconButton>
       ) : '-'}
     </TableCell>
+    
+    {/* Usuário que criou o agendamento/bloqueio */}
     <TableCell>{agendamento?.createdBy?.name || bloqueio?.createdBy?.name || '-'}</TableCell>
+    
+    {/* Coluna de ações - botões condicionais baseados no status */}
     <TableCell align="center">
+      {/* Botão para agendar - só aparece se horário está livre */}
       {status === 'livre' && (
         <Button
           variant="contained"
@@ -205,6 +241,8 @@ const HorarioTableRow = memo(({
           Agendar
         </Button>
       )}
+      
+      {/* Chip e botão de edição para agendamentos - edição só para entrevistadores */}
       {status === 'agendado' && (
         <Box display="flex" gap={1} alignItems="center" justifyContent="center">
           <Chip 
@@ -225,6 +263,8 @@ const HorarioTableRow = memo(({
           )}
         </Box>
       )}
+      
+      {/* Chip para agendamentos realizados */}
       {status === 'realizado' && (
         <Chip 
           label="Concluído" 
@@ -233,6 +273,8 @@ const HorarioTableRow = memo(({
           icon={<CheckCircleIcon />}
         />
       )}
+      
+      {/* Chip para horários bloqueados */}
       {status === 'bloqueado' && (
         <Chip 
           label="Indisponível" 
@@ -245,15 +287,26 @@ const HorarioTableRow = memo(({
   </TableRow>
 ));
 
+// Define displayName para debug e React DevTools
 HorarioTableRow.displayName = 'HorarioTableRow';
 
 /**
  * Componente principal da página de agenda dos entrevistadores
  * Permite visualizar e criar agendamentos para entrevistadores específicos
  * Otimizado para performance com memoização e lazy loading
+ * 
+ * Funcionalidades principais:
+ * - Visualização de agenda por entrevistador e data
+ * - Criação de novos agendamentos
+ * - Edição de agendamentos existentes (apenas entrevistadores)
+ * - Visualização de observações
+ * - Suporte a diferentes perfis (admin, entrevistador, recepção)
+ * - Validações de CPF e telefone com formatação automática
+ * - Filtragem automática de fins de semana
  */
 const AgendaEntrevistadores = memo(() => {
   // Estados principais da aplicação - otimizados com valores iniciais
+  // Inicializa data evitando fins de semana automaticamente
   const [data, setData] = useState(() => {
     const hoje = new Date();
     const diaSemana = hoje.getDay();
@@ -271,13 +324,14 @@ const AgendaEntrevistadores = memo(() => {
     return hoje;
   });
   
+  // Estados para gerenciamento de dados
   const [entrevistadores, setEntrevistadores] = useState([]);
   const [selectedEntrevistador, setSelectedEntrevistador] = useState('');
   const [agendamentos, setAgendamentos] = useState([]);
   const [bloqueios, setBloqueios] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Estados de feedback - consolidados
+  // Estados de feedback - consolidados para melhor performance
   const [feedbackState, setFeedbackState] = useState({ error: '', success: '' });
   
   // Estados do modal de criação de agendamento - memoizados
@@ -297,7 +351,7 @@ const AgendaEntrevistadores = memo(() => {
   const [observacoesVisualizacao, setObservacoesVisualizacao] = useState('');
   const [nomeAgendamentoObservacoes, setNomeAgendamentoObservacoes] = useState('');
 
-  // Estados para edição
+  // Estados para edição de agendamentos
   const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
   const [agendamentoParaEditar, setAgendamentoParaEditar] = useState(null);
   const [dadosEdicao, setDadosEdicao] = useState({
@@ -309,7 +363,7 @@ const AgendaEntrevistadores = memo(() => {
     observacoes: ''
   });
 
-  // Token e user - memoizados e estáticos
+  // Token e dados do usuário - memoizados e estáticos para performance
   const token = useMemo(() => localStorage.getItem('token'), []);
   const user = useMemo(() => {
     try {
@@ -320,7 +374,7 @@ const AgendaEntrevistadores = memo(() => {
   }, []);
   const isEntrevistador = useMemo(() => user?.role === 'entrevistador', [user?.role]);
 
-  // Funções helper memoizadas para feedback
+  // Funções helper memoizadas para feedback - evita recriação desnecessária
   const setError = useCallback((message) => {
     setFeedbackState(prev => ({ ...prev, error: message }));
   }, []);
@@ -329,7 +383,7 @@ const AgendaEntrevistadores = memo(() => {
     setFeedbackState(prev => ({ ...prev, success: message }));
   }, []);
 
-  // Handlers de mudança otimizados
+  // Handlers de mudança otimizados com formatação automática
   const handleCPFChange = useCallback((valor) => {
     const cpfFormatado = formatarCPF(valor);
     setDadosAgendamento(prev => ({ ...prev, cpf: cpfFormatado }));
@@ -383,6 +437,7 @@ const AgendaEntrevistadores = memo(() => {
   /**
    * Busca todos os agendamentos do entrevistador selecionado
    * Não aplica paginação para mostrar todos os horários na agenda
+   * Normaliza a resposta para sempre trabalhar com array consistente
    */
   const fetchAgendamentos = useCallback(async () => {
     if (!selectedEntrevistador) {
@@ -397,6 +452,7 @@ const AgendaEntrevistadores = memo(() => {
       );
       
       // Normaliza a resposta para sempre trabalhar com array
+      // API pode retornar formato {results: []} ou array direto
       let agendamentosData = response.data;
       if (agendamentosData && typeof agendamentosData === 'object' && Array.isArray(agendamentosData.results)) {
         agendamentosData = agendamentosData.results;
@@ -412,6 +468,7 @@ const AgendaEntrevistadores = memo(() => {
 
   /**
    * Busca todos os bloqueios de horário do entrevistador selecionado
+   * Bloqueios são horários marcados como indisponíveis manualmente
    */
   const fetchBloqueios = useCallback(async () => {
     if (!selectedEntrevistador) {
@@ -439,6 +496,7 @@ const AgendaEntrevistadores = memo(() => {
   }, [fetchEntrevistadores]);
 
   // Recarrega agendamentos e bloqueios quando o entrevistador ou data mudam
+  // Permite visualizar agenda atualizada sempre que filtros são alterados
   useEffect(() => {
     if (selectedEntrevistador) {
       fetchAgendamentos();
@@ -447,17 +505,20 @@ const AgendaEntrevistadores = memo(() => {
   }, [selectedEntrevistador, fetchAgendamentos, fetchBloqueios, data]);
 
   // Valores computados memoizados para performance
+  // Evita recálculos desnecessários durante re-renderizações
   const entrevistadorSelecionado = useMemo(() => 
     entrevistadores.find(e => e._id === selectedEntrevistador), 
     [entrevistadores, selectedEntrevistador]
   );
   
+  // Horários disponíveis - usa agenda personalizada do entrevistador ou padrão
   const horariosAgenda = useMemo(() => 
     entrevistadorSelecionado?.agenda?.horariosDisponiveis || horariosDisponiveis,
     [entrevistadorSelecionado?.agenda?.horariosDisponiveis]
   );
 
   // Normaliza agendamentos para sempre trabalhar com array - memoizado
+  // Garante consistência independente do formato da resposta da API
   const agendamentosArray = useMemo(() => {
     if (Array.isArray(agendamentos)) {
       return agendamentos;
@@ -527,6 +588,7 @@ const AgendaEntrevistadores = memo(() => {
 
   /**
    * Funções para edição de agendamentos
+   * Permite que entrevistadores editem seus próprios agendamentos
    */
   const abrirModalEdicao = useCallback((agendamento) => {
     setAgendamentoParaEditar(agendamento);
@@ -686,14 +748,16 @@ const AgendaEntrevistadores = memo(() => {
 
   return (
     <>
+      {/* Componente de navegação lateral */}
       <Sidebar />
       
+      {/* Container principal da página */}
       <Container 
         component="main" 
         maxWidth={false}
         className="main-content"
       >
-        {/* Cabeçalho da página */}
+        {/* Cabeçalho da página com título e descrição */}
         <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
           <Box display="flex" flexDirection="column" alignItems="center" textAlign="center" mb={0} >
             <Box display="flex" alignItems="center" gap={1}>
@@ -711,7 +775,7 @@ const AgendaEntrevistadores = memo(() => {
             </Typography>
           </Box>
 
-          {/* Seleção de entrevistador - integrada no cabeçalho */}
+          {/* Seleção de entrevistador - aparece apenas para admin e recepção */}
           {!isEntrevistador && (
             <Box>
               <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1} mb={2}>
@@ -720,7 +784,7 @@ const AgendaEntrevistadores = memo(() => {
               </Typography>
               
               <Box display="flex" gap={3} alignItems="flex-start" flexWrap="wrap">
-                {/* Seleção de entrevistador */}
+                {/* Dropdown para seleção de entrevistador */}
                 <Box sx={{ minWidth: 300, flex: 1 }}>
                   <Typography variant="body1" fontWeight="medium" mb={1}>
                     Entrevistador
@@ -750,7 +814,7 @@ const AgendaEntrevistadores = memo(() => {
                   </FormControl>
                 </Box>
 
-                {/* Seleção de data - aparece na mesma linha quando entrevistador é selecionado */}
+                {/* Seletor de data - aparece na mesma linha quando entrevistador é selecionado */}
                 {selectedEntrevistador && (
                   <Box sx={{ minWidth: 300, flex: 1 }}>
                     <Typography variant="body1" fontWeight="medium" mb={1}>
@@ -778,7 +842,7 @@ const AgendaEntrevistadores = memo(() => {
           )}
         </Paper>
 
-        {/* Para entrevistadores, mostra informações do usuário logado */}
+        {/* Para entrevistadores, exibe informações do usuário logado */}
         {isEntrevistador && (
           <Card elevation={2} sx={{ mb: 3 }}>
             <CardContent>
@@ -787,6 +851,7 @@ const AgendaEntrevistadores = memo(() => {
                 Informações do Entrevistador
               </Typography>
               
+              {/* Card com informações do entrevistador logado */}
               <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
                 <Typography variant="body1" fontWeight="medium">
                   👤 {user.name}
@@ -804,8 +869,10 @@ const AgendaEntrevistadores = memo(() => {
           </Card>
         )}
 
+        {/* Tabela de horários - exibe apenas se um entrevistador foi selecionado */}
         {selectedEntrevistador && (
           <>
+            {/* Estado de carregamento */}
             {loading ? (
               <Box display="flex" justifyContent="center" alignItems="center" p={4}>
                 <CircularProgress />
@@ -814,8 +881,10 @@ const AgendaEntrevistadores = memo(() => {
                 </Typography>
               </Box>
             ) : (
+              /* Tabela principal da agenda */
               <TableContainer component={Paper} sx={{ mt: 1 }}>
                 <Table size="small">
+                  {/* Cabeçalho da tabela */}
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>Horário</TableCell>
@@ -829,6 +898,8 @@ const AgendaEntrevistadores = memo(() => {
                       <TableCell align="center" sx={{ fontWeight: 'bold' }}>Ações</TableCell>
                     </TableRow>
                   </TableHead>
+                  
+                  {/* Corpo da tabela - mapeia todos os horários disponíveis */}
                   <TableBody>
                     {horariosAgenda.map((horario) => {
                       const { status, agendamento, bloqueio } = getStatusHorarioDetalhado(horario);
@@ -854,7 +925,7 @@ const AgendaEntrevistadores = memo(() => {
           </>
         )}
 
-        {/* Modal para criar agendamento */}
+        {/* Modal para criar novo agendamento */}
         <Dialog open={modalAberto} onClose={() => setModalAberto(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ pb: 2 }}>
             📅 Novo Agendamento
@@ -864,6 +935,7 @@ const AgendaEntrevistadores = memo(() => {
           </DialogTitle>
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              {/* Campo nome completo - obrigatório */}
               <TextField
                 label="👤 Nome Completo"
                 value={dadosAgendamento.pessoa}
@@ -873,6 +945,8 @@ const AgendaEntrevistadores = memo(() => {
                 placeholder="Digite o nome completo da pessoa"
                 helperText="Nome da pessoa que será atendida"
               />
+              
+              {/* Campo CPF com formatação automática - obrigatório */}
               <TextField
                 label="📋 CPF"
                 value={dadosAgendamento.cpf}
@@ -894,6 +968,8 @@ const AgendaEntrevistadores = memo(() => {
                 helperText="Digite apenas números, a formatação é automática"
                 inputProps={{ maxLength: 14 }}
               />
+              
+              {/* Campo telefone principal com formatação automática - obrigatório */}
               <TextField
                 label="📞 Telefone Principal"
                 value={dadosAgendamento.telefone1}
@@ -915,6 +991,8 @@ const AgendaEntrevistadores = memo(() => {
                 helperText="Número principal para contato"
                 inputProps={{ maxLength: 15 }}
               />
+              
+              {/* Campo telefone alternativo - opcional */}
               <TextField
                 label="📞 Telefone Alternativo (Opcional)"
                 value={dadosAgendamento.telefone2}
@@ -935,6 +1013,8 @@ const AgendaEntrevistadores = memo(() => {
                 helperText="Número adicional (opcional)"
                 inputProps={{ maxLength: 15 }}
               />
+              
+              {/* Dropdown para motivo do atendimento - obrigatório */}
               <FormControl fullWidth required>
                 <InputLabel>🎯 Motivo do atendimento</InputLabel>
                 <Select
@@ -949,6 +1029,8 @@ const AgendaEntrevistadores = memo(() => {
                   ))}
                 </Select>
               </FormControl>
+              
+              {/* Campo observações - opcional, texto livre multilinhas */}
               <TextField
                 label="📝 Observações (Opcional)"
                 value={dadosAgendamento.observacoes}
@@ -961,6 +1043,8 @@ const AgendaEntrevistadores = memo(() => {
               />
             </Box>
           </DialogContent>
+          
+          {/* Botões de ação do modal */}
           <DialogActions sx={{ p: 3 }}>
             <Button 
               onClick={() => setModalAberto(false)}
@@ -980,7 +1064,7 @@ const AgendaEntrevistadores = memo(() => {
           </DialogActions>
         </Dialog>
 
-        {/* Modal de Observações */}
+        {/* Modal de visualização de observações */}
         <Dialog 
           open={modalObservacoesAberto} 
           onClose={() => setModalObservacoesAberto(false)}
@@ -992,9 +1076,12 @@ const AgendaEntrevistadores = memo(() => {
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 1 }}>
+              {/* Nome da pessoa do agendamento */}
               <Typography variant="subtitle1" color="primary" gutterBottom>
                 👤 {nomeAgendamentoObservacoes}
               </Typography>
+              
+              {/* Área de texto das observações com estilo melhorado */}
               <Paper 
                 variant="outlined" 
                 sx={{ 
@@ -1008,7 +1095,7 @@ const AgendaEntrevistadores = memo(() => {
                 <Typography 
                   variant="body1" 
                   style={{ 
-                    whiteSpace: 'pre-wrap', 
+                    whiteSpace: 'pre-wrap', // Preserva quebras de linha
                     lineHeight: 1.6,
                     color: '#495057',
                     fontSize: '1rem'
@@ -1030,13 +1117,14 @@ const AgendaEntrevistadores = memo(() => {
           </DialogActions>
         </Dialog>
 
-        {/* Modal de Edição */}
+        {/* Modal de edição de agendamento - apenas para entrevistadores */}
         <Dialog open={modalEdicaoAberto} onClose={fecharModalEdicao} maxWidth="sm" fullWidth>
           <DialogTitle>
             ✏️ Editar Agendamento
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2 }}>
+              {/* Campos editáveis - estrutura similar ao modal de criação */}
               <TextField
                 fullWidth
                 margin="dense"
@@ -1117,6 +1205,7 @@ const AgendaEntrevistadores = memo(() => {
           </DialogActions>
         </Dialog>
 
+        {/* Snackbars para feedback de erro e sucesso */}
         <Snackbar 
           open={!!feedbackState.error} 
           autoHideDuration={4000} 

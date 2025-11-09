@@ -1,24 +1,56 @@
+// Componente CRAS - Gerencia unidades do Centro de Referência de Assistência Social
+// Permite criar, editar, listar e excluir unidades CRAS (apenas para administradores)
 import { useEffect, useState, useCallback } from 'react';
-import api from '../utils/axiosConfig';
-import Sidebar from '../components/Sidebar';
-import { Button, TextField, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Typography, Box, Snackbar, Alert, TablePagination } from '@mui/material';
+import api from '../utils/axiosConfig';  // Cliente HTTP configurado
+import Sidebar from '../components/Sidebar';  // Navegação lateral
+
+// Componentes Material-UI para interface completa
+import { 
+  Button, 
+  TextField, 
+  Paper, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  CircularProgress, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogContentText, 
+  DialogActions, 
+  IconButton, 
+  Typography, 
+  Box, 
+  Snackbar, 
+  Alert, 
+  TablePagination 
+} from '@mui/material';
+
+// Ícones para ações
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+
+// Utilitário para exportação
 import { exportToCSV } from '../utils/csvExport';
 
+// Componente principal para gerenciamento de CRAS
 export default function Cras() {
-  const [cras, setCras] = useState([]);
-  const [form, setForm] = useState({ nome: '', endereco: '', telefone: '' });
-  const [editId, setEditId] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // Estados principais para dados e controle
+  const [cras, setCras] = useState([]);  // Lista de unidades CRAS
+  const [form, setForm] = useState({ nome: '', endereco: '', telefone: '' });  // Formulário
+  const [editId, setEditId] = useState(null);  // ID do CRAS sendo editado
+  const [error, setError] = useState('');      // Mensagens de erro
+  const [success, setSuccess] = useState('');  // Mensagens de sucesso
+  const [loading, setLoading] = useState(false);  // Estado de carregamento
+  const [confirmOpen, setConfirmOpen] = useState(false);  // Modal de confirmação
+  const [deleteId, setDeleteId] = useState(null);  // ID para exclusão
+  const [search, setSearch] = useState('');     // Termo de busca
+  const [page, setPage] = useState(0);          // Página atual (paginação)
+  const [rowsPerPage, setRowsPerPage] = useState(10);  // Itens por página
 
   const fetchCras = useCallback(async () => {
     setLoading(true);

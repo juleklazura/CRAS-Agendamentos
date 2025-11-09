@@ -1,26 +1,62 @@
+// Componente Usuarios - Gerenciamento completo de usuários do sistema
+// Permite criar, editar, excluir e visualizar usuários com diferentes perfis
+// Acesso restrito para administradores apenas
+// Funcionalidades: CRUD completo, busca, paginação, exportação
 import { useEffect, useState, useCallback } from 'react';
-import api from '../utils/axiosConfig';
-import Sidebar from '../components/Sidebar';
-import { Button, TextField, Select, MenuItem, InputLabel, FormControl, Snackbar, Alert, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Typography, Box, TablePagination } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import api from '../utils/axiosConfig';  // Cliente HTTP configurado
+import Sidebar from '../components/Sidebar';  // Navegação lateral
+
+// Componentes Material-UI para interface completa
+import { 
+  Button, TextField, Select, MenuItem, InputLabel, FormControl, 
+  Snackbar, Alert, Paper, Table, TableBody, TableCell, TableContainer, 
+  TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, 
+  DialogContentText, DialogActions, IconButton, Typography, Box, TablePagination 
+} from '@mui/material';
+
+// Ícones para ações de usuários
+import DeleteIcon from '@mui/icons-material/Delete';  // Exclusão de usuário
+import EditIcon from '@mui/icons-material/Edit';      // Edição de usuário
+import FileDownloadIcon from '@mui/icons-material/FileDownload';  // Exportação
+
+// Utilitário para exportação de dados
 import { exportToCSV } from '../utils/csvExport';
 
+/**
+ * Componente principal para gerenciamento de usuários
+ * Restrito a administradores do sistema
+ * Permite CRUD completo de usuários com validações
+ */
 export default function Usuarios() {
-  const [usuarios, setUsuarios] = useState([]);
-  const [form, setForm] = useState({ name: '', matricula: '', password: '', role: 'entrevistador', cras: '' });
-  const [editId, setEditId] = useState(null);
-  const [crasList, setCrasList] = useState([]);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // Estados principais para dados
+  const [usuarios, setUsuarios] = useState([]);              // Lista de usuários carregados
+  const [form, setForm] = useState({                         // Formulário de criação/edição
+    name: '', 
+    matricula: '', 
+    password: '', 
+    role: 'entrevistador',  // Valor padrão
+    cras: '' 
+  });
+  const [editId, setEditId] = useState(null);               // ID do usuário em edição
+  const [crasList, setCrasList] = useState([]);             // Lista de CRAS disponíveis
+  
+  // Estados de interface e feedback
+  const [error, setError] = useState('');                   // Mensagens de erro
+  const [success, setSuccess] = useState('');               // Mensagens de sucesso
+  const [loading, setLoading] = useState(false);            // Estado de carregamento
+  const [confirmOpen, setConfirmOpen] = useState(false);    // Modal de confirmação
+  const [deleteId, setDeleteId] = useState(null);          // ID para exclusão
+  
+  // Estados de busca e paginação
+  const [search, setSearch] = useState('');                 // Termo de busca
+  const [page, setPage] = useState(0);                      // Página atual
+  const [rowsPerPage, setRowsPerPage] = useState(10);       // Itens por página
 
+  /**
+   * Busca todos os usuários do sistema
+   * Carrega lista completa para administração
+   * Exibe feedback de erro em caso de falha
+   */
   const fetchUsuarios = useCallback(async () => {
     setLoading(true);
     try {
@@ -32,6 +68,11 @@ export default function Usuarios() {
     setLoading(false);
   }, []);
 
+  /**
+   * Busca lista de unidades CRAS para o formulário
+   * Necessário para vincular usuários a suas unidades
+   * Administradores não precisam estar vinculados a CRAS
+   */
   const fetchCras = useCallback(async () => {
     try {
       const res = await api.get('/cras');
@@ -41,21 +82,35 @@ export default function Usuarios() {
     }
   }, []);
 
+  // Carrega dados iniciais ao montar o componente
   useEffect(() => {
     fetchUsuarios();
     fetchCras();
   }, [fetchUsuarios, fetchCras]);
 
+  /**
+   * Handler para mudanças nos campos do formulário
+   * Limpa mensagens de erro/sucesso ao editar
+   * @param {Event} e - Evento de mudança do input
+   */
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError('');
     setSuccess('');
   }
 
+  /**
+   * Submissão do formulário para criar/editar usuário
+   * Valida campos obrigatórios conforme o perfil
+   * Admin não precisa de CRAS, outros perfis sim
+   * @param {Event} e - Evento de submit do formulário
+   */
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setSuccess('');
+    
+    // Validação: senha obrigatória apenas na criação, CRAS obrigatório para não-admin
     if (!form.name || !form.matricula || (editId ? false : !form.password) || !form.role || (form.role !== 'admin' && !form.cras)) {
       setError('Preencha todos os campos obrigatórios.');
       return;

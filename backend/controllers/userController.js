@@ -28,7 +28,7 @@ export const createUser = async (req, res) => {
     res.status(201).json(user);
   } catch (err) {
     console.error('Erro ao criar usuário:', err);
-    res.status(400).json({ message: 'Erro ao criar usuário', error: err.message });
+    res.status(400).json({ message: 'Erro ao criar usuário' });
   }
 };
 
@@ -92,7 +92,7 @@ export const updateUser = async (req, res) => {
     if (role === 'entrevistador' && agenda) {
       update.agenda = {
         horariosDisponiveis: agenda.horariosDisponiveis || [
-          '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+          '08:30', '09:00', '09:30', '10:00', '10:30',
           '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
           '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
         ],

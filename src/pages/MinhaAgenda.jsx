@@ -317,6 +317,17 @@ export default function MinhaAgenda() {
     });
   }, [bloqueios]);
 
+  // Retorna o objeto de bloqueio para um horário específico
+  const obterBloqueio = useCallback((data, horario) => {
+    const dataHorario = criarDataHorario(data, horario);
+    if (!dataHorario) return null;
+    
+    return bloqueios.find(bloqueio => {
+      const dataBloqueio = new Date(bloqueio.data);
+      return dataBloqueio.getTime() === dataHorario.getTime();
+    });
+  }, [bloqueios]);
+
   // Busca agendamento específico para uma data e horário
   // Faz comparação precisa de data/hora e filtra por entrevistador
   const obterAgendamento = useCallback((data, horario) => {
@@ -541,6 +552,30 @@ export default function MinhaAgenda() {
       mostrarMensagem('😓 Não foi possível bloquear este horário. Tente novamente.', 'error');
     }
   }, [dataSelecionada, contexto.horarioParaBloqueio, token, mostrarMensagem, updateModal, buscarBloqueios]);
+
+  // Função para desbloquear um horário
+  const desbloquearHorario = useCallback(async (horario) => {
+    try {
+      // Busca o bloqueio para este horário
+      const bloqueio = obterBloqueio(dataSelecionada, horario);
+      
+      if (!bloqueio) {
+        mostrarMensagem('❌ Bloqueio não encontrado.', 'error');
+        return;
+      }
+
+      await axios.delete(
+        `${API_BASE_URL}/blocked-slots/${bloqueio._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      mostrarMensagem('✅ Horário desbloqueado com sucesso!');
+      buscarBloqueios();
+    } catch (erro) {
+      console.error('Erro ao desbloquear horário:', erro);
+      mostrarMensagem('😓 Não foi possível desbloquear este horário. Tente novamente.', 'error');
+    }
+  }, [dataSelecionada, token, mostrarMensagem, buscarBloqueios, obterBloqueio]);
 
   // 🚫 Early return se não autenticado
   if (!token || !usuario) {
@@ -795,6 +830,18 @@ export default function MinhaAgenda() {
                               Bloquear
                             </Button>
                           )}
+                          
+                          {bloqueado && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="success"
+                              onClick={() => desbloquearHorario(horario)}
+                              title="Desbloquear este horário"
+                            >
+                              Desbloquear
+                            </Button>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -901,7 +948,7 @@ export default function MinhaAgenda() {
             <DialogTitle>Bloquear Horário</DialogTitle>
             <DialogContent>
               <Typography>
-                Deseja bloquear o horário {contexto.horarioSelecionado} do dia {dataSelecionada?.toLocaleDateString('pt-BR')}?
+                Deseja bloquear o horário {contexto.horarioParaBloqueio} do dia {dataSelecionada?.toLocaleDateString('pt-BR')}?
               </Typography>
             </DialogContent>
             <DialogActions>

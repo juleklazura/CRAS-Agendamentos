@@ -76,7 +76,7 @@ export const createAppointment = async (req, res) => {
     res.status(201).json(appointment);
   } catch (err) {
     console.error('Erro ao criar agendamento:', err);
-    res.status(400).json({ message: 'Erro ao criar agendamento', error: err.message });
+    res.status(400).json({ message: 'Erro ao criar agendamento' });
   }
 };
 
@@ -255,7 +255,7 @@ export const confirmPresence = async (req, res) => {
     res.json(appointment);
   } catch (error) {
     console.error('Erro ao confirmar presença:', error);
-    res.status(400).json({ message: 'Erro ao confirmar presença', error: error.message });
+    res.status(400).json({ message: 'Erro ao confirmar presença' });
   }
 };
 
