@@ -249,51 +249,9 @@ export default function AgendaRecepcao() {
     });
   };
 
-  // Função para bloquear horário
-  const bloquearHorario = async (horario) => {
-    try {
-      const dataHorario = criarDataHorario(dataSelecionada, horario);
-      if (!dataHorario) throw new Error('Data inválida');
-      await axios.post(
-        'http://localhost:5000/api/blocked-slots',
-        { data: dataHorario, motivo: 'Bloqueio manual', entrevistador: entrevistadorSelecionado },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      mostrarMensagem('Horário bloqueado com sucesso');
-      await buscarBloqueios();
-    } catch (erro) {
-      console.error('Erro ao bloquear horário:', erro);
-      mostrarMensagem('Erro ao bloquear horário', 'error');
-    }
-  };
-
-  // Função para desbloquear horário
-  const desbloquearHorario = async (horario) => {
-    try {
-      const dataHorario = criarDataHorario(dataSelecionada, horario);
-      if (!dataHorario) throw new Error('Data inválida');
-      
-      const bloqueio = bloqueios.find(b => new Date(b.data).getTime() === dataHorario.getTime());
-      
-      if (!bloqueio) {
-        mostrarMensagem('Bloqueio não encontrado para este horário', 'error');
-        return;
-      }
-      
-      await axios.delete(
-        `http://localhost:5000/api/blocked-slots/${bloqueio._id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      mostrarMensagem('Horário desbloqueado com sucesso');
-      await buscarBloqueios();
-    } catch (erro) {
-      console.error('Erro ao desbloquear horário:', erro);
-      
-      const mensagem = erro.response?.data?.message || 'Erro ao desbloquear horário';
-      mostrarMensagem(mensagem, 'error');
-    }
-  };
+  // REMOVIDO: Funções de bloquear/desbloquear horário
+  // Recepção não tem mais permissão para bloquear/desbloquear
+  // Apenas entrevistadores podem fazer isso em suas próprias agendas
 
   // Funções de agendamento
   const abrirModalAgendamento = (horario) => {
@@ -714,27 +672,8 @@ export default function AgendaRecepcao() {
                                   Agendar
                                 </Button>
                               ) : null}
-                              {!agendado && !bloqueado ? (
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  color="warning"
-                                  onClick={() => bloquearHorario(horario)}
-                                  disabled={dataSelecionada.getDay() === 0 || dataSelecionada.getDay() === 6}
-                                >
-                                  Bloquear
-                                </Button>
-                              ) : null}
-                              {bloqueado && !agendado ? (
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  color="success"
-                                  onClick={() => desbloquearHorario(horario)}
-                                >
-                                  Desbloquear
-                                </Button>
-                              ) : null}
+                              {/* REMOVIDO: Recepção não pode mais bloquear/desbloquear horários */}
+                              {/* Apenas entrevistadores podem bloquear seus próprios horários */}
                               {agendado ? (
                                 <>
                                   {agendamento?.status !== 'realizado' ? (

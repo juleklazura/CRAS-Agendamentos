@@ -25,6 +25,12 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: 'Senha incorreta' });
     }
     
+    // 🔒 SEGURANÇA: Valida que JWT_SECRET está configurado
+    if (!process.env.JWT_SECRET) {
+      console.error('ERRO CRÍTICO: JWT_SECRET não está definida no arquivo .env');
+      return res.status(500).json({ message: 'Erro de configuração do servidor' });
+    }
+    
     // Gera token JWT com informações essenciais do usuário
     // Token expira em 8 horas para segurança
     const token = jwt.sign({ 

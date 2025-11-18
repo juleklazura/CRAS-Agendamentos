@@ -1,21 +1,17 @@
 // Controller para gerenciamento de bloqueios de horário
-// Permite que entrevistadores bloqueiem horários específicos em suas agendas
+// Permite que APENAS ENTREVISTADORES bloqueiem horários específicos em suas próprias agendas
 import Log from '../models/Log.js';
 import BlockedSlot from '../models/BlockedSlot.js';
 
-// Função para criar bloqueio de horário (entrevistador ou recepção)
+// Função para criar bloqueio de horário (APENAS entrevistador)
 // Impede que determinado horário seja usado para agendamentos
 export const createBlockedSlot = async (req, res) => {
   try {
-    const { data, motivo, entrevistador: entrevistadorBody } = req.body;
+    const { data, motivo } = req.body;
     
-    // Determina quem será o entrevistador do bloqueio
-    // Recepção pode bloquear para qualquer entrevistador, outros apenas para si
-    let entrevistador = req.user.id;
-    if (req.user.role === 'recepcao' && entrevistadorBody) {
-      entrevistador = entrevistadorBody;
-    }
-    
+    // Apenas o próprio entrevistador pode bloquear seu horário
+    // Admin também pode bloquear para fins administrativos
+    const entrevistador = req.user.id;
     const cras = req.user.cras;
     
     // Verifica se já existe bloqueio para o mesmo horário
@@ -77,7 +73,7 @@ export const getBlockedSlots = async (req, res) => {
   }
 };
 
-// Remover bloqueio (apenas do próprio usuário ou recepção/admin)
+// Remover bloqueio (APENAS do próprio entrevistador ou admin)
 export const deleteBlockedSlot = async (req, res) => {
   try {
     const { id } = req.params;
@@ -88,13 +84,13 @@ export const deleteBlockedSlot = async (req, res) => {
     console.log('CRAS do usuário:', req.user.cras);
     
     let slot;
-    if (req.user.role === 'recepcao' || req.user.role === 'admin') {
-      // Recepção e admin podem remover qualquer bloqueio do mesmo CRAS
-      console.log('Busca por CRAS:', req.user.cras);
+    if (req.user.role === 'admin') {
+      // Admin pode remover qualquer bloqueio
+      console.log('Admin - Busca por CRAS:', req.user.cras);
       slot = await BlockedSlot.findOne({ _id: id, cras: req.user.cras });
     } else {
-      // Entrevistador só pode remover seus próprios bloqueios
-      console.log('Busca por entrevistador:', entrevistador);
+      // Entrevistador APENAS pode remover seus próprios bloqueios
+      console.log('Entrevistador - Busca por entrevistador:', entrevistador);
       slot = await BlockedSlot.findOne({ _id: id, entrevistador });
     }
     
