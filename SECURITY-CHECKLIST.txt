@@ -1,0 +1,225 @@
+=============================================================================
+CHECKLIST DE SEGURANÇA - ARQUIVOS SENSÍVEIS NO GIT
+=============================================================================
+Data: 2025-11-21
+Projeto: Sistema de Agendamentos CRAS
+=============================================================================
+
+✅ TAREFAS CONCLUÍDAS
+---------------------
+
+1. ✅ REQUIREMENTS.txt criado
+   - Documentação completa de todas as dependências
+   - Instruções de instalação (local e produção)
+   - Guia completo de configuração de segurança
+   - Checklist pré-deploy
+   - Procedimentos de backup e restore MongoDB
+
+2. ✅ .gitignore atualizado com proteções adicionais
+   - .env e todas as variações (.env.*, .env.backup*)
+   - headers.txt, tokens.txt, secrets.txt
+   - Arquivos SSL/TLS (*.pem, *.key, *.crt, etc.)
+   - Chaves SSH
+   - Backups com dados sensíveis
+
+3. ✅ Arquivos sensíveis removidos do projeto
+   - ❌ Deletado: .env.backup.20251121_112815 (continha secrets antigos)
+   - ❌ Deletado: headers.txt (continha JWT token real)
+
+4. ✅ .env.example criado no frontend
+   - Apenas variáveis públicas (VITE_API_URL)
+   - Documentação clara sobre variáveis VITE_* serem públicas
+   - Avisos de segurança sobre não expor secrets
+
+5. ✅ backend/.env.example atualizado
+   - Documentação completa de TODAS as variáveis
+   - Opções de configuração: componentes separados (recomendado) ou URI completa
+   - Comandos para gerar secrets fortes
+   - Checklist pré-produção completo
+   - Avisos críticos sobre ENCRYPTION_KEY
+
+6. ✅ MongoDB credentials separadas em variáveis individuais
+   - MONGO_USER, MONGO_PASSWORD, MONGO_HOST, MONGO_PORT, MONGO_DB, MONGO_AUTH_SOURCE
+   - URI construída programaticamente no server.js
+   - Fallback para MONGO_URI completa (compatibilidade)
+   - Mensagens de erro melhoradas
+
+7. ✅ backend/server.js modificado
+   - Construção dinâmica da MONGO_URI a partir de componentes
+   - Suporta ambas as opções (componentes separados ou URI completa)
+   - Validações de segurança antes de conectar
+   - Logs informativos sobre configuração
+
+8. ✅ Servidor testado e funcionando
+   - ✅ Validação de secrets OK
+   - ✅ MongoDB conectado com sucesso
+   - ✅ Servidor rodando na porta 5000
+
+
+=============================================================================
+VARIÁVEIS DE AMBIENTE IDENTIFICADAS
+=============================================================================
+
+Backend (backend/.env):
+-----------------------
+✅ MONGO_USER              - Usuário MongoDB (cras_admin)
+✅ MONGO_PASSWORD          - Senha MongoDB (20 caracteres)
+✅ MONGO_HOST              - Host MongoDB (localhost)
+✅ MONGO_PORT              - Porta MongoDB (27017)
+✅ MONGO_DB                - Database (agendamentos)
+✅ MONGO_AUTH_SOURCE       - AuthSource (admin)
+✅ ENCRYPTION_KEY          - Chave AES-256-CBC (CRÍTICA - nunca alterar!)
+✅ JWT_SECRET              - Secret access tokens (128 caracteres)
+✅ JWT_REFRESH_SECRET      - Secret refresh tokens (128 caracteres)
+✅ PORT                    - Porta servidor (5000)
+✅ NODE_ENV                - Ambiente (development/production)
+✅ FRONTEND_URL            - URL frontend para CORS
+
+Frontend (.env.local - opcional):
+----------------------------------
+✅ VITE_API_URL            - URL da API backend (público)
+
+
+=============================================================================
+ARQUIVOS QUE NÃO DEVEM IR PARA O GIT
+=============================================================================
+
+✅ Protegidos no .gitignore:
+----------------------------
+- .env (todas as variações)
+- .env.*
+- .env.backup*
+- backend/.env
+- backend/.env.*
+- backend/.env.backup*
+- headers.txt
+- tokens.txt
+- secrets.txt
+- *.token
+- *.secret
+- *.backup
+- *.backup.*
+- *.pem (certificados SSL/TLS)
+- *.key (chaves privadas)
+- *.crt (certificados)
+- *.csr (requests de certificado)
+- *.p12, *.pfx (keystores)
+- id_rsa, id_rsa.pub (chaves SSH)
+- id_ed25519, id_ed25519.pub (chaves SSH)
+- *.ppk (chaves PuTTY)
+
+✅ Exceções permitidas (.gitignore):
+-------------------------------------
+- !.env.example (template público)
+- !backend/.env.example (template público)
+
+
+=============================================================================
+VERIFICAÇÃO DE SEGURANÇA
+=============================================================================
+
+Executar antes de cada commit:
+-------------------------------
+$ git status
+$ git diff --cached
+
+Verificar se NÃO aparecem:
+- Arquivos .env com valores reais
+- Arquivos de backup com secrets
+- Arquivos com tokens/passwords
+- Certificados ou chaves privadas
+
+Comando útil para verificar:
+$ git ls-files | grep -E "(\.env$|\.key$|\.pem$|token|secret|password)"
+
+Se encontrar algo: git rm --cached <arquivo>
+
+
+=============================================================================
+DADOS CRIPTOGRAFADOS NO BANCO
+=============================================================================
+
+Dados protegidos com AES-256-CBC:
+----------------------------------
+✅ CPF dos usuários (collection: users)
+✅ CPF dos agendamentos (collection: appointments)
+✅ Nomes completos (users e appointments)
+✅ Números de telefone
+
+⚠️  CRÍTICO: A ENCRYPTION_KEY nunca pode ser alterada!
+- Se alterar, TODOS os dados criptografados ficarão ilegíveis permanentemente
+- Backup da chave é OBRIGATÓRIO antes de qualquer migração
+- Use a MESMA chave em todos os ambientes que compartilham o banco
+
+
+=============================================================================
+PRÓXIMOS PASSOS (RECOMENDAÇÕES)
+=============================================================================
+
+Segurança Adicional:
+--------------------
+1. Implementar rotação de secrets JWT (a cada 3-6 meses)
+2. Configurar MongoDB com TLS/SSL em produção
+3. Implementar vault para gerenciamento de secrets (HashiCorp Vault, AWS Secrets Manager)
+4. Configurar certificado SSL/TLS com Let's Encrypt
+5. Implementar 2FA (autenticação dois fatores) para admins
+6. Configurar backup automático do MongoDB
+7. Implementar monitoramento e alertas (Sentry, New Relic, etc.)
+8. Criar Git pre-commit hook para validar .gitignore
+
+Documentação:
+-------------
+1. Documentar processo de rotação de secrets
+2. Criar runbook de disaster recovery
+3. Documentar processo de onboarding de novos devs
+4. Criar guia de troubleshooting
+
+Testes:
+-------
+1. Implementar testes de segurança automatizados
+2. Realizar pentest periodicamente
+3. Configurar dependabot para vulnerabilidades
+
+
+=============================================================================
+COMANDOS ÚTEIS DE SEGURANÇA
+=============================================================================
+
+Gerar JWT_SECRET forte (128 caracteres):
+$ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
+Gerar ENCRYPTION_KEY (64 caracteres):
+$ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+Verificar permissões do .env:
+$ ls -la backend/.env
+$ chmod 600 backend/.env  # Apenas owner pode ler/escrever
+
+Verificar se .env está no Git:
+$ git ls-files | grep .env
+
+Remover .env do histórico Git (se commitado acidentalmente):
+$ git filter-branch --force --index-filter \
+  "git rm --cached --ignore-unmatch backend/.env" \
+  --prune-empty --tag-name-filter cat -- --all
+
+Backup MongoDB com authentication:
+$ mongodump --uri="mongodb://cras_admin:senha@localhost:27017/agendamentos?authSource=admin" --out=/backup/
+
+Testar vulnerabilidades npm:
+$ npm audit
+$ npm audit fix
+
+
+=============================================================================
+CONTATOS E SUPORTE
+=============================================================================
+
+Desenvolvedor: Gabriel Julek
+Documentação: REQUIREMENTS.txt
+Changelog: CHANGELOG.md
+Repositório: [adicionar URL quando disponível]
+
+=============================================================================
+FIM DO RELATÓRIO
+=============================================================================

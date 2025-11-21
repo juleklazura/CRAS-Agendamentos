@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import { AppProvider } from './contexts/AppContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { useApp } from './hooks/useApp';
+import { useMigrateSecurityLocalStorage } from './utils/securityMigration';
 import { NotificationSnackbar, GlobalLoader } from './components/Common';
 import Router from './router';
 import './App.css';
@@ -8,16 +11,13 @@ import './App.css';
 // Componente interno que usa o contexto
 const AppContent = () => {
   const { 
-    initializeAuth, 
     notification, 
     hideNotification, 
     loading 
   } = useApp();
 
-  // Inicializar autenticação na primeira renderização
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+  // 🔒 SEGURANÇA: Migração automática - remove tokens antigos do localStorage
+  useMigrateSecurityLocalStorage();
 
   return (
     <>
@@ -40,9 +40,18 @@ const AppContent = () => {
 // App principal com Provider
 function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
+      <AppProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

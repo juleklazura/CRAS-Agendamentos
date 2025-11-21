@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 // Controller para sistema de logs e auditoria
 // Gerencia registro e consulta de ações dos usuários no sistema
 import Log from '../models/Log.js';

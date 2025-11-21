@@ -1,7 +1,8 @@
 // Componente de Login do Sistema CRAS
 // Interface de autenticação com validação e feedback visual
-import React, { useState } from 'react';
-import axios from 'axios';  // Cliente HTTP para comunicação com backend
+import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../contexts/AuthContext';
 
 // Componentes de interface do Material-UI
 import {
@@ -19,6 +20,9 @@ import logo from '../assets/logo-faspg.svg';
 
 // Componente principal de login
 export default function Login() {
+  const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
+  
   // Estados para controle do formulário
   const [matricula, setMatricula] = useState('');    // Matrícula do usuário
   const [senha, setSenha] = useState('');            // Senha do usuário
@@ -33,21 +37,18 @@ export default function Login() {
     setLoading(true); // Ativa indicador de carregamento
 
     try {
-      // Envia credenciais para o endpoint de autenticação
-      const resposta = await axios.post('http://localhost:5000/api/auth/login', {
-        matricula,
-        password: senha
-      });
-
-      // Armazena token e dados do usuário no localStorage
-      localStorage.setItem('token', resposta.data.token);
-      localStorage.setItem('user', JSON.stringify(resposta.data.user));
+      // 🔒 SEGURANÇA: Login agora usa httpOnly cookies
+      const result = await login(matricula, senha);
       
-      // Redireciona para o dashboard após login bem-sucedido
-      window.location.href = '/dashboard';
+      if (result.success) {
+        // Redireciona para o dashboard após login bem-sucedido
+        navigate('/dashboard');
+      } else {
+        setErro(result.message);
+      }
     } catch (erro) {
       // Exibe erro específico ou mensagem genérica
-      setErro(erro.response?.data?.message || 'Erro ao fazer login. Tente novamente.');
+      setErro('Erro ao fazer login. Tente novamente.');
     } finally {
       // Sempre desativa o loading, independente do resultado
       setLoading(false);

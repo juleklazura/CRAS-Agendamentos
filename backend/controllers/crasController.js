@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 // Controller para gerenciamento de unidades CRAS
 // Controla operações CRUD para as unidades do Centro de Referência de Assistência Social
 import Cras from '../models/Cras.js';

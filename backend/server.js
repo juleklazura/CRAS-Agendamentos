@@ -7,7 +7,11 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import logger from './utils/logger.js';
+
+// 🔒 SEGURANÇA: Validar configurações de segurança antes de iniciar
+import './utils/validateSecrets.js';
 
 // Importação das rotas organizadas por funcionalidade
 import authRoutes from './routes/auth.js';
@@ -54,6 +58,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// 🔒 SEGURANÇA: Cookie Parser - necessário para ler cookies httpOnly
+app.use(cookieParser());
+
 // 🔒 SEGURANÇA: Rate Limiting Global
 // Protege contra ataques de negação de serviço (DoS)
 // DESENVOLVIMENTO: Limite mais flexível (produção: 100/15min)
@@ -69,13 +76,73 @@ const globalLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// Helmet
+// 🔒 SEGURANÇA: Helmet com configuração completa de headers
 app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
-  crossOriginOpenerPolicy: false,
-  contentSecurityPolicy: false
+  // Content Security Policy - define fontes permitidas para recursos
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  // Cross-Origin Policies
+  crossOriginEmbedderPolicy: false, // Desabilitado para compatibilidade
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  // DNS Prefetch Control
+  dnsPrefetchControl: { allow: false },
+  // Frameguard - previne clickjacking
+  frameguard: { action: "deny" },
+  // Hide X-Powered-By
+  hidePoweredBy: true,
+  // HTTP Strict Transport Security
+  hsts: {
+    maxAge: 31536000, // 1 ano
+    includeSubDomains: true,
+    preload: true
+  },
+  // IE No Open
+  ieNoOpen: true,
+  // No Sniff
+  noSniff: true,
+  // Origin Agent Cluster
+  originAgentCluster: true,
+  // Permitted Cross-Domain Policies
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  // Referrer Policy
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  // XSS Filter - desabilitado (deprecated em navegadores modernos, CSP é melhor)
+  xssFilter: false
 }));
+
+// 🔒 SEGURANÇA: Headers adicionais customizados
+app.use((req, res, next) => {
+  // Permissions Policy - desabilitar recursos não utilizados
+  res.setHeader('Permissions-Policy', 
+    'camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=()'
+  );
+  
+  // Cache Control para rotas de API (não cachear dados sensíveis)
+  if (req.path.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  
+  // Forçar HTTPS em produção
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  
+  next();
+});
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -225,16 +292,27 @@ app.get('/', (req, res) => res.send('API de Agendamento CRAS rodando!'));
 
 const PORT = process.env.PORT || 5000;
 
-if (!process.env.MONGO_URI) {
-  logger.error('❌ ERRO CRÍTICO: MONGO_URI não está definida no arquivo .env');
-  logger.error('Configure a variável MONGO_URI no arquivo .env antes de iniciar o servidor');
-  logger.error('Exemplo: MONGO_URI=mongodb://localhost:27017/agendamentos');
+// Construir MONGO_URI a partir dos componentes individuais (mais seguro)
+let mongoUri;
+if (process.env.MONGO_USER && process.env.MONGO_PASSWORD) {
+  // Opção 1: Componentes separados (recomendado)
+  const { MONGO_USER, MONGO_PASSWORD, MONGO_HOST = 'localhost', MONGO_PORT = '27017', MONGO_DB = 'agendamentos', MONGO_AUTH_SOURCE = 'admin' } = process.env;
+  mongoUri = `mongodb://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}?authSource=${MONGO_AUTH_SOURCE}`;
+} else if (process.env.MONGO_URI) {
+  // Opção 2: URI completa (fallback para compatibilidade)
+  mongoUri = process.env.MONGO_URI;
+} else {
+  logger.error('❌ ERRO CRÍTICO: Configuração MongoDB não encontrada!');
+  logger.error('Configure uma das opções no arquivo .env:');
+  logger.error('  Opção 1 (recomendada): MONGO_USER, MONGO_PASSWORD, MONGO_HOST, MONGO_PORT, MONGO_DB, MONGO_AUTH_SOURCE');
+  logger.error('  Opção 2: MONGO_URI=mongodb://user:pass@host:port/db?authSource=admin');
   process.exit(1);
 }
 
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(mongoUri, {
   retryWrites: true,
-  w: 'majority'
+  w: 'majority',
+  authSource: process.env.MONGO_AUTH_SOURCE || 'admin'
 })
 .then(() => {
   app.listen(PORT, () => {

@@ -1,6 +1,8 @@
 // Modelo de dados para Agendamentos
 // Define estrutura, validações e índices para otimizar consultas no MongoDB
 import mongoose from 'mongoose';
+import { validarCPF, validarTelefone } from '../utils/validators.js';
+import EncryptionService from '../utils/encryption.js';
 
 // Schema principal do agendamento com todas as validações necessárias
 const appointmentSchema = new mongoose.Schema({
@@ -10,11 +12,77 @@ const appointmentSchema = new mongoose.Schema({
   // Referência ao CRAS onde o atendimento será realizado
   cras: { type: mongoose.Schema.Types.ObjectId, ref: 'Cras', required: true },
   
-  // Dados da pessoa que será atendida
-  pessoa: { type: String, required: true },        // Nome completo
-  cpf: { type: String, required: true },           // CPF (armazenado sem formatação)
-  telefone1: { type: String, required: true },     // Telefone principal
-  telefone2: { type: String },                     // Telefone secundario (opcional)
+  // Dados da pessoa que será atendida (CRIPTOGRAFADOS)
+  pessoa: { 
+    type: String, 
+    required: true,
+    get: function(v) {
+      return v && EncryptionService.isEncrypted(v) ? EncryptionService.decrypt(v) : v;
+    },
+    set: function(v) {
+      return v ? EncryptionService.encrypt(v) : v;
+    }
+  },        // Nome completo (criptografado)
+  
+  cpf: { 
+    type: String, 
+    required: [true, 'CPF é obrigatório'],
+    validate: {
+      validator: function(v) {
+        // Validar antes de criptografar
+        const decrypted = EncryptionService.isEncrypted(v) ? EncryptionService.decrypt(v) : v;
+        return validarCPF(decrypted);
+      },
+      message: 'CPF inválido. Verifique os dígitos e tente novamente.'
+    },
+    get: function(v) {
+      return v && EncryptionService.isEncrypted(v) ? EncryptionService.decrypt(v) : v;
+    },
+    set: function(v) {
+      return v ? EncryptionService.encrypt(v) : v;
+    }
+  },           // CPF (criptografado)
+  
+  cpfHash: { 
+    type: String
+  },  // Hash do CPF para buscas (não criptografado)
+  
+  telefone1: { 
+    type: String, 
+    required: [true, 'Telefone é obrigatório'],
+    validate: {
+      validator: function(v) {
+        // Validar antes de criptografar
+        const decrypted = EncryptionService.isEncrypted(v) ? EncryptionService.decrypt(v) : v;
+        return validarTelefone(decrypted);
+      },
+      message: 'Telefone inválido. Use o formato (XX) XXXXX-XXXX'
+    },
+    get: function(v) {
+      return v && EncryptionService.isEncrypted(v) ? EncryptionService.decrypt(v) : v;
+    },
+    set: function(v) {
+      return v ? EncryptionService.encrypt(v) : v;
+    }
+  },     // Telefone principal (criptografado)
+  
+  telefone2: { 
+    type: String,
+    validate: {
+      validator: function(v) {
+        if (!v) return true;
+        const decrypted = EncryptionService.isEncrypted(v) ? EncryptionService.decrypt(v) : v;
+        return validarTelefone(decrypted);
+      },
+      message: 'Telefone 2 inválido. Use o formato (XX) XXXXX-XXXX'
+    },
+    get: function(v) {
+      return v && EncryptionService.isEncrypted(v) ? EncryptionService.decrypt(v) : v;
+    },
+    set: function(v) {
+      return v ? EncryptionService.encrypt(v) : v;
+    }
+  },                     // Telefone secundario (opcional, criptografado)
   
   // Motivo do atendimento - valores pré-definidos para consistência
   motivo: { 
@@ -43,12 +111,26 @@ const appointmentSchema = new mongoose.Schema({
   // Timestamps automáticos
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date },
+}, {
+  // Habilitar getters para descriptografar automaticamente
+  toJSON: { getters: true },
+  toObject: { getters: true }
+});
+
+// Middleware para gerar hash do CPF antes de salvar (para buscas)
+appointmentSchema.pre('save', function(next) {
+  if (this.isModified('cpf')) {
+    // Descriptografar CPF para criar hash
+    const cpfDecrypted = EncryptionService.decrypt(this.cpf);
+    this.cpfHash = EncryptionService.hash(cpfDecrypted);
+  }
+  next();
 });
 
 // Índices para otimizar consultas frequentes
 // Importante para performance com grande volume de dados
 appointmentSchema.index({ data: 1 });            // Consultas por data
-appointmentSchema.index({ pessoa: 1 });          // Busca por nome da pessoa
+appointmentSchema.index({ cpfHash: 1 });         // Busca por CPF (usando hash)
 appointmentSchema.index({ motivo: 1 });          // Filtragem por motivo
 appointmentSchema.index({ cras: 1 });            // Consultas por CRAS
 appointmentSchema.index({ entrevistador: 1 });   // Consultas por entrevistador

@@ -27,11 +27,24 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Se for erro 401 (não autorizado), fazer logout automático
+    // Se for erro 401 (não autorizado) e não estiver na página de login
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const isLoginPage = window.location.pathname === '/login';
+      
+      // Silenciar erro 401 no console quando esperado (página de login, rotas públicas)
+      const isExpectedUnauth = isLoginPage || 
+                              error.config?.url?.includes('/auth/me') ||
+                              error.config?.url?.includes('/auth/logout');
+      
+      if (!isExpectedUnauth) {
+        // Apenas redirecionar se não estiver na página de login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+      
+      // Marcar erro como silenciado para o AuthContext
+      error.isSilent401 = isExpectedUnauth;
     }
     
     return Promise.reject(error);

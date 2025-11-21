@@ -7,9 +7,11 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 
 // Hook de navegação do React Router para redirecionamentos
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 // Cliente HTTP para comunicação com o backend
 import axios from 'axios';
+import api from '../services/api';
 
 // Componente da sidebar para navegação lateral
 import Sidebar from '../components/Sidebar';
@@ -85,11 +87,6 @@ import {
   criarDataHorario
 } from '../utils/agendamentoUtils';
 
-// Configuração de URL base da API
-// Usa variável de ambiente se disponível, senão usa localhost como fallback
-// Isso permite facilitar deploy em diferentes ambientes
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
 // Estados iniciais para otimizar renderizações
 // Definir objetos constantes evita recriação desnecessária a cada render
 const INITIAL_FORM_STATE = {
@@ -141,19 +138,22 @@ const INITIAL_LOADING_STATE = {
 // Permite ao usuário gerenciar seus próprios agendamentos e bloqueios
 export default function MinhaAgenda() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();  // 🔒 SEGURANÇA: Dados via httpOnly cookies
 
-  // Dados do usuário otimizados com useMemo
-  // Evita re-parse do localStorage a cada render
-  const { token, usuario, usuarioId, usuarioCras } = useMemo(() => {
-    const token = localStorage.getItem('token');
-    const usuario = JSON.parse(localStorage.getItem('user') || 'null');
-    return {
-      token,
-      usuario,
-      usuarioId: usuario?.id,
-      usuarioCras: usuario?.cras
-    };
-  }, []);
+  // Dados do usuário extraídos do context
+  const { usuarioId, usuarioCras } = useMemo(() => ({
+    usuarioId: user?.id,
+    usuarioCras: user?.cras
+  }), [user]);
+
+  // Mostrar loading enquanto autenticação está carregando
+  if (authLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   // Estado para data selecionada com lógica inteligente de inicialização
   // Se for fim de semana, automaticamente seleciona a próxima segunda-feira
@@ -251,23 +251,22 @@ export default function MinhaAgenda() {
   // Verificação de autenticação e autorização
   // Garante que apenas entrevistadores autenticados acessem esta página
   useEffect(() => {
-    if (!token || !usuario || usuario.role !== 'entrevistador') {
+    if (!user || user.role !== 'entrevistador') {
       localStorage.clear();  // Limpa dados inválidos
       navigate('/login');    // Redireciona para login
     }
-  }, [token, usuario, navigate]);
+  }, [user, navigate]);
 
   // Funções de API otimizadas para comunicação com o backend
   
   // Função para buscar agendamentos do usuário logado
   const buscarAgendamentos = useCallback(async () => {
-    if (!token || !usuarioId) return;
+    if (!usuarioId) return;
     
     try {
       // Busca apenas agendamentos do entrevistador logado
-      const { data } = await axios.get(
-        `${API_BASE_URL}/appointments?entrevistador=${usuarioId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const { data } = await api.get(
+        `/appointments?entrevistador=${usuarioId}`
       );
       
       // Normaliza resposta da API - pode vir como results ou array direto
@@ -277,33 +276,30 @@ export default function MinhaAgenda() {
       console.error('Erro ao buscar agendamentos:', erro);
       mostrarMensagem('Não foi possível carregar seus agendamentos. Tente novamente.', 'error');
     }
-  }, [token, usuarioId, mostrarMensagem]);
+  }, [usuarioId, mostrarMensagem]);
 
   // Função para buscar horários bloqueados do sistema
   const buscarBloqueios = useCallback(async () => {
-    if (!token) return;
-    
     try {
       // Busca todos os bloqueios ativos no sistema
-      const { data } = await axios.get(
-        `${API_BASE_URL}/blocked-slots`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const { data } = await api.get(
+        `/blocked-slots`
       );
       setBloqueios(data || []);
     } catch (erro) {
       console.error('Erro ao buscar bloqueios:', erro);
       mostrarMensagem('Não foi possível verificar horários bloqueados. Tente novamente.', 'error');
     }
-  }, [token, mostrarMensagem]);
+  }, [mostrarMensagem]);
 
   // Carregamento inicial otimizado
-  // Executa busca de dados assim que o usuário e token estiverem disponíveis
+  // Executa busca de dados assim que o usuário estiver disponível
   useEffect(() => {
-    if (token && usuario) {
+    if (user) {
       // Executa as duas buscas em paralelo para melhor performance
       Promise.all([buscarAgendamentos(), buscarBloqueios()]);
     }
-  }, [token, usuario, buscarAgendamentos, buscarBloqueios]);
+  }, [user, buscarAgendamentos, buscarBloqueios]);
 
   // Verifica se um horário específico está bloqueado
   // Compara timestamp exato para determinar bloqueio
@@ -421,11 +417,14 @@ export default function MinhaAgenda() {
         observacoes: dadosAgendamento.observacoes
       };
 
+      console.log('📤 Enviando agendamento:', dadosParaEnvio);
+      console.log('👤 Usuário ID:', usuarioId);
+      console.log('🏢 CRAS ID:', usuarioCras);
+
       // Envia requisição para criar agendamento na API
-      await axios.post(
-        `${API_BASE_URL}/appointments`,
-        dadosParaEnvio,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post(
+        `/appointments`,
+        dadosParaEnvio
       );
 
       // Feedback de sucesso e fechamento do modal
@@ -437,12 +436,15 @@ export default function MinhaAgenda() {
       
     } catch (erro) {
       console.error('Erro ao criar agendamento:', erro);
-      mostrarMensagem(MESSAGES.ERROR.AGENDAMENTO_CRIACAO, 'error');
+      console.error('Response:', erro.response?.data);
+      console.error('Status:', erro.response?.status);
+      const mensagemErro = erro.response?.data?.message || MESSAGES.ERROR.AGENDAMENTO_CRIACAO;
+      mostrarMensagem(mensagemErro, 'error');
     } finally {
       // Sempre remove o loading, independente de sucesso ou erro
       updateLoading('creating', false);
     }
-  }, [dadosAgendamento, dataSelecionada, contexto.horarioSelecionado, usuarioId, usuarioCras, token, validarFormulario, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
+  }, [dadosAgendamento, dataSelecionada, contexto.horarioSelecionado, usuarioId, usuarioCras, validarFormulario, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
 
   // Funções de confirmação otimizadas para controle de presença
   
@@ -453,10 +455,9 @@ export default function MinhaAgenda() {
 
     try {
       // Chama endpoint específico para confirmação de presença
-      await axios.patch(
-        `${API_BASE_URL}/appointments/${agendamento._id}/confirm`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.patch(
+        `/appointments/${agendamento._id}/confirm`,
+        {}
       );
 
       mostrarMensagem('Presença confirmada com sucesso!');
@@ -465,16 +466,15 @@ export default function MinhaAgenda() {
       console.error('Erro ao confirmar presença:', erro);
       mostrarMensagem('Não foi possível confirmar a presença. Tente novamente.', 'error');
     }
-  }, [token, mostrarMensagem, buscarAgendamentos]);
+  }, [mostrarMensagem, buscarAgendamentos]);
 
   const removerConfirmacao = useCallback(async (agendamento) => {
     if (!agendamento?._id) return;
 
     try {
-      await axios.patch(
-        `${API_BASE_URL}/appointments/${agendamento._id}/unconfirm`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.patch(
+        `/appointments/${agendamento._id}/unconfirm`,
+        {}
       );
 
       mostrarMensagem('Confirmação removida com sucesso!');
@@ -483,16 +483,15 @@ export default function MinhaAgenda() {
       console.error('Erro ao remover confirmação:', erro);
       mostrarMensagem('😓 Não foi possível remover a confirmação. Tente novamente.', 'error');
     }
-  }, [token, mostrarMensagem, buscarAgendamentos]);
+  }, [mostrarMensagem, buscarAgendamentos]);
 
   const excluirAgendamento = useCallback(async () => {
     if (!contexto.agendamentoParaExcluir) return;
 
     updateLoading('deleting', true);
     try {
-      await axios.delete(
-        `${API_BASE_URL}/appointments/${contexto.agendamentoParaExcluir._id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.delete(
+        `/appointments/${contexto.agendamentoParaExcluir._id}`
       );
 
       mostrarMensagem(MESSAGES.SUCCESS.AGENDAMENTO_EXCLUIDO);
@@ -504,7 +503,7 @@ export default function MinhaAgenda() {
     } finally {
       updateLoading('deleting', false);
     }
-  }, [contexto.agendamentoParaExcluir, token, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
+  }, [contexto.agendamentoParaExcluir, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
 
   const salvarEdicao = useCallback(async () => {
     if (!validarFormulario(dadosEdicao) || !contexto.agendamentoParaEditar) return;
@@ -519,10 +518,9 @@ export default function MinhaAgenda() {
         observacoes: dadosEdicao.observacoes
       };
 
-      await axios.put(
-        `${API_BASE_URL}/appointments/${contexto.agendamentoParaEditar._id}`,
-        dadosParaEdicao,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.put(
+        `/appointments/${contexto.agendamentoParaEditar._id}`,
+        dadosParaEdicao
       );
 
       mostrarMensagem('Agendamento editado com sucesso!');
@@ -532,16 +530,15 @@ export default function MinhaAgenda() {
       console.error('Erro ao editar agendamento:', erro);
       mostrarMensagem('😓 Não foi possível editar o agendamento. Tente novamente.', 'error');
     }
-  }, [dadosEdicao, contexto.agendamentoParaEditar, token, validarFormulario, mostrarMensagem, updateModal, buscarAgendamentos]);
+  }, [dadosEdicao, contexto.agendamentoParaEditar, validarFormulario, mostrarMensagem, updateModal, buscarAgendamentos]);
 
   const criarBloqueio = useCallback(async () => {
     try {
       const dataHorario = criarDataHorario(dataSelecionada, contexto.horarioParaBloqueio);
       
-      await axios.post(
-        `${API_BASE_URL}/blocked-slots`,
-        { data: dataHorario },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post(
+        `/blocked-slots`,
+        { data: dataHorario, motivo: 'Horário bloqueado pelo entrevistador' }
       );
 
       mostrarMensagem('Horário bloqueado com sucesso');
@@ -549,9 +546,11 @@ export default function MinhaAgenda() {
       buscarBloqueios();
     } catch (erro) {
       console.error('Erro ao bloquear horário:', erro);
-      mostrarMensagem('😓 Não foi possível bloquear este horário. Tente novamente.', 'error');
+      console.error('Resposta do servidor:', erro.response?.data);
+      const mensagem = erro.response?.data?.message || 'Não foi possível bloquear este horário';
+      mostrarMensagem(`😓 ${mensagem}. Tente novamente.`, 'error');
     }
-  }, [dataSelecionada, contexto.horarioParaBloqueio, token, mostrarMensagem, updateModal, buscarBloqueios]);
+  }, [dataSelecionada, contexto.horarioParaBloqueio, mostrarMensagem, updateModal, buscarBloqueios]);
 
   // Função para desbloquear um horário
   const desbloquearHorario = useCallback(async (horario) => {
@@ -564,21 +563,22 @@ export default function MinhaAgenda() {
         return;
       }
 
-      await axios.delete(
-        `${API_BASE_URL}/blocked-slots/${bloqueio._id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.delete(
+        `/blocked-slots/${bloqueio._id}`
       );
 
       mostrarMensagem('✅ Horário desbloqueado com sucesso!');
       buscarBloqueios();
     } catch (erro) {
       console.error('Erro ao desbloquear horário:', erro);
-      mostrarMensagem('😓 Não foi possível desbloquear este horário. Tente novamente.', 'error');
+      console.error('Resposta do servidor:', erro.response?.data);
+      const mensagem = erro.response?.data?.message || 'Não foi possível desbloquear este horário';
+      mostrarMensagem(`😓 ${mensagem}. Tente novamente.`, 'error');
     }
-  }, [dataSelecionada, token, mostrarMensagem, buscarBloqueios, obterBloqueio]);
+  }, [dataSelecionada, mostrarMensagem, buscarBloqueios, obterBloqueio]);
 
   // 🚫 Early return se não autenticado
-  if (!token || !usuario) {
+  if (!user) {
     return (
       <Box sx={{ display: 'flex' }}>
         <Sidebar />

@@ -4,6 +4,7 @@ import Appointment from '../models/Appointment.js';
 import User from '../models/User.js';
 import Log from '../models/Log.js';
 import mongoose from 'mongoose';
+import { validarCPF, validarTelefone } from '../utils/validators.js';
 
 // Função para criar novo agendamento (Entrevistador, Recepção)
 // Realiza validações rigorosas antes de persistir no banco
@@ -31,9 +32,26 @@ export const createAppointment = async (req, res) => {
     if (!cpf) {
       return res.status(400).json({ message: 'CPF é obrigatório' });
     }
+    
+    // Validação matemática do CPF
+    if (!validarCPF(cpf)) {
+      return res.status(400).json({ message: 'CPF inválido. Verifique os dígitos e tente novamente.' });
+    }
+    
     if (!telefone1) {
       return res.status(400).json({ message: 'Telefone é obrigatório' });
     }
+    
+    // Validação do telefone principal
+    if (!validarTelefone(telefone1)) {
+      return res.status(400).json({ message: 'Telefone inválido. Use o formato (XX) XXXXX-XXXX' });
+    }
+    
+    // Validação do telefone secundário (se fornecido)
+    if (telefone2 && !validarTelefone(telefone2)) {
+      return res.status(400).json({ message: 'Telefone 2 inválido. Use o formato (XX) XXXXX-XXXX' });
+    }
+    
     if (!motivo) {
       return res.status(400).json({ message: 'Motivo é obrigatório' });
     }
@@ -65,6 +83,12 @@ export const createAppointment = async (req, res) => {
     
     await appointment.save();
     
+    // Carregar agendamento com dados relacionados para retornar completo
+    const appointmentPopulated = await Appointment.findById(appointment._id)
+      .populate('entrevistador', 'name email matricula')
+      .populate('cras', 'nome endereco telefone')
+      .populate('createdBy', 'name matricula');
+    
     // Criar log da ação
     await Log.create({
       user: req.user.id,
@@ -73,9 +97,9 @@ export const createAppointment = async (req, res) => {
       details: `Agendamento criado para ${pessoa} em ${new Date(data).toLocaleString('pt-BR')} - Motivo: ${motivo}`
     });
     
-    res.status(201).json(appointment);
+    res.status(201).json(appointmentPopulated.toJSON()); // toJSON() aplica getters
   } catch (err) {
-    console.error('Erro ao criar agendamento:', err);
+    logger.error('Erro ao criar agendamento:', err, logger.sanitize({ request: req.body }));
     res.status(400).json({ message: 'Erro ao criar agendamento' });
   }
 };
@@ -137,10 +161,15 @@ export const getAppointments = async (req, res) => {
 
     // Query principal com população de dados relacionados
     let query = Appointment.find(filter)
-      .populate('entrevistador cras createdBy')  // Traz dados completos dos relacionamentos
+      .populate('entrevistador', 'name email matricula') // Campos específicos do entrevistador
+      .populate('cras', 'nome endereco telefone')        // Campos específicos do CRAS
+      .populate('createdBy', 'name matricula')          // Campos específicos de quem criou
       .sort(sort);
     
     let results = await query.exec();
+    
+    // Converter para JSON para aplicar getters e descriptografar
+    results = results.map(doc => doc.toJSON());
 
     // Ordenação manual para campos populados (necessaria devido à limitação do MongoDB)
     if (req.query.sortBy && ["cras", "entrevistador", "createdBy"].includes(req.query.sortBy)) {
@@ -171,7 +200,7 @@ export const getAppointments = async (req, res) => {
 
     res.json({ results, total });
   } catch (error) {
-    console.error('Erro ao buscar agendamentos:', error);
+    logger.error('Erro ao buscar agendamentos:', error, logger.sanitize({ request: req.body }));
     res.status(500).json({ message: 'Erro ao buscar agendamentos' });
   }
 };
@@ -183,7 +212,15 @@ export const updateAppointment = async (req, res) => {
     const update = req.body;
     update.updatedBy = req.user.id;
     update.updatedAt = new Date();
-    const appointment = await Appointment.findByIdAndUpdate(id, update, { new: true }).populate('cras');
+    
+    await Appointment.findByIdAndUpdate(id, update, { new: true });
+    
+    // Buscar agendamento atualizado com dados populados e descriptografados
+    const appointment = await Appointment.findById(id)
+      .populate('entrevistador', 'name email matricula')
+      .populate('cras', 'nome endereco telefone')
+      .populate('createdBy', 'name matricula')
+      .populate('updatedBy', 'name matricula');
     
     // Criar log da ação
     await Log.create({
@@ -193,9 +230,9 @@ export const updateAppointment = async (req, res) => {
       details: `Agendamento editado para ${appointment.pessoa} em ${new Date(appointment.data).toLocaleString('pt-BR')}`
     });
     
-    res.json(appointment);
+    res.json(appointment.toJSON()); // toJSON() aplica getters
   } catch (error) {
-    console.error('Erro ao atualizar agendamento:', error);
+    logger.error('Erro ao atualizar agendamento:', error, logger.sanitize({ request: req.body }));
     res.status(400).json({ message: 'Erro ao atualizar agendamento' });
   }
 };
@@ -205,25 +242,30 @@ export const deleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Buscar dados do agendamento antes de excluir para o log
-    const appointment = await Appointment.findById(id).populate('cras');
+    // Buscar dados do agendamento antes de excluir para o log (com descriptografia)
+    const appointment = await Appointment.findById(id)
+      .populate('cras', 'nome');
+      
     if (!appointment) {
       return res.status(404).json({ message: 'Agendamento não encontrado' });
     }
+    
+    // Converter para JSON para descriptografar
+    const appointmentData = appointment.toJSON();
     
     await Appointment.findByIdAndDelete(id);
     
     // Criar log da ação
     await Log.create({
       user: req.user.id,
-      cras: appointment.cras._id,
+      cras: appointmentData.cras._id,
       action: 'excluir_agendamento',
-      details: `Agendamento excluído de ${appointment.pessoa} em ${new Date(appointment.data).toLocaleString('pt-BR')}`
+      details: `Agendamento excluído de ${appointmentData.pessoa} em ${new Date(appointmentData.data).toLocaleString('pt-BR')}`
     });
     
     res.json({ message: 'Agendamento removido' });
   } catch (error) {
-    console.error('Erro ao remover agendamento:', error);
+    logger.error('Erro ao remover agendamento:', error, logger.sanitize({ request: req.body }));
     res.status(400).json({ message: 'Erro ao remover agendamento' });
   }
 };
@@ -246,15 +288,22 @@ export const confirmPresence = async (req, res) => {
         updatedAt: new Date()
       },
       { new: true }
-    ).populate('entrevistador cras createdBy');
+    );
     
     if (!appointment) {
       return res.status(404).json({ message: 'Agendamento não encontrado' });
     }
     
-    res.json(appointment);
+    // Buscar com população e descriptografia
+    const appointmentPopulated = await Appointment.findById(id)
+      .populate('entrevistador', 'name email matricula')
+      .populate('cras', 'nome endereco telefone')
+      .populate('createdBy', 'name matricula')
+      .populate('updatedBy', 'name matricula');
+    
+    res.json(appointmentPopulated.toJSON()); // toJSON() aplica getters
   } catch (error) {
-    console.error('Erro ao confirmar presença:', error);
+    logger.error('Erro ao confirmar presença:', error, logger.sanitize({ request: req.body }));
     res.status(400).json({ message: 'Erro ao confirmar presença' });
   }
 };
@@ -279,7 +328,7 @@ export const removePresenceConfirmation = async (req, res) => {
     
     res.json(appointment);
   } catch (error) {
-    console.error('Erro ao remover confirmação de presença:', error);
+    logger.error('Erro ao remover confirmação de presença:', error, logger.sanitize({ request: req.body }));
     res.status(400).json({ message: 'Erro ao remover confirmação de presença' });
   }
 };

@@ -3,7 +3,8 @@
 // Implementa paginação, busca, ordenação e exportação de dados
 // Acesso controlado por perfil: admin vê todos, entrevistador vê seus, recepção vê do CRAS
 import { useEffect, useState, useCallback, useRef } from 'react';
-import api from '../utils/axiosConfig';  // Cliente HTTP configurado com interceptors
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';  // Cliente HTTP configurado com httpOnly cookies
 import Sidebar from '../components/Sidebar';  // Componente de navegação lateral
 
 // Componentes Material-UI para interface
@@ -55,6 +56,8 @@ const STATUS_OPTIONS = [
  * Controle de acesso baseado no perfil do usuário logado
  */
 export default function Agendamentos() {
+  const { user } = useAuth();  // 🔒 SEGURANÇA: Dados via httpOnly cookies
+  
   // Estados principais para dados e interface
   const [agendamentos, setAgendamentos] = useState([]);       // Lista de agendamentos carregados
   const [loading, setLoading] = useState(true);               // Estado de carregamento
@@ -111,10 +114,7 @@ export default function Agendamentos() {
    * Recepção: vê agendamentos do CRAS onde trabalha
    */
   const fetchAgendamentos = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user'));
-    
-    if (!token || !user) return; // Validação de autenticação
+    if (!user) return; // Validação de autenticação
     
     try {
       // Monta URL com filtros baseados no perfil
@@ -143,7 +143,7 @@ export default function Agendamentos() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, orderBy, order]);
+  }, [user, debouncedSearch, orderBy, order]);
 
   useEffect(() => {
     fetchAgendamentos();

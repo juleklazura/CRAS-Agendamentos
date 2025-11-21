@@ -14,7 +14,14 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['admin', 'entrevistador', 'recepcao'], required: true },
   
   // Referência ao CRAS onde o usuário trabalha (apenas para entrevistador e recepção)
-  cras: { type: mongoose.Schema.Types.ObjectId, ref: 'Cras' },
+  // Admin não precisa de CRAS
+  cras: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Cras',
+    required: function() {
+      return this.role !== 'admin';
+    }
+  },
   
   // Matrícula única para login (deve ser única no sistema)
   matricula: { type: String, required: true, unique: true },

@@ -2,11 +2,67 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/cras-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CRAS Agendamentos</title>
+    
+    <!-- 🔒 SEGURANÇA: Content Security Policy (sem frame-ancestors - só funciona via HTTP header) -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                   font-src 'self' https://fonts.gstatic.com;
+                   img-src 'self' data: https: blob:;
+                   connect-src 'self' http://localhost:5000 http://127.0.0.1:5000 ws://localhost:5173 ws://127.0.0.1:5173;
+                   base-uri 'self';
+                   form-action 'self';
+                   upgrade-insecure-requests;">
+    
+    <!-- 🔒 SEGURANÇA: Prevenir MIME type sniffing -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    
+    <!-- ⚠️ NOTA: X-Frame-Options e frame-ancestors só funcionam via HTTP headers (ver backend/server.js) -->
+    
+    <!-- 🔒 SEGURANÇA: Ativar proteção XSS do browser -->
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    
+    <!-- 🔒 SEGURANÇA: Política de referrer -->
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    
+    <!-- 🔒 SEGURANÇA: Permissions Policy - desabilitar recursos não utilizados -->
+    <meta http-equiv="Permissions-Policy" 
+          content="camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=()">
+    
+    <!-- 🔒 SEGURANÇA: Prevenir cache de dados sensíveis -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <!-- Metadata da aplicação -->
+    <meta name="description" content="Sistema de Agendamentos - CRAS">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#1976d2">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>CRAS - Sistema de Agendamentos</title>
   </head>
   <body>
+    <!-- Mensagem para browsers sem JavaScript -->
+    <noscript>
+      <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px;">
+          <h1 style="color: #d32f2f; margin-bottom: 20px;">⚠️ JavaScript Desabilitado</h1>
+          <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+            Este sistema requer JavaScript para funcionar corretamente.
+          </p>
+          <p style="color: #666; line-height: 1.6;">
+            Por favor, <strong>habilite JavaScript</strong> nas configurações do seu navegador e recarregue a página.
+          </p>
+        </div>
+      </div>
+    </noscript>
+    
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -2,6 +2,8 @@
 // Exibe boas-vindas personalizadas e informações do usuário logado
 // Serve como ponto de entrada após login bem-sucedido
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import Sidebar from '../components/Sidebar';  // Componente de navegação lateral
 import { Box, Typography } from '@mui/material';
 
@@ -11,9 +13,7 @@ import { Box, Typography } from '@mui/material';
  * Layout centrado com informações de boas-vindas e contexto do usuário
  */
 export default function Dashboard() {
-  // Recupera dados do usuário logado do localStorage
-  // Dados são armazenados durante o processo de login
-  const user = JSON.parse(localStorage.getItem('user'));
+  const { user } = useAuth();  // 🔒 SEGURANÇA: Dados do usuário via httpOnly cookies
   
   // Estado para armazenar nome completo do CRAS (obtido via API)
   // Necessário pois o user.cras pode conter apenas o ID
@@ -25,19 +25,9 @@ export default function Dashboard() {
     async function fetchCras() {
       if (user?.cras && typeof user.cras === 'string') {
         try {
-          const token = localStorage.getItem('token');
-          
-          // Busca dados completos do CRAS via API REST
-          const response = await fetch(`http://localhost:5000/api/cras/${user.cras}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            setCrasNome(data.nome || user.cras);  // Usa nome ou fallback para ID
-          } else {
-            setCrasNome(user.cras);  // Fallback em caso de erro HTTP
-          }
+          // 🔒 SEGURANÇA: API automaticamente inclui cookie httpOnly
+          const response = await api.get(`/cras/${user.cras}`);
+          setCrasNome(response.data.nome || user.cras);  // Usa nome ou fallback para ID
         } catch {
           setCrasNome(user.cras);  // Fallback em caso de exceção de rede
         }

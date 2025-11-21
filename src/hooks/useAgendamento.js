@@ -68,7 +68,6 @@ export const useAgendamento = () => {
   // Buscar agendamentos com filtros otimizados
   const buscarAgendamentos = useCallback(async (filtros = {}) => {
     return makeRequest(async () => {
-      const token = localStorage.getItem('token');
       const params = new URLSearchParams();
       
       // Adicionar filtros apenas se tiverem valor
@@ -129,7 +128,6 @@ export const useAgendamento = () => {
     }
 
     return makeRequest(async () => {
-      const token = localStorage.getItem('token');
       const response = await axios.post(`${API_BASE_URL}/appointments`, dadosAgendamento, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -146,7 +144,6 @@ export const useAgendamento = () => {
   // Editar agendamento
   const editarAgendamento = useCallback(async (id, dadosAtualizados) => {
     return makeRequest(async () => {
-      const token = localStorage.getItem('token');
       const response = await axios.put(`${API_BASE_URL}/appointments/${id}`, dadosAtualizados, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -165,7 +162,6 @@ export const useAgendamento = () => {
   // Cancelar agendamento
   const cancelarAgendamento = useCallback(async (id) => {
     return makeRequest(async () => {
-      const token = localStorage.getItem('token');
       await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -182,7 +178,6 @@ export const useAgendamento = () => {
   // Confirmar presença
   const confirmarPresenca = useCallback(async (id) => {
     return makeRequest(async () => {
-      const token = localStorage.getItem('token');
       const response = await axios.patch(`${API_BASE_URL}/appointments/${id}/confirm`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -245,7 +240,6 @@ export const useCras = () => {
   const buscarCras = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/cras`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -278,7 +272,6 @@ export const useUsuarios = () => {
   const buscarUsuarios = useCallback(async (filtros = {}) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const params = new URLSearchParams();
       
       // Adicionar filtros

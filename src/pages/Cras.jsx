@@ -1,7 +1,7 @@
 // Componente CRAS - Gerencia unidades do Centro de Referência de Assistência Social
 // Permite criar, editar, listar e excluir unidades CRAS (apenas para administradores)
 import { useEffect, useState, useCallback } from 'react';
-import api from '../utils/axiosConfig';  // Cliente HTTP configurado
+import api from '../services/api';  // Cliente HTTP configurado com httpOnly cookies
 import Sidebar from '../components/Sidebar';  // Navegação lateral
 
 // Componentes Material-UI para interface completa

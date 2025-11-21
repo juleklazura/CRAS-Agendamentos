@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { memo } from 'react';
-import { useAuth } from './hooks/useApp';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { memo, useContext } from 'react';
+import { AuthContext } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Importações lazy para code splitting
 import Login from './pages/Login';
@@ -13,26 +14,9 @@ import MinhaAgenda from './pages/MinhaAgenda';
 import Agenda from './pages/Agenda';
 import AgendaRecepcao from './pages/AgendaRecepcao';
 
-// Componente de rota protegida otimizado
-const ProtectedRoute = memo(({ element, allowedRoles }) => {
-  const { isAuthenticated, canAccess } = useAuth();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!canAccess(allowedRoles)) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return element;
-});
-
-ProtectedRoute.displayName = 'ProtectedRoute';
-
 // Componente de rota de login otimizado
 const LoginRoute = memo(() => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useContext(AuthContext);
   
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -43,31 +27,99 @@ const LoginRoute = memo(() => {
 
 LoginRoute.displayName = 'LoginRoute';
 
-// Router principal otimizado
+// Router principal otimizado com validação rigorosa de roles
 const Router = memo(() => {
   return (
-    <BrowserRouter
-      future={{
-        v7_relativeSplatPath: true,
-        v7_startTransition: true
-      }}
-    >
-      <Routes>
-        <Route path="/login" element={<LoginRoute />} />
-        <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
-        <Route path="/usuarios" element={<ProtectedRoute element={<Usuarios />} allowedRoles={['admin']} />} />
-        <Route path="/cras" element={<ProtectedRoute element={<Cras />} allowedRoles={['admin']} />} />
-        <Route path="/agendamentos" element={<ProtectedRoute element={<Agendamentos />} />} />
-        <Route path="/logs" element={<ProtectedRoute element={<Logs />} allowedRoles={['admin', 'recepcao']} />} />
-        <Route path="/minha-agenda" element={<ProtectedRoute element={<MinhaAgenda />} allowedRoles={['entrevistador']} />} />
-        <Route path="/agenda-recepcao" element={<ProtectedRoute element={<AgendaRecepcao />} allowedRoles={['recepcao']} />} />
-        <Route path="/agenda" element={<ProtectedRoute element={<Agenda />} />} />
-        {/* Redireciona para login por padrão */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        {/* Redireciona qualquer rota não encontrada para o dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      {/* Rota de login - redireciona se já autenticado */}
+      <Route path="/login" element={<LoginRoute />} />
+      
+      {/* Dashboard - acessível para todos os usuários autenticados */}
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Usuários - APENAS ADMIN */}
+      <Route 
+        path="/usuarios" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Usuarios />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* CRAS - APENAS ADMIN */}
+      <Route 
+        path="/cras" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Cras />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Agendamentos - todos os usuários autenticados */}
+      <Route 
+        path="/agendamentos" 
+        element={
+          <ProtectedRoute>
+            <Agendamentos />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Logs - ADMIN e RECEPÇÃO */}
+      <Route 
+        path="/logs" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'recepcao']}>
+            <Logs />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Minha Agenda - APENAS ENTREVISTADOR */}
+      <Route 
+        path="/minha-agenda" 
+        element={
+          <ProtectedRoute allowedRoles={['entrevistador']}>
+            <MinhaAgenda />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Agenda Recepção - APENAS RECEPÇÃO */}
+      <Route 
+        path="/agenda-recepcao" 
+        element={
+          <ProtectedRoute allowedRoles={['recepcao']}>
+            <AgendaRecepcao />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Agenda Geral - todos os usuários autenticados */}
+      <Route 
+        path="/agenda" 
+        element={
+          <ProtectedRoute>
+            <Agenda />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Redireciona raiz para login */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      
+      {/* Rotas não encontradas - redireciona para dashboard se autenticado */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   );
 });
 

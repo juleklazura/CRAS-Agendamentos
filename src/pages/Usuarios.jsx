@@ -3,7 +3,7 @@
 // Acesso restrito para administradores apenas
 // Funcionalidades: CRUD completo, busca, paginação, exportação
 import { useEffect, useState, useCallback } from 'react';
-import api from '../utils/axiosConfig';  // Cliente HTTP configurado
+import api from '../services/api';  // Cliente HTTP configurado com httpOnly cookies
 import Sidebar from '../components/Sidebar';  // Navegação lateral
 
 // Componentes Material-UI para interface completa
@@ -94,7 +94,15 @@ export default function Usuarios() {
    * @param {Event} e - Evento de mudança do input
    */
   function handleChange(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    const newForm = { ...form, [name]: value };
+    
+    // Se mudar para admin, limpa o campo CRAS
+    if (name === 'role' && value === 'admin') {
+      newForm.cras = '';
+    }
+    
+    setForm(newForm);
     setError('');
     setSuccess('');
   }
@@ -111,8 +119,14 @@ export default function Usuarios() {
     setSuccess('');
     
     // Validação: senha obrigatória apenas na criação, CRAS obrigatório para não-admin
-    if (!form.name || !form.matricula || (editId ? false : !form.password) || !form.role || (form.role !== 'admin' && !form.cras)) {
+    if (!form.name || !form.matricula || (editId ? false : !form.password) || !form.role) {
       setError('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    
+    // Validação específica: CRAS obrigatório para não-admin
+    if (form.role !== 'admin' && !form.cras) {
+      setError('CRAS é obrigatório para entrevistadores e recepção.');
       return;
     }
     if (form.password && form.password.length < 8) {
@@ -206,13 +220,15 @@ export default function Usuarios() {
                 <MenuItem value="recepcao">Recepção</MenuItem>
               </Select>
             </FormControl>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>CRAS</InputLabel>
-              <Select name="cras" value={form.cras} onChange={handleChange} required={form.role !== 'admin'} label="CRAS">
-                <MenuItem value="">Selecione o CRAS</MenuItem>
-                {crasList.map(c => <MenuItem key={c._id} value={c._id}>{c.nome}</MenuItem>)}
-              </Select>
-            </FormControl>
+            {form.role !== 'admin' && (
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <InputLabel>CRAS</InputLabel>
+                <Select name="cras" value={form.cras} onChange={handleChange} required label="CRAS">
+                  <MenuItem value="">Selecione o CRAS</MenuItem>
+                  {crasList.map(c => <MenuItem key={c._id} value={c._id}>{c.nome}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )}
             <Button type="submit" variant="contained" color="success">{editId ? 'Salvar' : 'Criar'}</Button>
             {editId && <Button type="button" onClick={() => { setEditId(null); setForm({ name: '', matricula: '', password: '', role: 'entrevistador', cras: '' }); }} color="inherit">Cancelar</Button>}
             <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={exportToExcel}>Exportar</Button>

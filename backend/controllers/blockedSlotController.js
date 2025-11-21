@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 // Controller para gerenciamento de bloqueios de horário
 // Permite que APENAS ENTREVISTADORES bloqueiem horários específicos em suas próprias agendas
 import Log from '../models/Log.js';
@@ -33,8 +34,9 @@ export const createBlockedSlot = async (req, res) => {
     });
     
     res.status(201).json(blocked);
-  } catch (_) {
-    res.status(400).json({ message: 'Erro ao bloquear horário' });
+  } catch (error) {
+    logger.error('Erro ao bloquear horário:', error);
+    res.status(400).json({ message: 'Erro ao bloquear horário', error: error.message });
   }
 };
 
@@ -68,7 +70,7 @@ export const getBlockedSlots = async (req, res) => {
     
     res.json(slots);
   } catch (error) {
-    console.error('Erro ao buscar bloqueios:', error);
+    logger.error('Erro ao buscar bloqueios:', error);
     res.status(500).json({ message: 'Erro ao buscar bloqueios' });
   }
 };
@@ -114,7 +116,7 @@ export const deleteBlockedSlot = async (req, res) => {
     
     res.json({ message: 'Bloqueio removido' });
   } catch (error) {
-    console.error('Erro ao remover bloqueio:', error);
+    logger.error('Erro ao remover bloqueio:', error);
     res.status(400).json({ message: 'Erro ao remover bloqueio' });
   }
 };

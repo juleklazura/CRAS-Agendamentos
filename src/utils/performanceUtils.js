@@ -215,7 +215,7 @@ export const criarAxiosOtimizado = () => {
   // Request interceptor
   instance.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('token');
+      // Token agora 00e9 enviado automaticamente via cookies httpOnly
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }

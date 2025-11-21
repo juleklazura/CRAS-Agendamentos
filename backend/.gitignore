@@ -1,31 +1,82 @@
-# Dependencies
+# ==============================================================================
+# DEPENDENCIES
+# ==============================================================================
 node_modules/
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# ==============================================================================
+# 🔒 SECURITY & ENVIRONMENT VARIABLES (CRÍTICO - NUNCA COMMITAR!)
+# ==============================================================================
+# Ignorar TODOS os arquivos que começam com .env
+.env*
 
-# Logs
-logs
+# Mas permitir o arquivo de exemplo (template público)
+!.env.example
+
+# Backups de configuração com dados sensíveis
+*.backup
+*.backup.*
+*.bak
+*.old
+*.save
+
+# Certificados SSL/TLS e Chaves Privadas
+*.pem
+*.key
+*.crt
+*.csr
+*.ca-bundle
+*.p12
+*.pfx
+*.asc
+*.gpg
+
+# Tokens, Secrets e Credenciais
+*.token
+*.secret
+*.cred
+headers.txt
+tokens.txt
+secrets.txt
+
+# Chaves SSH
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.ppk
+
+# ==============================================================================
+# 🗄️ DATABASE & DUMPS
+# ==============================================================================
+*.db
+*.sqlite
+*.sqlite3
+dump/
+*.bson
+*.json.gz
+backup/
+backups/
+
+# ==============================================================================
+# 📝 LOGS
+# ==============================================================================
+logs/
 *.log
+*.log.*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# Build output
+# ==============================================================================
+# 🏗️ BUILD OUTPUT
+# ==============================================================================
 dist/
 build/
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Scripts de desenvolvimento/teste (não devem ir para produção)
+# ==============================================================================
+# 🛠️ SCRIPTS DE DESENVOLVIMENTO/TESTE (não devem ir para produção)
+# ==============================================================================
 scripts/createTestUsers.js
 scripts/deleteAllAppointments.js
 scripts/deleteAllUsers.js
@@ -34,21 +85,44 @@ scripts/preencherAgendaTeste.js
 scripts/preencherAgendaTeste1000.js
 scripts/testarCrasIds.js
 scripts/testarRotaRecepcao.js
+scripts/generateSecrets.js
+scripts/rotateSecrets.js
+scripts/testAdminCreation.js
+scripts/testValidators.js
+scripts/encryptExistingData.js
+scripts/setupMongoAuth.js
+scripts/setup-mongo-security.sh
+scripts/corrigirMotivosAgendamentos.js
+scripts/verificarECorrigirMotivos.js
+scripts/verificarMotivos.js
 
-# Scripts de migração temporários (descomente se necessário)
+# Scripts utilitários (manter no repo)
+# scripts/createAdmin.js
+# scripts/listUsers.js
+# scripts/verificarUsuarios.js
+
+# Scripts de migração (manter no repo - necessários para manutenção)
 # scripts/addMotivoField.js
 # scripts/dropEmailIndex.js
 # scripts/updateAppointments.js
 # scripts/updateCreatedBy.js
 
-# Editor directories and files
+# ==============================================================================
+# ⚙️ IDE & EDITOR FILES
+# ==============================================================================
 .vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-workspace
+*.sublime-project
 
-# OS generated files
+# ==============================================================================
+# 💻 OS GENERATED FILES
+# ==============================================================================
 .DS_Store
 .DS_Store?
 ._*
@@ -56,17 +130,34 @@ scripts/testarRotaRecepcao.js
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Temporary files
+# ==============================================================================
+# 🗑️ TEMPORARY FILES
+# ==============================================================================
 *.tmp
 *.temp
+*.cache
+.cache/
 
-# Coverage directory used by tools like istanbul
+# ==============================================================================
+# 🧪 TESTING & COVERAGE
+# ==============================================================================
 coverage/
 .nyc_output/
+test-results/
+*.lcov
 
-# Optional npm cache directory
+# ==============================================================================
+# 📦 NPM & YARN
+# ==============================================================================
 .npm
+.yarn-integrity
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
 
 # Optional REPL history
 .node_repl_history
@@ -74,5 +165,17 @@ coverage/
 # Output of 'npm pack'
 *.tgz
 
-# Yarn Integrity file
-.yarn-integrity
+# ==============================================================================
+# 🔧 OUTROS ARQUIVOS SENSÍVEIS
+# ==============================================================================
+# Configurações locais de desenvolvimento
+.env.local.override
+config.local.js
+config.local.json
+
+# Arquivos de sessão
+.session
+sessions/
+
+# PM2 logs
+.pm2/

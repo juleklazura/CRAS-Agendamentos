@@ -33,7 +33,7 @@ import {
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
 
-import { useAuth } from '../hooks/useApp';
+import { useAuth } from '../hooks/useAuth';
 
 // Configuração otimizada dos menus por perfil de usuário
 // Cada role tem acesso apenas às funcionalidades relevantes
@@ -107,16 +107,7 @@ const Sidebar = memo(() => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { logout } = useAuth();
-
-  // Memoizar dados do usuário
-  const usuario = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('user'));
-    } catch {
-      return null;
-    }
-  }, []);
+  const { user: usuario, logout } = useAuth();
 
   // Memoizar itens do menu baseado no role do usuário
   const menuItems = useMemo(() => 
@@ -161,9 +152,9 @@ const Sidebar = memo(() => {
             alt="CRAS"
             sx={{ 
               width: 48, 
-              height: 48, 
-              mb: 1,
-              backgroundColor: 'transparent'
+              height: 48,
+              backgroundColor: 'transparent',
+              mb: 1
             }}
           />
           <Typography 

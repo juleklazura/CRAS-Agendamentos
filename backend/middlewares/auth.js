@@ -5,8 +5,8 @@ import jwt from 'jsonwebtoken';
 // Middleware principal de autenticação
 // Verifica se o token JWT é válido e extrai dados do usuário
 export function auth(req, res, next) {
-  // Extrai token do header Authorization (formato: "Bearer [token]")
-  const token = req.header('Authorization')?.replace('Bearer ', '');
+  // 🔒 SEGURANÇA: Lê token do cookie httpOnly em vez do header
+  const token = req.cookies?.token;
   
   if (!token) {
     return res.status(401).json({ message: 'Token não fornecido' });

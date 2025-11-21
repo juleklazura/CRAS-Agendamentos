@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 // Controller para gerenciamento de usuários
 // Controla criação, edição, listagem e exclusão de usuários do sistema
 import User from '../models/User.js';
@@ -10,11 +11,25 @@ export const createUser = async (req, res) => {
   try {
     const { name, password, role, cras, matricula } = req.body;
     
+    // Validação: Admin não deve ter CRAS
+    if (role === 'admin' && cras) {
+      return res.status(400).json({ message: 'Administradores não devem ter CRAS associado' });
+    }
+    
+    // Validação: Entrevistador e Recepção devem ter CRAS
+    if ((role === 'entrevistador' || role === 'recepcao') && !cras) {
+      return res.status(400).json({ message: 'CRAS é obrigatório para entrevistadores e recepção' });
+    }
+    
     // Gera hash seguro da senha antes de armazenar
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Cria novo usuário com dados validados
-    const user = new User({ name, password: hashedPassword, role, cras, matricula });
+    // Cria novo usuário com dados validados (remove cras se for admin)
+    const userData = { name, password: hashedPassword, role, matricula };
+    if (role !== 'admin') {
+      userData.cras = cras;
+    }
+    const user = new User(userData);
     await user.save();
     
     // Registra criação do usuário no sistema de auditoria
@@ -27,7 +42,7 @@ export const createUser = async (req, res) => {
     
     res.status(201).json(user);
   } catch (err) {
-    console.error('Erro ao criar usuário:', err);
+    logger.error('Erro ao criar usuário:', err);
     res.status(400).json({ message: 'Erro ao criar usuário' });
   }
 };
@@ -47,7 +62,7 @@ export const getUsers = async (req, res) => {
     const users = await User.find(query).select('-password').populate('cras');
     res.json(users);
   } catch (error) {
-    console.error('Erro ao buscar usuários:', error);
+    logger.error('Erro ao buscar usuários:', error);
     res.status(500).json({ message: 'Erro ao buscar usuários' });
   }
 };
@@ -77,7 +92,7 @@ export const getEntrevistadoresByCras = async (req, res) => {
     
     res.json(entrevistadores);
   } catch (error) {
-    console.error('Erro ao buscar entrevistadores:', error);
+    logger.error('Erro ao buscar entrevistadores:', error);
     res.status(500).json({ message: 'Erro ao buscar entrevistadores' });
   }
 };
@@ -87,7 +102,24 @@ export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, password, role, cras, matricula, agenda } = req.body;
-    const update = { name, role, cras, matricula };
+    
+    // Validação: Admin não deve ter CRAS
+    if (role === 'admin' && cras) {
+      return res.status(400).json({ message: 'Administradores não devem ter CRAS associado' });
+    }
+    
+    // Validação: Entrevistador e Recepção devem ter CRAS
+    if ((role === 'entrevistador' || role === 'recepcao') && !cras) {
+      return res.status(400).json({ message: 'CRAS é obrigatório para entrevistadores e recepção' });
+    }
+    
+    const update = { name, role, matricula };
+    // Remove CRAS se for admin, adiciona se for outro perfil
+    if (role === 'admin') {
+      update.cras = null;
+    } else {
+      update.cras = cras;
+    }
     if (password) update.password = await bcrypt.hash(password, 10);
     if (role === 'entrevistador' && agenda) {
       update.agenda = {

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import Sidebar from '../components/Sidebar';
 import {
   Box,
@@ -53,16 +54,22 @@ import {
   criarDataHorario
 } from '../utils/agendamentoUtils';
 
-const API_BASE_URL = 'http://localhost:5000/api';
-
 // 🏢 Agenda da Recepção - Gestão Humanizada de Agendamentos
 // Permite à equipe de recepção visualizar e gerenciar agendamentos 
 // de todos os entrevistadores de forma centralizada e intuitiva
 
 export default function AgendaRecepcao() {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
-  const usuario = JSON.parse(localStorage.getItem('user'));
+  const { user: usuario, loading: authLoading } = useAuth();  // 🔒 SEGURANÇA: Dados via httpOnly cookies
+  
+  // Mostrar loading enquanto autenticação está carregando
+  if (authLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
   
   // Estados principais
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
@@ -128,24 +135,21 @@ export default function AgendaRecepcao() {
   // Buscar informações do CRAS
   const buscarCrasInfo = useCallback(async () => {
     try {
-      const response = await axios.get(
-        `http://localhost:5000/api/cras/${usuario.cras}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await api.get(
+        `/cras/${usuario.cras}`
       );
       setCrasInfo(response.data);
     } catch (erro) {
       console.error('Erro ao buscar informações do CRAS:', erro);
     }
-  }, [usuario.cras, token]);
+  }, [usuario.cras]);
 
   // Buscar entrevistadores do CRAS
   const buscarEntrevistadores = useCallback(async () => {
     try {
-      const url = `http://localhost:5000/api/users/entrevistadores/cras/${usuario.cras}`;
+      const url = `/users/entrevistadores/cras/${usuario.cras}`;
       
-      const response = await axios.get(url, { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
+      const response = await api.get(url);
       
       setEntrevistadores(response.data);
       
@@ -158,7 +162,7 @@ export default function AgendaRecepcao() {
     } catch (erro) {
       mostrarMensagem('Erro ao carregar entrevistadores: ' + (erro.response?.data?.message || erro.message), 'error');
     }
-  }, [usuario.cras, token, mostrarMensagem]);
+  }, [usuario.cras, mostrarMensagem]);
 
   useEffect(() => {
     if (usuario?.cras) {
@@ -183,11 +187,10 @@ export default function AgendaRecepcao() {
 
   // 🔍 Buscar bloqueios do entrevistador selecionado
   const buscarBloqueios = useCallback(async () => {
-    if (!token || !entrevistadorSelecionado) return;
+    if (!entrevistadorSelecionado) return;
     try {
-      const resposta = await axios.get(
-        `http://localhost:5000/api/blocked-slots?entrevistador=${entrevistadorSelecionado}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const resposta = await api.get(
+        `/blocked-slots?entrevistador=${entrevistadorSelecionado}`
       );
       
       setBloqueios(resposta.data || []);
@@ -195,15 +198,14 @@ export default function AgendaRecepcao() {
       console.error('Erro ao buscar bloqueios:', erro);
       mostrarMensagem('Erro ao carregar bloqueios', 'error');
     }
-  }, [token, entrevistadorSelecionado, mostrarMensagem]);
+  }, [entrevistadorSelecionado, mostrarMensagem]);
 
   // Buscar agendamentos igual MinhaAgenda (todos do entrevistador, sem paginação)
   const buscarAgendamentos = useCallback(async () => {
-    if (!token || !entrevistadorSelecionado) return;
+    if (!entrevistadorSelecionado) return;
     try {
-      const resposta = await axios.get(
-        `http://localhost:5000/api/appointments?entrevistador=${entrevistadorSelecionado}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const resposta = await api.get(
+        `/appointments?entrevistador=${entrevistadorSelecionado}`
       );
       let data = resposta.data;
       if (data && typeof data === 'object' && Array.isArray(data.results)) {
@@ -214,7 +216,7 @@ export default function AgendaRecepcao() {
       console.error('Erro ao buscar agendamentos:', erro);
       mostrarMensagem('Erro ao carregar agendamentos', 'error');
     }
-  }, [token, entrevistadorSelecionado, mostrarMensagem]);
+  }, [entrevistadorSelecionado, mostrarMensagem]);
 
   // Carregar agendamentos e bloqueios ao trocar entrevistador ou data
   useEffect(() => {
@@ -300,8 +302,8 @@ export default function AgendaRecepcao() {
       
       const cpfApenasNumeros = dadosAgendamento.cpf.replace(/\D/g, '');
       
-      await axios.post(
-        `${API_BASE_URL}/appointments`,
+      await api.post(
+        `/appointments`,
         {
           entrevistador: entrevistadorSelecionado,
           cras: usuario.cras,
@@ -313,8 +315,7 @@ export default function AgendaRecepcao() {
           data: dataHorario,
           status: 'agendado',
           observacoes: dadosAgendamento.observacoes
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
       
       mostrarMensagem('🎉 Agendamento realizado com sucesso! O cidadão foi notificado.', 'success');
@@ -349,9 +350,8 @@ export default function AgendaRecepcao() {
     if (!agendamentoParaExcluir) return;
 
     try {
-      await axios.delete(
-        `http://localhost:5000/api/appointments/${agendamentoParaExcluir._id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.delete(
+        `/appointments/${agendamentoParaExcluir._id}`
       );
 
       mostrarMensagem('Agendamento excluído com sucesso!');
@@ -366,10 +366,9 @@ export default function AgendaRecepcao() {
 
   const confirmarPresenca = async (agendamento) => {
     try {
-      await axios.patch(
-        `http://localhost:5000/api/appointments/${agendamento._id}/confirm`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.patch(
+        `/appointments/${agendamento._id}/confirm`,
+        {}
       );
 
       mostrarMensagem('Presença confirmada com sucesso!');
@@ -387,10 +386,9 @@ export default function AgendaRecepcao() {
       return;
     }
     try {
-      await axios.patch(
-        `http://localhost:5000/api/appointments/${agendamento._id}/unconfirm`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.patch(
+        `/appointments/${agendamento._id}/unconfirm`,
+        {}
       );
       mostrarMensagem('Confirmação removida com sucesso!');
       await buscarAgendamentos();
@@ -445,10 +443,9 @@ export default function AgendaRecepcao() {
     }
 
     try {
-      await axios.put(
-        `http://localhost:5000/api/appointments/${agendamentoParaEditar._id}`,
-        dadosEdicao,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.put(
+        `/appointments/${agendamentoParaEditar._id}`,
+        dadosEdicao
       );
       
       mostrarMensagem('Agendamento editado com sucesso!');
@@ -616,7 +613,7 @@ export default function AgendaRecepcao() {
                               {agendado && agendamento?.status === 'realizado' ? 'Realizado' :
                                agendado ? 'Agendado' :
                                bloqueado ? 'Bloqueado' :
-                               'Livre'}
+                               'Disponível'}
                             </Typography>
                           </TableCell>
                           <TableCell>

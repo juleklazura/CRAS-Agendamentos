@@ -5,9 +5,11 @@
 // useMemo: para memoizar valores computados
 // memo: para memoizar o componente inteiro
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import { useAuth } from '../hooks/useAuth';
 
 // Axios para fazer requisições HTTP para o backend
 import axios from 'axios';
+import api from '../services/api';
 
 // Componentes do Material-UI para interface
 // Box: container flexível para layout
@@ -176,11 +178,10 @@ const HorarioTableRow = memo(({
         }
         fontWeight="medium"
       >
-        {/* Ícones emoji para tornar o status mais visual e intuitivo */}
-        {status === 'agendado' ? '📅 Agendado' :
-         status === 'realizado' ? '✅ Realizado' :
-         status === 'bloqueado' ? '🚫 Bloqueado' :
-         '✨ Disponível'}
+        {status === 'agendado' ? 'Agendado' :
+         status === 'realizado' ? 'Realizado' :
+         status === 'bloqueado' ? 'Bloqueado' :
+         'Disponível'}
       </Typography>
     </TableCell>
     
@@ -363,16 +364,19 @@ const AgendaEntrevistadores = memo(() => {
     observacoes: ''
   });
 
-  // Token e dados do usuário - memoizados e estáticos para performance
-  const token = useMemo(() => localStorage.getItem('token'), []);
-  const user = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('user') || '{}');
-    } catch {
-      return {};
-    }
-  }, []);
+  // 🔒 SEGURANÇA: Dados do usuário via httpOnly cookies
+  const { user: authUser, loading: authLoading } = useAuth();
+  const user = useMemo(() => authUser || {}, [authUser]);
   const isEntrevistador = useMemo(() => user?.role === 'entrevistador', [user?.role]);
+
+  // Mostrar loading enquanto autentica\u00e7\u00e3o est\u00e1 carregando
+  if (authLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   // Funções helper memoizadas para feedback - evita recriação desnecessária
   const setError = useCallback((message) => {
@@ -408,20 +412,15 @@ const AgendaEntrevistadores = memo(() => {
     try {
       setLoading(true);
       
-      // Pega dados do usuário do localStorage sempre atualizado
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      
       // Se o usuário logado é um entrevistador, usa apenas seus próprios dados
-      if (isEntrevistador && currentUser._id) {
-        setEntrevistadores([currentUser]);
-        setSelectedEntrevistador(currentUser._id);
+      if (isEntrevistador && user?._id) {
+        setEntrevistadores([user]);
+        setSelectedEntrevistador(user._id);
         return;
       }
       
       // Para admin e recepção, busca todos os entrevistadores
-      const response = await axios.get('http://localhost:5000/api/users', { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
+      const response = await api.get('/users');
       
       const entrevistadoresFiltrados = response.data.filter(usuario => usuario.role === 'entrevistador');
       setEntrevistadores(entrevistadoresFiltrados);
@@ -432,7 +431,7 @@ const AgendaEntrevistadores = memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [token, isEntrevistador, setError]);
+  }, [isEntrevistador, setError]);
 
   /**
    * Busca todos os agendamentos do entrevistador selecionado
@@ -446,12 +445,9 @@ const AgendaEntrevistadores = memo(() => {
     }
     
     try {
-      const response = await axios.get(
-        `http://localhost:5000/api/appointments?entrevistador=${selectedEntrevistador}`, 
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Normaliza a resposta para sempre trabalhar com array
+      const response = await api.get(
+        `/appointments?entrevistador=${selectedEntrevistador}`
+      );      // Normaliza a resposta para sempre trabalhar com array
       // API pode retornar formato {results: []} ou array direto
       let agendamentosData = response.data;
       if (agendamentosData && typeof agendamentosData === 'object' && Array.isArray(agendamentosData.results)) {
@@ -464,7 +460,7 @@ const AgendaEntrevistadores = memo(() => {
       console.error('Erro ao carregar agendamentos:', error);
       setError(mensagens.erro.conexaoFalhou);
     }
-  }, [token, selectedEntrevistador, setError]);
+  }, [selectedEntrevistador, setError]);
 
   /**
    * Busca todos os bloqueios de horário do entrevistador selecionado
@@ -477,9 +473,8 @@ const AgendaEntrevistadores = memo(() => {
     }
     
     try {
-      const response = await axios.get(
-        `http://localhost:5000/api/blocked-slots?entrevistador=${selectedEntrevistador}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await api.get(
+        `/blocked-slots?entrevistador=${selectedEntrevistador}`
       );
       
       setBloqueios(response.data || []);
@@ -488,7 +483,7 @@ const AgendaEntrevistadores = memo(() => {
       console.error('Erro ao carregar bloqueios:', error);
       setError(mensagens.erro.conexaoFalhou);
     }
-  }, [token, selectedEntrevistador, setError]);
+  }, [selectedEntrevistador, setError]);
 
   // Carrega a lista de entrevistadores ao montar o componente
   useEffect(() => {
@@ -628,10 +623,9 @@ const AgendaEntrevistadores = memo(() => {
     }
 
     try {
-      await axios.put(
-        `http://localhost:5000/api/appointments/${agendamentoParaEditar._id}`,
-        dadosEdicao,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.put(
+        `/appointments/${agendamentoParaEditar._id}`,
+        dadosEdicao
       );
       
       setFeedbackState(prev => ({ ...prev, success: 'Agendamento editado com sucesso!' }));
@@ -644,7 +638,7 @@ const AgendaEntrevistadores = memo(() => {
         error: erro.response?.data?.message || 'Erro ao editar agendamento'
       }));
     }
-  }, [agendamentoParaEditar, dadosEdicao, token, fecharModalEdicao, fetchAgendamentos, fetchBloqueios]);
+  }, [agendamentoParaEditar, dadosEdicao, fecharModalEdicao, fetchAgendamentos, fetchBloqueios]);
 
   /**
    * Abre o modal de criação de agendamento
@@ -717,9 +711,7 @@ const AgendaEntrevistadores = memo(() => {
       };
 
       // Envia requisição para criar agendamento
-      await axios.post('http://localhost:5000/api/appointments', dadosParaEnvio, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post('/appointments', dadosParaEnvio);
 
       // Feedback de sucesso
       setSuccess(mensagens.sucesso.agendamentoCriado);
@@ -740,7 +732,6 @@ const AgendaEntrevistadores = memo(() => {
     selectedEntrevistador, 
     data, 
     horarioSelecionado, 
-    token, 
     fetchAgendamentos,
     setError,
     setSuccess
