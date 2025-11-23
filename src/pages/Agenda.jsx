@@ -628,7 +628,7 @@ const AgendaEntrevistadores = memo(() => {
         dadosEdicao
       );
       
-      setFeedbackState(prev => ({ ...prev, success: 'Agendamento editado com sucesso!' }));
+      setFeedbackState(prev => ({ ...prev, success: 'Agendamento atualizado com sucesso' }));
       fecharModalEdicao();
       await Promise.all([fetchAgendamentos(), fetchBloqueios()]);
     } catch (erro) {

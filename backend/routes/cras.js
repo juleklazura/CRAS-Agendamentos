@@ -22,6 +22,7 @@ router.get('/', auth, getCras);
 // GET /api/cras/:id - Buscar unidade CRAS específica por ID
 // Retorna dados detalhados de uma unidade específica
 // Usado para edição e visualização de detalhes
+// 🔒 SEGURANÇA: Requer autenticação mas permite qualquer role
 router.get('/:id', auth, getCrasById);
 
 // PUT /api/cras/:id - Editar unidade CRAS existente (apenas admin)

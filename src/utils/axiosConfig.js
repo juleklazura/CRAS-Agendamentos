@@ -1,19 +1,25 @@
+/**
+ * Configuração do Axios com segurança aprimorada
+ * 🔒 SEGURANÇA: Usa httpOnly cookies ao invés de localStorage
+ * 
+ * ⚠️ NOTA: Este arquivo não é mais usado pelo projeto.
+ * O arquivo principal é src/services/api.js
+ */
+
 import axios from 'axios';
 
 // Instância configurada do axios
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
-  timeout: 10000
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  withCredentials: true, // 🔒 Envia cookies automaticamente (httpOnly)
+  timeout: 15000
 });
 
-// Interceptor para adicionar token automaticamente
+// Interceptor de requisição - cookies enviados automaticamente
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
+    // 🔒 Token agora vem automaticamente via httpOnly cookie
+    // Não precisa mais adicionar Authorization header manualmente
     return config;
   },
   (error) => {
@@ -37,9 +43,8 @@ api.interceptors.response.use(
                               error.config?.url?.includes('/auth/logout');
       
       if (!isExpectedUnauth) {
-        // Apenas redirecionar se não estiver na página de login
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        // 🔒 Não precisa remover token do localStorage (não existe mais)
+        // Apenas redirecionar
         window.location.href = '/login';
       }
       

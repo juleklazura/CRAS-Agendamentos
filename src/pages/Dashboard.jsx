@@ -28,8 +28,14 @@ export default function Dashboard() {
           // 🔒 SEGURANÇA: API automaticamente inclui cookie httpOnly
           const response = await api.get(`/cras/${user.cras}`);
           setCrasNome(response.data.nome || user.cras);  // Usa nome ou fallback para ID
-        } catch {
-          setCrasNome(user.cras);  // Fallback em caso de exceção de rede
+        } catch (error) {
+          // 🔒 Silenciar erro 401 (usuário não autenticado - será tratado pelo interceptor)
+          if (error.response?.status === 401) {
+            console.warn('⚠️ Sessão expirada ao buscar CRAS - usuário será redirecionado');
+          } else {
+            console.error('Erro ao buscar CRAS:', error.message);
+          }
+          setCrasNome(user.cras);  // Fallback em caso de erro
         }
       }
     }

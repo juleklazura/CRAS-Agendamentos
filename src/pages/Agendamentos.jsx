@@ -205,7 +205,7 @@ export default function Agendamentos() {
 
     try {
       await api.delete(`/appointments/${deleteId}`);
-      setSuccess('Agendamento excluído com sucesso!');
+      setSuccess('Agendamento excluído com sucesso');
       fetchAgendamentos(); // Recarrega lista após exclusão
     } catch {
       setError('Erro ao excluir o agendamento');

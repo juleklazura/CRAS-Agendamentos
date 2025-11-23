@@ -66,22 +66,42 @@ export const createAppointment = async (req, res) => {
       return res.status(400).json({ message: 'Não é permitido agendar para sábado ou domingo.' });
     }
     
-    // Criação do novo agendamento com dados validados
-    const appointment = new Appointment({ 
-      entrevistador, 
-      cras, 
-      pessoa, 
-      cpf, 
-      telefone1, 
-      telefone2, 
-      motivo,
-      data, 
-      status, 
-      observacoes, 
-      createdBy: req.user.id 
-    });
-    
-    await appointment.save();
+    // 🔒 PROTEÇÃO CONTRA RACE CONDITION
+    // O índice único garante que apenas um agendamento seja criado
+    // Se houver requisição simultânea, MongoDB retorna erro 11000
+    let appointment;
+    try {
+      // Criação do novo agendamento com dados validados
+      appointment = new Appointment({ 
+        entrevistador, 
+        cras, 
+        pessoa, 
+        cpf, 
+        telefone1, 
+        telefone2, 
+        motivo,
+        data, 
+        status, 
+        observacoes, 
+        createdBy: req.user.id 
+      });
+      
+      await appointment.save();
+      
+    } catch (dbError) {
+      // 🔒 Tratar erro de duplicata (código 11000 do MongoDB)
+      if (dbError.code === 11000 || dbError.name === 'MongoServerError') {
+        // Extrair informações do erro para mensagem amigável
+        const dataFormatada = new Date(data).toLocaleDateString('pt-BR');
+        return res.status(409).json({ 
+          message: `Este horário (${dataFormatada}) já está ocupado para este entrevistador. Por favor, escolha outro horário.`,
+          code: 'SLOT_TAKEN',
+          field: 'data'
+        });
+      }
+      // Re-lançar outros erros de banco
+      throw dbError;
+    }
     
     // Carregar agendamento com dados relacionados para retornar completo
     const appointmentPopulated = await Appointment.findById(appointment._id)
@@ -109,11 +129,17 @@ export const getAppointments = async (req, res) => {
   try {
     const filter = {};
     
-    // Se filtrar por CRAS, buscar todos os entrevistadores desse CRAS
-    if (req.query.cras) {
-      // Buscar todos os entrevistadores do CRAS especificado
+    // 🔒 SEGURANÇA: Aplicar filtros baseados no role ANTES de qualquer query
+    // Previne acesso não autorizado a dados de outros CRAS/entrevistadores
+    
+    if (req.user.role === 'entrevistador') {
+      // Entrevistador vê APENAS seus próprios agendamentos
+      filter.entrevistador = req.user.id;
+      // Ignorar completamente qualquer filtro do cliente
+    } else if (req.user.role === 'recepcao') {
+      // Recepção vê APENAS agendamentos do próprio CRAS
       const entrevistadoresDoCras = await User.find({ 
-        cras: req.query.cras, 
+        cras: req.user.cras, 
         role: 'entrevistador' 
       }).select('_id');
       
@@ -122,13 +148,31 @@ export const getAppointments = async (req, res) => {
       if (idsEntrevistadores.length > 0) {
         filter.entrevistador = { $in: idsEntrevistadores };
       } else {
-        // Se não há entrevistadores no CRAS, retornar lista vazia
         return res.json({ results: [], total: 0 });
       }
+      // Ignorar filtros do cliente para recepção
+    } else if (req.user.role === 'admin') {
+      // Admin pode filtrar por CRAS ou entrevistador específico
+      if (req.query.cras) {
+        const entrevistadoresDoCras = await User.find({ 
+          cras: req.query.cras, 
+          role: 'entrevistador' 
+        }).select('_id');
+        
+        const idsEntrevistadores = entrevistadoresDoCras.map(user => user._id);
+        
+        if (idsEntrevistadores.length > 0) {
+          filter.entrevistador = { $in: idsEntrevistadores };
+        } else {
+          return res.json({ results: [], total: 0 });
+        }
+      }
+      
+      // Admin pode filtrar por entrevistador específico
+      if (req.query.entrevistador) {
+        filter.entrevistador = req.query.entrevistador;
+      }
     }
-    
-    // Filtro por entrevistador específico (se fornecido)
-    if (req.query.entrevistador) filter.entrevistador = req.query.entrevistador;
 
     // Sistema de busca global por texto
     // Permite buscar por nome, CPF ou telefones
@@ -198,6 +242,9 @@ export const getAppointments = async (req, res) => {
       results = results.slice(startIndex, endIndex);
     }
 
+    // 🔒 LGPD: Descriptografia automática via getters do modelo
+    // TODOS os usuários autenticados (admin, entrevistador, recepção) veem dados completos
+    // Dados já descriptografados pelo toJSON() que aplica os getters do schema
     res.json({ results, total });
   } catch (error) {
     logger.error('Erro ao buscar agendamentos:', error, logger.sanitize({ request: req.body }));
@@ -212,6 +259,28 @@ export const updateAppointment = async (req, res) => {
     const update = req.body;
     update.updatedBy = req.user.id;
     update.updatedAt = new Date();
+    
+    // 🔒 SEGURANÇA: Verificar ownership/autorização ANTES de atualizar
+    const existingAppointment = await Appointment.findById(id);
+    
+    if (!existingAppointment) {
+      return res.status(404).json({ message: 'Agendamento não encontrado' });
+    }
+    
+    // Validar autorização baseada no role
+    if (req.user.role === 'entrevistador') {
+      // Entrevistador só pode editar seus próprios agendamentos
+      if (existingAppointment.entrevistador.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Você não tem permissão para editar este agendamento' });
+      }
+    } else if (req.user.role === 'recepcao') {
+      // Recepção só pode editar agendamentos do próprio CRAS
+      const entrevistador = await User.findById(existingAppointment.entrevistador);
+      if (!entrevistador || entrevistador.cras.toString() !== req.user.cras.toString()) {
+        return res.status(403).json({ message: 'Você não tem permissão para editar agendamentos de outro CRAS' });
+      }
+    }
+    // Admin pode editar qualquer agendamento
     
     await Appointment.findByIdAndUpdate(id, update, { new: true });
     
@@ -250,6 +319,21 @@ export const deleteAppointment = async (req, res) => {
       return res.status(404).json({ message: 'Agendamento não encontrado' });
     }
     
+    // 🔒 SEGURANÇA: Verificar ownership/autorização ANTES de excluir
+    if (req.user.role === 'entrevistador') {
+      // Entrevistador só pode excluir seus próprios agendamentos
+      if (appointment.entrevistador.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Você não tem permissão para excluir este agendamento' });
+      }
+    } else if (req.user.role === 'recepcao') {
+      // Recepção só pode excluir agendamentos do próprio CRAS
+      const entrevistador = await User.findById(appointment.entrevistador);
+      if (!entrevistador || entrevistador.cras.toString() !== req.user.cras.toString()) {
+        return res.status(403).json({ message: 'Você não tem permissão para excluir agendamentos de outro CRAS' });
+      }
+    }
+    // Admin pode excluir qualquer agendamento
+    
     // Converter para JSON para descriptografar
     const appointmentData = appointment.toJSON();
     
@@ -278,6 +362,25 @@ export const confirmPresence = async (req, res) => {
     // Validar se o ID é válido
     if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ message: 'ID de agendamento inválido' });
+    }
+    
+    // 🔒 SEGURANÇA: Buscar e validar autorização ANTES de confirmar presença
+    const existingAppointment = await Appointment.findById(id);
+    
+    if (!existingAppointment) {
+      return res.status(404).json({ message: 'Agendamento não encontrado' });
+    }
+    
+    // Validar autorização baseada no role
+    if (req.user.role === 'entrevistador') {
+      if (existingAppointment.entrevistador.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Você não tem permissão para confirmar presença neste agendamento' });
+      }
+    } else if (req.user.role === 'recepcao') {
+      const entrevistador = await User.findById(existingAppointment.entrevistador);
+      if (!entrevistador || entrevistador.cras.toString() !== req.user.cras.toString()) {
+        return res.status(403).json({ message: 'Você não tem permissão para confirmar presença em agendamentos de outro CRAS' });
+      }
     }
     
     const appointment = await Appointment.findByIdAndUpdate(
@@ -312,6 +415,26 @@ export const confirmPresence = async (req, res) => {
 export const removePresenceConfirmation = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // 🔒 SEGURANÇA: Buscar e validar autorização ANTES de remover confirmação
+    const existingAppointment = await Appointment.findById(id);
+    
+    if (!existingAppointment) {
+      return res.status(404).json({ message: 'Agendamento não encontrado' });
+    }
+    
+    // Validar autorização baseada no role
+    if (req.user.role === 'entrevistador') {
+      if (existingAppointment.entrevistador.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Você não tem permissão para remover confirmação deste agendamento' });
+      }
+    } else if (req.user.role === 'recepcao') {
+      const entrevistador = await User.findById(existingAppointment.entrevistador);
+      if (!entrevistador || entrevistador.cras.toString() !== req.user.cras.toString()) {
+        return res.status(403).json({ message: 'Você não tem permissão para remover confirmação de agendamentos de outro CRAS' });
+      }
+    }
+    
     const appointment = await Appointment.findByIdAndUpdate(
       id,
       { 

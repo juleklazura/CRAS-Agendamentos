@@ -1,12 +1,12 @@
 // Contexto global da aplicação para gerenciamento de estado compartilhado
 // Centraliza informações do usuário, autenticação, notificações e cache
+// 🔒 SEGURANÇA: Token não é mais armazenado no estado - gerenciado via httpOnly cookies
 import React, { createContext, useCallback, useMemo, useReducer } from 'react';
 
 // Estado inicial da aplicação com estrutura organizada
 const initialState = {
-  // Dados do usuário logado e autenticação
+  // Dados do usuário logado (apenas dados públicos, sem token)
   user: null,     // objeto com dados do usuário (nome, role, cras, etc)
-  token: null,    // JWT token para autenticação nas APIs
   
   // Estados de carregamento global para UX
   loading: false,
@@ -43,11 +43,10 @@ const ACTIONS = {
 const appReducer = (state, action) => {
   switch (action.type) {
     case ACTIONS.SET_USER:
-      // Define dados do usuário e token de autenticação
+      // Define apenas dados do usuário (token via httpOnly cookie)
       return {
         ...state,
-        user: action.payload.user,
-        token: action.payload.token
+        user: action.payload.user
       };
       
     case ACTIONS.SET_LOADING:
@@ -113,41 +112,35 @@ const AppContext = createContext(null);
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Inicializar dados do localStorage na primeira renderização
+  // 🔒 SEGURANÇA: Não inicializar do localStorage (token agora via httpOnly cookie)
+  // O AuthContext é responsável por buscar dados do usuário via API
   const initializeAuth = useCallback(() => {
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
+    // Limpar qualquer token antigo do localStorage (migração de segurança)
+    const oldToken = localStorage.getItem('token');
+    const oldUser = localStorage.getItem('user');
     
-    if (token && user) {
-      try {
-        dispatch({
-          type: ACTIONS.SET_USER,
-          payload: {
-            token,
-            user: JSON.parse(user)
-          }
-        });
-      } catch (error) {
-        console.error('Erro ao carregar dados do usuário:', error);
-        localStorage.clear();
-      }
+    if (oldToken || oldUser) {
+      console.warn('🔒 Migração de Segurança: Removendo tokens antigos do localStorage');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
   }, []);
 
   // Actions memoizadas
   const actions = useMemo(() => ({
-    // Autenticação
-    login: (token, user) => {
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+    // Autenticação - 🔒 SEGURANÇA: Não armazena token (httpOnly cookie)
+    login: (user) => {
+      // Token é gerenciado automaticamente via httpOnly cookie
       dispatch({
         type: ACTIONS.SET_USER,
-        payload: { token, user }
+        payload: { user }
       });
     },
 
     logout: () => {
-      localStorage.clear();
+      // Limpar apenas dados não-sensíveis (manter preferências do usuário se houver)
+      localStorage.removeItem('token'); // Caso ainda exista algum resquício
+      localStorage.removeItem('user');
       dispatch({ type: ACTIONS.LOGOUT });
     },
 
@@ -219,8 +212,8 @@ export const AppProvider = ({ children }) => {
     // Helper para inicialização
     initializeAuth,
     
-    // Estado computado
-    isAuthenticated: !!state.token && !!state.user,
+    // Estado computado (autenticação baseada em user, não em token local)
+    isAuthenticated: !!state.user,
     userRole: state.user?.role,
     userName: state.user?.name,
     userCras: state.user?.cras

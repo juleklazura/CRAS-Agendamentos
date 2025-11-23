@@ -136,6 +136,28 @@ appointmentSchema.index({ cras: 1 });            // Consultas por CRAS
 appointmentSchema.index({ entrevistador: 1 });   // Consultas por entrevistador
 appointmentSchema.index({ createdBy: 1 });       // Auditoria de criação
 
+// ========================================
+// 🔒 ÍNDICE ÚNICO COMPOSTO - PREVINE RACE CONDITIONS
+// ========================================
+// MongoDB garante atomicidade ao nível de documento
+// Se dois requests simultâneos tentarem o mesmo slot, apenas um sucederá
+// O segundo receberá erro de duplicata (código 11000)
+appointmentSchema.index(
+  { 
+    entrevistador: 1, 
+    data: 1
+  },
+  { 
+    unique: true,
+    name: 'unique_appointment_slot',
+    // Permite reagendar slots cancelados/faltou/realizado
+    // Apenas status ativos bloqueiam o horário
+    partialFilterExpression: { 
+      status: { $in: ['agendado', 'reagendar'] }
+    }
+  }
+);
+
 // Exportação do modelo para uso nos controllers
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 export default Appointment;

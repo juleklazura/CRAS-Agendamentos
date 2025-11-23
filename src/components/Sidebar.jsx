@@ -1,3 +1,64 @@
+/**
+ * ========================================
+ * SIDEBAR - Navegação Lateral Responsiva
+ * ========================================
+ * 
+ * Componente de navegação principal do sistema com menu lateral.
+ * Totalmente responsivo com drawer mobile e sidebar fixa desktop.
+ * Menu adaptado automaticamente ao perfil (role) do usuário.
+ * 
+ * FUNCIONALIDADES PRINCIPAIS:
+ * - Menu lateral fixo em desktop (largura 280px)
+ * - Menu drawer temporário em mobile (toggle)
+ * - AppBar com botão de menu em mobile
+ * - Itens de menu dinâmicos baseados no role
+ * - Indicação visual de rota ativa
+ * - Perfil do usuário com botão de logout
+ * 
+ * MENUS POR PERFIL:
+ * 
+ * ADMIN (6 itens):
+ * - Painel Principal, Usuários, Unidades CRAS
+ * - Agendamentos, Agenda Geral, Histórico
+ * 
+ * ENTREVISTADOR (3 itens):
+ * - Painel Principal, Minha Agenda, Agendamentos
+ * 
+ * RECEPÇÃO (3 itens):
+ * - Painel Principal, Agenda Recepção, Agendamentos
+ * 
+ * RESPONSIVIDADE:
+ * - Desktop (≥ 960px): Sidebar fixa + conteúdo deslocado
+ * - Mobile (< 960px): AppBar + drawer toggle
+ * - Transições suaves entre layouts
+ * 
+ * OTIMIZAÇÕES:
+ * - React.memo para evitar re-renders
+ * - useMemo para menus e conteúdo
+ * - useCallback para handlers de evento
+ * - keepMounted no drawer mobile (performance)
+ * 
+ * ACESSIBILIDADE:
+ * - Labels descritivos em botões
+ * - Navegação por teclado
+ * - Contraste adequado de cores
+ * - Suporte a screen readers
+ * 
+ * @component
+ * @requires useAuth - Hook de autenticação
+ * @requires react-router-dom - Navegação
+ * @requires @mui/material - Componentes UI
+ * 
+ * @example
+ * // Uso no layout principal
+ * <Box sx={{ display: 'flex' }}>
+ *   <Sidebar />
+ *   <Box component="main" sx={{ flexGrow: 1 }}>
+ *     <Outlet />
+ *   </Box>
+ * </Box>
+ */
+
 // Componente de navegação lateral (Sidebar)
 // Responsivo e adaptado para diferentes perfis de usuário
 import React, { useState, memo, useMemo, useCallback } from 'react';

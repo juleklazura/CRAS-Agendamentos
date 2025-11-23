@@ -174,9 +174,9 @@ export const horariosDisponiveis = [
 export const mensagens = {
   // ✅ Mensagens de sucesso
   sucesso: {
-    agendamentoCriado: '🎉 Agendamento realizado com sucesso! O cidadão foi notificado.',
-    agendamentoEditado: '✏️ Agendamento atualizado com sucesso!',
-    agendamentoCancelado: '❌ Agendamento cancelado com sucesso.',
+    agendamentoCriado: 'Agendamento criado com sucesso',
+    agendamentoEditado: 'Agendamento atualizado com sucesso',
+    agendamentoCancelado: 'Agendamento cancelado com sucesso',
     horarioBloqueado: '🚫 Horário bloqueado com sucesso.',
     horarioDesbloqueado: '✅ Horário liberado com sucesso.',
     dadosSalvos: '💾 Dados salvos com sucesso!',

@@ -318,7 +318,7 @@ export default function AgendaRecepcao() {
         }
       );
       
-      mostrarMensagem('🎉 Agendamento realizado com sucesso! O cidadão foi notificado.', 'success');
+      mostrarMensagem('Agendamento criado com sucesso', 'success');
       
       await buscarAgendamentos();
       setModalAgendamentoAberto(false);
@@ -354,7 +354,7 @@ export default function AgendaRecepcao() {
         `/appointments/${agendamentoParaExcluir._id}`
       );
 
-      mostrarMensagem('Agendamento excluído com sucesso!');
+      mostrarMensagem('Agendamento excluído com sucesso');
       await buscarAgendamentos();
       setModalExclusaoAberto(false);
       setAgendamentoParaExcluir(null);
@@ -448,7 +448,7 @@ export default function AgendaRecepcao() {
         dadosEdicao
       );
       
-      mostrarMensagem('Agendamento editado com sucesso!');
+      mostrarMensagem('Agendamento atualizado com sucesso');
       fecharModalEdicao();
       await buscarAgendamentos();
     } catch (erro) {

@@ -109,9 +109,9 @@ const INITIAL_MESSAGE_STATE = {
 // Centralizar as mensagens facilita manutenção e internacionalização futura
 const MESSAGES = {
   SUCCESS: {
-    AGENDAMENTO_CRIADO: 'Agendamento criado com sucesso!',
-    AGENDAMENTO_EXCLUIDO: 'Agendamento excluído com sucesso!',
-    AGENDAMENTO_EDITADO: 'Agendamento editado com sucesso!',
+    AGENDAMENTO_CRIADO: 'Agendamento criado com sucesso',
+    AGENDAMENTO_EXCLUIDO: 'Agendamento excluído com sucesso',
+    AGENDAMENTO_EDITADO: 'Agendamento atualizado com sucesso',
     PRESENCA_CONFIRMADA: 'Presença confirmada com sucesso!',
     PRESENCA_REMOVIDA: 'Confirmação de presença removida!'
   },
@@ -523,7 +523,7 @@ export default function MinhaAgenda() {
         dadosParaEdicao
       );
 
-      mostrarMensagem('Agendamento editado com sucesso!');
+      mostrarMensagem('Agendamento atualizado com sucesso');
       updateModal('edicao', false);
       buscarAgendamentos();
     } catch (erro) {
@@ -907,6 +907,10 @@ export default function MinhaAgenda() {
                     value={dadosAgendamento.motivo}
                     onChange={(e) => setDadosAgendamento(prev => ({ ...prev, motivo: e.target.value }))}
                     label="🎯 Motivo do atendimento"
+                    MenuProps={{
+                      disableRestoreFocus: true,
+                      disableAutoFocus: true
+                    }}
                   >
                     {motivosAtendimento.map(motivo => (
                       <MenuItem key={motivo} value={motivo}>
@@ -1052,6 +1056,10 @@ export default function MinhaAgenda() {
                     value={dadosEdicao.motivo}
                     onChange={(e) => setDadosEdicao(prev => ({ ...prev, motivo: e.target.value }))}
                     label="🎯 Motivo do atendimento"
+                    MenuProps={{
+                      disableRestoreFocus: true,
+                      disableAutoFocus: true
+                    }}
                   >
                     {motivosAtendimento.map(motivo => (
                       <MenuItem key={motivo} value={motivo}>

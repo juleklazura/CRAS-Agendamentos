@@ -3,6 +3,7 @@ import logger from '../utils/logger.js';
 // Permite que APENAS ENTREVISTADORES bloqueiem horários específicos em suas próprias agendas
 import Log from '../models/Log.js';
 import BlockedSlot from '../models/BlockedSlot.js';
+import User from '../models/User.js';
 
 // Função para criar bloqueio de horário (APENAS entrevistador)
 // Impede que determinado horário seja usado para agendamentos
@@ -46,19 +47,34 @@ export const getBlockedSlots = async (req, res) => {
   try {
     let entrevistador, cras;
     
-    // Define filtros baseados no perfil do usuário
-    if (req.user.role === 'admin' || req.user.role === 'recepcao') {
-      // Admin e recepção podem consultar bloqueios de outros entrevistadores
+    // 🔒 SEGURANÇA: Define filtros baseados no perfil do usuário
+    if (req.user.role === 'entrevistador') {
+      // Entrevistadores veem APENAS seus próprios bloqueios
+      entrevistador = req.user.id;
+      cras = req.user.cras;
+    } else if (req.user.role === 'recepcao') {
+      // Recepção vê bloqueios APENAS do próprio CRAS
+      // Ignorar completamente req.query.cras do cliente
+      cras = req.user.cras;
+      
+      if (req.query.entrevistador) {
+        // Validar que o entrevistador pertence ao CRAS da recepção
+        const entrevistadorDoc = await User.findById(req.query.entrevistador);
+        if (!entrevistadorDoc || entrevistadorDoc.cras.toString() !== req.user.cras.toString()) {
+          return res.status(403).json({ message: 'Você não tem permissão para ver bloqueios de outro CRAS' });
+        }
+        entrevistador = req.query.entrevistador;
+      } else {
+        return res.status(400).json({ message: 'Entrevistador não informado' });
+      }
+    } else if (req.user.role === 'admin') {
+      // Admin pode consultar bloqueios de qualquer entrevistador/CRAS
       entrevistador = req.query.entrevistador;
-      cras = req.query.cras || req.user.cras;
+      cras = req.query.cras;
       
       if (!entrevistador) {
         return res.status(400).json({ message: 'Entrevistador não informado' });
       }
-    } else {
-      // Entrevistadores veem apenas seus próprios bloqueios
-      entrevistador = req.user.id;
-      cras = req.user.cras;
     }
     
     // Monta query com filtros apropriados

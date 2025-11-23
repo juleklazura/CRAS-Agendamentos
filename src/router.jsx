@@ -1,3 +1,51 @@
+/**
+ * ========================================
+ * ROUTER - Configuração de Rotas
+ * ========================================
+ * 
+ * Sistema de roteamento centralizado com controle de acesso baseado em roles.
+ * Todas as rotas protegidas usam o componente ProtectedRoute para validação.
+ * Redirecionamentos automáticos para login e dashboard conforme contexto.
+ * 
+ * ESTRUTURA DE ROTAS:
+ * 
+ * PÚBLICAS:
+ * - /login - Página de autenticação (redireciona se já logado)
+ * - / - Raiz redireciona para /login
+ * 
+ * AUTENTICADAS (todos os usuários logados):
+ * - /dashboard - Painel principal
+ * - /agendamentos - Gerenciar agendamentos
+ * - /agenda - Visualização de agenda geral
+ * 
+ * ADMIN:
+ * - /usuarios - Gerenciar usuários do sistema
+ * - /cras - Gerenciar unidades CRAS
+ * 
+ * ENTREVISTADOR:
+ * - /minha-agenda - Agenda pessoal do entrevistador
+ * 
+ * RECEPÇÃO:
+ * - /agenda-recepcao - Agenda da recepção
+ * - /logs - Histórico de operações (compartilhado com admin)
+ * 
+ * SEGURANÇA:
+ * - Validação de autenticação em todas rotas protegidas
+ * - Validação de role específico onde necessário
+ * - Redirecionamento seguro com preservação de URL de destino
+ * - Rota 404 redireciona para dashboard (evita exposição de estrutura)
+ * 
+ * OTIMIZAÇÕES:
+ * - React.memo para evitar re-renders
+ * - Componente LoginRoute otimizado
+ * - DisplayName para melhor debugging
+ * 
+ * @module Router
+ * @requires react-router-dom
+ * @requires ProtectedRoute - Componente de proteção de rotas
+ * @requires AuthContext - Contexto de autenticação
+ */
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { memo, useContext } from 'react';
 import { AuthContext } from './contexts/AuthContext';

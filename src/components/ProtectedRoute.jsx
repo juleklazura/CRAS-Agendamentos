@@ -1,3 +1,70 @@
+/**
+ * ========================================
+ * PROTECTED ROUTE - Controle de Acesso
+ * ========================================
+ * 
+ * Componente de rota protegida com validação rigorosa de permissões.
+ * Controla acesso baseado em autenticação e roles (perfis) de usuário.
+ * Implementa redirecionamento automático e feedback visual claro.
+ * 
+ * FUNCIONALIDADES PRINCIPAIS:
+ * - Bloqueio de acesso para usuários não autenticados
+ * - Validação de roles/permissões específicas por rota
+ * - Tela de "Acesso Negado" amigável e informativa
+ * - Loading state durante verificação de autenticação
+ * - Redirecionamento para login com preservação de URL de destino
+ * 
+ * FLUXO DE VALIDAÇÃO:
+ * 1. Verifica se autenticação está carregando → mostra loading
+ * 2. Verifica se está autenticado → redireciona para /login
+ * 3. Verifica se tem permissão (role) → mostra "Acesso Negado"
+ * 4. Se tudo OK → renderiza conteúdo protegido
+ * 
+ * ROLES SUPORTADOS:
+ * - admin: Acesso total ao sistema
+ * - entrevistador: Acesso à própria agenda e agendamentos
+ * - recepcao: Acesso à recepção e visualização de agendas
+ * 
+ * SEGURANÇA:
+ * - Validação server-side através do token JWT
+ * - Bloqueio de manipulação client-side
+ * - Feedback claro sobre motivo do bloqueio
+ * 
+ * @component
+ * @param {ReactNode} children - Conteúdo a ser protegido
+ * @param {string|Array} [allowedRoles=null] - Role(s) permitidos (null = apenas autenticação)
+ * @param {boolean} [requireAuth=true] - Se requer autenticação
+ * 
+ * @example
+ * // Proteção simples - apenas autenticação
+ * <ProtectedRoute>
+ *   <Dashboard />
+ * </ProtectedRoute>
+ * 
+ * @example
+ * // Proteção com role único
+ * <ProtectedRoute allowedRoles="admin">
+ *   <AdminPanel />
+ * </ProtectedRoute>
+ * 
+ * @example
+ * // Proteção com múltiplos roles
+ * <ProtectedRoute allowedRoles={['admin', 'entrevistador']}>
+ *   <AgendamentosPage />
+ * </ProtectedRoute>
+ * 
+ * @example
+ * // Uso no react-router-dom
+ * <Route 
+ *   path="/usuarios" 
+ *   element={
+ *     <ProtectedRoute allowedRoles="admin">
+ *       <UsuariosPage />
+ *     </ProtectedRoute>
+ *   } 
+ * />
+ */
+
 // Componente de rota protegida com validação rigorosa de permissões
 // Controla acesso baseado em autenticação e roles (perfis) de usuário
 import { Navigate, useLocation } from 'react-router-dom';
