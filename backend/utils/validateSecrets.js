@@ -5,6 +5,7 @@
 // Executado na inicialização do servidor para prevenir configurações inseguras
 
 import dotenv from 'dotenv';
+import logger from './logger.js';
 
 dotenv.config();
 
@@ -103,24 +104,30 @@ export const validateSecrets = () => {
   // Exibir resultados
   // -------------------------------------------------------------------------
   
-  console.log('\n🔒 ========================================');
-  console.log('   VALIDAÇÃO DE SEGURANÇA - JWT SECRETS');
-  console.log('========================================\n');
+  if (process.env.NODE_ENV !== 'test') {
+    logger.info('🔒 ========================================');
+    logger.info('   VALIDAÇÃO DE SEGURANÇA - JWT SECRETS');
+    logger.info('========================================');
+  }
   
   if (errors.length > 0) {
-    console.error('❌ ERROS CRÍTICOS ENCONTRADOS:\n');
-    errors.forEach(error => console.error(`   ${error}`));
-    console.error('\n');
+    if (process.env.NODE_ENV !== 'test') {
+      logger.error('❌ ERROS CRÍTICOS ENCONTRADOS:');
+      errors.forEach(error => logger.error(`   ${error}`));
+    }
   }
   
   if (warnings.length > 0) {
-    console.warn('⚠️  AVISOS DE SEGURANÇA:\n');
-    warnings.forEach(warning => console.warn(`   ${warning}`));
-    console.warn('\n');
+    if (process.env.NODE_ENV !== 'test') {
+      logger.warn('⚠️  AVISOS DE SEGURANÇA:');
+      warnings.forEach(warning => logger.warn(`   ${warning}`));
+    }
   }
   
   if (errors.length === 0 && warnings.length === 0) {
-    console.log('✅ Todos os secrets estão configurados corretamente!\n');
+    if (process.env.NODE_ENV !== 'test') {
+      logger.info('✅ Todos os secrets estão configurados corretamente!');
+    }
   }
   
   // -------------------------------------------------------------------------
@@ -128,16 +135,22 @@ export const validateSecrets = () => {
   // -------------------------------------------------------------------------
   
   if (errors.length > 0 || warnings.length > 0) {
-    console.log('💡 COMO GERAR SECRETS SEGUROS:\n');
-    console.log('   Node.js:');
-    console.log('   $ node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
-    console.log('\n   OpenSSL:');
-    console.log('   $ openssl rand -hex 64');
-    console.log('\n   Online (use apenas em desenvolvimento):');
-    console.log('   https://www.random.org/strings/\n');
+    if (process.env.NODE_ENV !== 'test') {
+      logger.info('💡 COMO GERAR SECRETS SEGUROS:');
+      logger.info('   Node.js:');
+      logger.info('   $ node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
+      logger.info('');
+      logger.info('   OpenSSL:');
+      logger.info('   $ openssl rand -hex 64');
+      logger.info('');
+      logger.info('   Online (use apenas em desenvolvimento):');
+      logger.info('   https://www.random.org/strings/');
+    }
   }
   
-  console.log('========================================\n');
+  if (process.env.NODE_ENV !== 'test') {
+    logger.info('========================================');
+  }
   
   // -------------------------------------------------------------------------
   // Lançar erro se houver problemas críticos
