@@ -23,11 +23,18 @@ export function AuthProvider({ children }) {
       const response = await api.get('/auth/me');
       setUser(response.data);
     } catch (error) {
+      // 🔒 SEGURANÇA: Não logar erros que podem expor dados
       // Silenciar completamente erros 401 esperados (marcados pelo interceptor)
       if (error.isSilent401) {
         // Erro esperado - não logar nada
       } else if (error.response?.status !== 401) {
-        console.error('Erro ao buscar usuário:', error);
+        // Logar apenas em desenvolvimento e sem dados sensíveis
+        if (import.meta.env.MODE === 'development') {
+          console.error('Erro ao buscar usuário:', {
+            status: error.response?.status,
+            message: error.message
+          });
+        }
       }
       setUser(null);
     } finally {
@@ -54,12 +61,19 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/auth/login', { matricula, password });
       
-      // Token é setado automaticamente no cookie httpOnly pelo backend
+      // 🔒 SEGURANÇA: Token é setado automaticamente no cookie httpOnly pelo backend
+      // Nunca armazenar ou logar tokens!
       setUser(response.data.user);
       
       return { success: true, user: response.data.user };
     } catch (error) {
-      console.error('Erro no login:', error);
+      // 🔒 SEGURANÇA: Não logar dados completos de erro (podem conter info sensível)
+      if (import.meta.env.MODE === 'development') {
+        console.error('Erro no login:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message
+        });
+      }
       return { 
         success: false, 
         message: error.response?.data?.message || 'Erro ao fazer login' 
@@ -72,9 +86,13 @@ export function AuthProvider({ children }) {
     try {
       await api.post('/auth/logout');
     } catch (error) {
-      // Silenciar erros 401 esperados
-      if (!error.isSilent401) {
-        console.error('Erro no logout:', error);
+      // 🔒 SEGURANÇA: Não logar erros de logout (podem conter info de sessão)
+      // Silenciar erros 401 esperados e outros erros
+      if (import.meta.env.MODE === 'development' && !error.isSilent401) {
+        console.error('Erro no logout:', {
+          status: error.response?.status,
+          message: error.message
+        });
       }
     } finally {
       setUser(null);

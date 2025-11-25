@@ -5,6 +5,9 @@ import User from '../models/User.js';
 import Log from '../models/Log.js';
 import mongoose from 'mongoose';
 import { validarCPF, validarTelefone } from '../utils/validators.js';
+import { parseDate, isWeekend, formatDateTime, now } from '../utils/timezone.js';
+import cache from '../utils/cache.js';
+import logger from '../utils/logger.js';
 
 // Função para criar novo agendamento (Entrevistador, Recepção)
 // Realiza validações rigorosas antes de persistir no banco
@@ -60,9 +63,8 @@ export const createAppointment = async (req, res) => {
     }
     
     // Validação de regra de negócio: não permitir agendamento em fins de semana
-    const dataAgendamento = new Date(data);
-    const diaSemana = dataAgendamento.getDay();
-    if (diaSemana === 0 || diaSemana === 6) {
+    const dataAgendamento = parseDate(data);
+    if (isWeekend(dataAgendamento)) {
       return res.status(400).json({ message: 'Não é permitido agendar para sábado ou domingo.' });
     }
     
@@ -92,7 +94,7 @@ export const createAppointment = async (req, res) => {
       // 🔒 Tratar erro de duplicata (código 11000 do MongoDB)
       if (dbError.code === 11000 || dbError.name === 'MongoServerError') {
         // Extrair informações do erro para mensagem amigável
-        const dataFormatada = new Date(data).toLocaleDateString('pt-BR');
+        const dataFormatada = formatDateTime(data);
         return res.status(409).json({ 
           message: `Este horário (${dataFormatada}) já está ocupado para este entrevistador. Por favor, escolha outro horário.`,
           code: 'SLOT_TAKEN',
@@ -114,8 +116,11 @@ export const createAppointment = async (req, res) => {
       user: req.user.id,
       cras: cras,
       action: 'criar_agendamento',
-      details: `Agendamento criado para ${pessoa} em ${new Date(data).toLocaleString('pt-BR')} - Motivo: ${motivo}`
+      details: `Agendamento criado para ${pessoa} em ${formatDateTime(data)} - Motivo: ${motivo}`
     });
+    
+    // Invalidar cache após criação
+    cache.invalidateAppointments(cras, entrevistador);
     
     res.status(201).json(appointmentPopulated.toJSON()); // toJSON() aplica getters
   } catch (err) {
@@ -127,35 +132,34 @@ export const createAppointment = async (req, res) => {
 // Listar agendamentos (por CRAS, entrevistador, etc)
 export const getAppointments = async (req, res) => {
   try {
-    const filter = {};
+    // Gerar chave de cache baseada nos parâmetros da requisição
+    const cacheKey = cache.generateAppointmentKey({
+      crasId: req.query.cras || req.user.cras?.toString(),
+      entrevistadorId: req.query.entrevistador || (req.user.role === 'entrevistador' ? req.user.id : null),
+      status: req.query.status,
+      search: req.query.search,
+      page: req.query.page,
+      pageSize: req.query.pageSize,
+      sortBy: req.query.sortBy,
+      order: req.query.order,
+      role: req.user.role
+    });
     
-    // 🔒 SEGURANÇA: Aplicar filtros baseados no role ANTES de qualquer query
-    // Previne acesso não autorizado a dados de outros CRAS/entrevistadores
-    
-    if (req.user.role === 'entrevistador') {
-      // Entrevistador vê APENAS seus próprios agendamentos
-      filter.entrevistador = req.user.id;
-      // Ignorar completamente qualquer filtro do cliente
-    } else if (req.user.role === 'recepcao') {
-      // Recepção vê APENAS agendamentos do próprio CRAS
-      const entrevistadoresDoCras = await User.find({ 
-        cras: req.user.cras, 
-        role: 'entrevistador' 
-      }).select('_id');
+    // Função que executa a query (será chamada se cache miss)
+    const fetchAppointments = async () => {
+      const filter = {};
       
-      const idsEntrevistadores = entrevistadoresDoCras.map(user => user._id);
+      // 🔒 SEGURANÇA: Aplicar filtros baseados no role ANTES de qualquer query
+      // Previne acesso não autorizado a dados de outros CRAS/entrevistadores
       
-      if (idsEntrevistadores.length > 0) {
-        filter.entrevistador = { $in: idsEntrevistadores };
-      } else {
-        return res.json({ results: [], total: 0 });
-      }
-      // Ignorar filtros do cliente para recepção
-    } else if (req.user.role === 'admin') {
-      // Admin pode filtrar por CRAS ou entrevistador específico
-      if (req.query.cras) {
+      if (req.user.role === 'entrevistador') {
+        // Entrevistador vê APENAS seus próprios agendamentos
+        filter.entrevistador = req.user.id;
+        // Ignorar completamente qualquer filtro do cliente
+      } else if (req.user.role === 'recepcao') {
+        // Recepção vê APENAS agendamentos do próprio CRAS
         const entrevistadoresDoCras = await User.find({ 
-          cras: req.query.cras, 
+          cras: req.user.cras, 
           role: 'entrevistador' 
         }).select('_id');
         
@@ -164,88 +168,110 @@ export const getAppointments = async (req, res) => {
         if (idsEntrevistadores.length > 0) {
           filter.entrevistador = { $in: idsEntrevistadores };
         } else {
-          return res.json({ results: [], total: 0 });
+          return { results: [], total: 0 };
+        }
+        // Ignorar filtros do cliente para recepção
+      } else if (req.user.role === 'admin') {
+        // Admin pode filtrar por CRAS ou entrevistador específico
+        if (req.query.cras) {
+          const entrevistadoresDoCras = await User.find({ 
+            cras: req.query.cras, 
+            role: 'entrevistador' 
+          }).select('_id');
+          
+          const idsEntrevistadores = entrevistadoresDoCras.map(user => user._id);
+          
+          if (idsEntrevistadores.length > 0) {
+            filter.entrevistador = { $in: idsEntrevistadores };
+          } else {
+            return { results: [], total: 0 };
+          }
+        }
+        
+        // Admin pode filtrar por entrevistador específico
+        if (req.query.entrevistador) {
+          filter.entrevistador = req.query.entrevistador;
         }
       }
+
+      // Sistema de busca global por texto
+      // Permite buscar por nome, CPF ou telefones
+      if (req.query.search) {
+        const search = req.query.search.trim();
+        filter.$or = [
+          { pessoa: { $regex: search, $options: 'i' } },     // Nome da pessoa
+          { cpf: { $regex: search, $options: 'i' } },        // CPF
+          { telefone1: { $regex: search, $options: 'i' } },  // Telefone principal
+          { telefone2: { $regex: search, $options: 'i' } }   // Telefone secundário
+        ];
+      }
+
+      // Sistema de ordenação dinâmica
+      let sort = {};
+      if (req.query.sortBy) {
+        let field = req.query.sortBy;
+        // Para campos relacionados, ordena pelo nome do objeto populado
+        if (["cras", "entrevistador", "createdBy"].includes(field)) {
+          field = field + ".name";
+        }
+        sort[field] = req.query.order === 'desc' ? -1 : 1;
+      } else {
+        // Ordenação padrão por data
+        sort = { data: 1 };
+      }
+
+      // Calcula total de registros para paginação (antes de aplicar limit/skip)
+      const total = await Appointment.countDocuments(filter);
+
+      // Query principal com população de dados relacionados
+      let query = Appointment.find(filter)
+        .populate('entrevistador', 'name email matricula') // Campos específicos do entrevistador
+        .populate('cras', 'nome endereco telefone')        // Campos específicos do CRAS
+        .populate('createdBy', 'name matricula')          // Campos específicos de quem criou
+        .sort(sort);
       
-      // Admin pode filtrar por entrevistador específico
-      if (req.query.entrevistador) {
-        filter.entrevistador = req.query.entrevistador;
+      let results = await query.exec();
+      
+      // Converter para JSON para aplicar getters e descriptografar
+      results = results.map(doc => doc.toJSON());
+
+      // Ordenação manual para campos populados (necessaria devido à limitação do MongoDB)
+      if (req.query.sortBy && ["cras", "entrevistador", "createdBy"].includes(req.query.sortBy)) {
+        const field = req.query.sortBy;
+        const order = req.query.order === 'desc' ? -1 : 1;
+        results = results.sort((a, b) => {
+          const aName = a[field]?.name?.toLowerCase() || '';
+          const bName = b[field]?.name?.toLowerCase() || '';
+          if (aName < bName) return -1 * order;
+          if (aName > bName) return 1 * order;
+          return 0;
+        });
       }
-    }
 
-    // Sistema de busca global por texto
-    // Permite buscar por nome, CPF ou telefones
-    if (req.query.search) {
-      const search = req.query.search.trim();
-      filter.$or = [
-        { pessoa: { $regex: search, $options: 'i' } },     // Nome da pessoa
-        { cpf: { $regex: search, $options: 'i' } },        // CPF
-        { telefone1: { $regex: search, $options: 'i' } },  // Telefone principal
-        { telefone2: { $regex: search, $options: 'i' } }   // Telefone secundário
-      ];
-    }
-
-    // Sistema de ordenação dinâmica
-    let sort = {};
-    if (req.query.sortBy) {
-      let field = req.query.sortBy;
-      // Para campos relacionados, ordena pelo nome do objeto populado
-      if (["cras", "entrevistador", "createdBy"].includes(field)) {
-        field = field + ".name";
+      // Paginação no frontend - aplicar slice nos resultados finais quando page E pageSize estiverem presentes
+      if (
+        req.query.page !== undefined &&
+        req.query.pageSize !== undefined &&
+        !isNaN(parseInt(req.query.page, 10)) &&
+        !isNaN(parseInt(req.query.pageSize, 10))
+      ) {
+        const page = parseInt(req.query.page, 10);
+        const pageSize = parseInt(req.query.pageSize, 10);
+        const startIndex = page * pageSize;
+        const endIndex = startIndex + pageSize;
+        results = results.slice(startIndex, endIndex);
       }
-      sort[field] = req.query.order === 'desc' ? -1 : 1;
-    } else {
-      // Ordenação padrão por data
-      sort = { data: 1 };
-    }
 
-    // Calcula total de registros para paginação (antes de aplicar limit/skip)
-    const total = await Appointment.countDocuments(filter);
-
-    // Query principal com população de dados relacionados
-    let query = Appointment.find(filter)
-      .populate('entrevistador', 'name email matricula') // Campos específicos do entrevistador
-      .populate('cras', 'nome endereco telefone')        // Campos específicos do CRAS
-      .populate('createdBy', 'name matricula')          // Campos específicos de quem criou
-      .sort(sort);
+      // 🔒 LGPD: Descriptografia automática via getters do modelo
+      // TODOS os usuários autenticados (admin, entrevistador, recepção) veem dados completos
+      // Dados já descriptografados pelo toJSON() que aplica os getters do schema
+      return { results, total };
+    };
     
-    let results = await query.exec();
+    // Usar cache com TTL de 5 minutos (padrão)
+    const data = await cache.cached(cacheKey, fetchAppointments);
     
-    // Converter para JSON para aplicar getters e descriptografar
-    results = results.map(doc => doc.toJSON());
-
-    // Ordenação manual para campos populados (necessaria devido à limitação do MongoDB)
-    if (req.query.sortBy && ["cras", "entrevistador", "createdBy"].includes(req.query.sortBy)) {
-      const field = req.query.sortBy;
-      const order = req.query.order === 'desc' ? -1 : 1;
-      results = results.sort((a, b) => {
-        const aName = a[field]?.name?.toLowerCase() || '';
-        const bName = b[field]?.name?.toLowerCase() || '';
-        if (aName < bName) return -1 * order;
-        if (aName > bName) return 1 * order;
-        return 0;
-      });
-    }
-
-    // Paginação no frontend - aplicar slice nos resultados finais quando page E pageSize estiverem presentes
-    if (
-      req.query.page !== undefined &&
-      req.query.pageSize !== undefined &&
-      !isNaN(parseInt(req.query.page, 10)) &&
-      !isNaN(parseInt(req.query.pageSize, 10))
-    ) {
-      const page = parseInt(req.query.page, 10);
-      const pageSize = parseInt(req.query.pageSize, 10);
-      const startIndex = page * pageSize;
-      const endIndex = startIndex + pageSize;
-      results = results.slice(startIndex, endIndex);
-    }
-
-    // 🔒 LGPD: Descriptografia automática via getters do modelo
-    // TODOS os usuários autenticados (admin, entrevistador, recepção) veem dados completos
-    // Dados já descriptografados pelo toJSON() que aplica os getters do schema
-    res.json({ results, total });
+    res.json(data);
   } catch (error) {
     logger.error('Erro ao buscar agendamentos:', error, logger.sanitize({ request: req.body }));
     res.status(500).json({ message: 'Erro ao buscar agendamentos' });
@@ -258,7 +284,7 @@ export const updateAppointment = async (req, res) => {
     const { id } = req.params;
     const update = req.body;
     update.updatedBy = req.user.id;
-    update.updatedAt = new Date();
+    update.updatedAt = now();
     
     // 🔒 SEGURANÇA: Verificar ownership/autorização ANTES de atualizar
     const existingAppointment = await Appointment.findById(id);
@@ -296,8 +322,11 @@ export const updateAppointment = async (req, res) => {
       user: req.user.id,
       cras: appointment.cras._id,
       action: 'editar_agendamento',
-      details: `Agendamento editado para ${appointment.pessoa} em ${new Date(appointment.data).toLocaleString('pt-BR')}`
+      details: `Agendamento editado para ${appointment.pessoa} em ${formatDateTime(appointment.data)}`
     });
+    
+    // Invalidar cache após atualização
+    cache.invalidateAppointments(appointment.cras._id, appointment.entrevistador._id);
     
     res.json(appointment.toJSON()); // toJSON() aplica getters
   } catch (error) {
@@ -344,8 +373,11 @@ export const deleteAppointment = async (req, res) => {
       user: req.user.id,
       cras: appointmentData.cras._id,
       action: 'excluir_agendamento',
-      details: `Agendamento excluído de ${appointmentData.pessoa} em ${new Date(appointmentData.data).toLocaleString('pt-BR')}`
+      details: `Agendamento excluído de ${appointmentData.pessoa} em ${formatDateTime(appointmentData.data)}`
     });
+    
+    // Invalidar cache após exclusão
+    cache.invalidateAppointments(appointmentData.cras._id, appointment.entrevistador);
     
     res.json({ message: 'Agendamento removido' });
   } catch (error) {
@@ -388,7 +420,7 @@ export const confirmPresence = async (req, res) => {
       { 
         status: 'realizado',
         updatedBy: req.user.id,
-        updatedAt: new Date()
+        updatedAt: now()
       },
       { new: true }
     );
@@ -403,6 +435,9 @@ export const confirmPresence = async (req, res) => {
       .populate('cras', 'nome endereco telefone')
       .populate('createdBy', 'name matricula')
       .populate('updatedBy', 'name matricula');
+    
+    // Invalidar cache após confirmação de presença
+    cache.invalidateAppointments(appointmentPopulated.cras._id, appointmentPopulated.entrevistador._id);
     
     res.json(appointmentPopulated.toJSON()); // toJSON() aplica getters
   } catch (error) {
@@ -448,6 +483,9 @@ export const removePresenceConfirmation = async (req, res) => {
     if (!appointment) {
       return res.status(404).json({ message: 'Agendamento não encontrado' });
     }
+    
+    // Invalidar cache após remover confirmação
+    cache.invalidateAppointments(appointment.cras._id, appointment.entrevistador._id);
     
     res.json(appointment);
   } catch (error) {

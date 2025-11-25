@@ -243,8 +243,15 @@ export const getTimezoneInfo = () => {
   };
 };
 
-// Log de inicialização
-console.log(`✓ Timezone configurado: ${TIMEZONE} (UTC-3)`);
+// 🔒 SEGURANÇA: Usar logger ao invés de console.log
+import('./logger.js').then(({ default: logger }) => {
+  logger.info('✓ Timezone configurado', {
+    timezone: TIMEZONE,
+    offset: 'UTC-3'
+  });
+}).catch(() => {
+  // Fallback silencioso se logger não estiver disponível
+});
 
 export default {
   TIMEZONE,

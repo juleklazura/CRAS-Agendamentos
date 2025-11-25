@@ -4,15 +4,15 @@
 import express from 'express';
 import { createAppointment, getAppointments, updateAppointment, deleteAppointment, confirmPresence, removePresenceConfirmation } from '../controllers/appointmentController.js';
 import { auth, authorize } from '../middlewares/auth.js';
-import { createLimiter, deleteLimiter } from '../middlewares/rateLimiters.js';
+import { createLimiter, deleteLimiter, createAppointmentLimiter } from '../middlewares/rateLimiters.js';
 
 const router = express.Router();
 
 // POST /api/appointments - Criar novo agendamento
 // Permite entrevistador, recepção e admin criarem agendamentos
 // Body: { entrevistador, cras, pessoa, cpf, telefone1, telefone2?, motivo, data, observacoes? }
-// 🔒 SEGURANÇA: Rate limiter - máximo 20 criações por hora
-router.post('/', createLimiter, auth, authorize(['entrevistador', 'recepcao', 'admin']), createAppointment);
+// 🔒 SEGURANÇA: Rate limiter específico - máximo 10 agendamentos por 5 minutos
+router.post('/', auth, createAppointmentLimiter, authorize(['entrevistador', 'recepcao', 'admin']), createAppointment);
 
 // GET /api/appointments - Listar agendamentos com filtros
 // Admin vê todos, entrevistador vê apenas os seus, recepção vê os do CRAS

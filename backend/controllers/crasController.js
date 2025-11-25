@@ -1,4 +1,5 @@
 import logger from '../utils/logger.js';
+import cache from '../utils/cache.js';
 // Controller para gerenciamento de unidades CRAS
 // Controla operações CRUD para as unidades do Centro de Referência de Assistência Social
 import Cras from '../models/Cras.js';
@@ -22,6 +23,9 @@ export const createCras = async (req, res) => {
       details: `CRAS criado: ${nome} - ${endereco}`
     });
     
+    // Invalidar cache após criação
+    cache.invalidateCras();
+    
     res.status(201).json(cras);
   } catch (_) {
     res.status(400).json({ message: 'Erro ao criar CRAS' });
@@ -32,7 +36,14 @@ export const createCras = async (req, res) => {
 // Acessível para todos os usuários autenticados
 export const getCras = async (req, res) => {
   try {
-    const cras = await Cras.find();
+    const cacheKey = 'cras:all';
+    
+    const fetchCras = async () => {
+      const cras = await Cras.find();
+      return cras;
+    };
+    
+    const cras = await cache.cached(cacheKey, fetchCras);
     res.json(cras);
   } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar CRAS' });
@@ -43,7 +54,19 @@ export const getCras = async (req, res) => {
 export const getCrasById = async (req, res) => {
   try {
     const { id } = req.params;
-    const cras = await Cras.findById(id);
+    const cacheKey = `cras:id:${id}`;
+    
+    const fetchCras = async () => {
+      const cras = await Cras.findById(id);
+      
+      if (!cras) {
+        return null;
+      }
+      
+      return cras;
+    };
+    
+    const cras = await cache.cached(cacheKey, fetchCras);
     
     if (!cras) {
       return res.status(404).json({ message: 'CRAS não encontrado' });
@@ -68,6 +91,9 @@ export const updateCras = async (req, res) => {
       action: 'editar_cras',
       details: `CRAS editado: ${cras.nome} - ${cras.endereco}`
     });
+    
+    // Invalidar cache após edição
+    cache.invalidateCras();
     
     res.json(cras);
   } catch (_) {
@@ -94,6 +120,9 @@ export const deleteCras = async (req, res) => {
       action: 'excluir_cras',
       details: `CRAS excluído: ${cras.nome} - ${cras.endereco}`
     });
+    
+    // Invalidar cache após exclusão
+    cache.invalidateCras();
     
     res.json({ message: 'CRAS removido' });
   } catch (_) {

@@ -1,6 +1,7 @@
 // Configurações de Rate Limiting específicas para diferentes endpoints
 // Protege contra ataques de força bruta e abuso de API
 import rateLimit from 'express-rate-limit';
+import logger from '../utils/logger.js';
 
 /**
  * Rate Limiter para tentativas de login
@@ -18,7 +19,10 @@ export const loginLimiter = rateLimit({
   legacyHeaders: false,
   // Mensagem personalizada quando o limite é atingido
   handler: (req, res) => {
-    console.warn(`🚨 Rate limit excedido - IP: ${req.ip} - Endpoint: LOGIN`);
+    logger.warn('🚨 Rate limit excedido - LOGIN', { 
+      ip: req.ip, 
+      userAgent: req.get('user-agent')
+    });
     res.status(429).json({
       error: 'Muitas tentativas de login. Por segurança, tente novamente em 15 minutos.',
       code: 'TOO_MANY_LOGIN_ATTEMPTS',
@@ -74,4 +78,37 @@ export const exportLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+/**
+ * 🔒 Rate Limiter específico para criação de agendamentos
+ * Protege contra spam e abuso do sistema de agendamentos
+ * 100 agendamentos a cada 15 minutos por usuário/IP
+ */
+export const createAppointmentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Máximo 100 agendamentos por 15 minutos
+  message: { 
+    message: 'Limite de criação de agendamentos atingido. Tente novamente em 15 minutos',
+    code: 'RATE_LIMIT_APPOINTMENTS'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Remover keyGenerator customizado - usar padrão que lida corretamente com IPv6
+  skip: (req) => {
+    // Admin não tem limite
+    return req.user?.role === 'admin';
+  },
+  handler: (req, res) => {
+    logger.warn('🔒 Rate limit de agendamentos atingido', {
+      userId: req.user?.id || req.userId,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    res.status(429).json({
+      message: 'Limite de criação de agendamentos atingido. Tente novamente em 15 minutos',
+      code: 'RATE_LIMIT_APPOINTMENTS',
+      retryAfter: '15 minutos'
+    });
+  }
 });

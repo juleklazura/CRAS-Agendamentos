@@ -5,6 +5,7 @@ import Log from '../models/Log.js';
 import bcrypt from 'bcryptjs';  // Para comparação segura de senhas
 import jwt from 'jsonwebtoken';  // Para geração de tokens de autenticação
 import dotenv from 'dotenv';
+import logger from '../utils/logger.js';
 
 dotenv.config();
 
@@ -62,7 +63,7 @@ export const login = async (req, res) => {
     
     // 🔒 SEGURANÇA: Valida que JWT_SECRET está configurado
     if (!process.env.JWT_SECRET) {
-      console.error('ERRO CRÍTICO: JWT_SECRET não está definida no arquivo .env');
+      logger.error('ERRO CRÍTICO: JWT_SECRET não está definida no arquivo .env');
       return res.status(500).json({ message: 'Erro de configuração do servidor' });
     }
     
@@ -107,7 +108,7 @@ export const login = async (req, res) => {
       } 
     });
   } catch (err) {
-    console.error('Erro no login:', err);
+    logger.error('Erro no login:', { error: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
     res.status(500).json({ message: 'Erro no login' });
   }
 };
@@ -132,7 +133,7 @@ export const getCurrentUser = async (req, res) => {
       agenda: user.role === 'entrevistador' ? user.agenda : undefined
     });
   } catch (err) {
-    console.error('Erro ao buscar usuário:', err);
+    logger.error('Erro ao buscar usuário:', { error: err.message });
     res.status(500).json({ message: 'Erro ao buscar usuário' });
   }
 };
@@ -162,7 +163,7 @@ export const logout = async (req, res) => {
     
     res.json({ message: 'Logout realizado com sucesso' });
   } catch (err) {
-    console.error('Erro no logout:', err);
+    logger.error('Erro no logout:', { error: err.message });
     res.status(500).json({ message: 'Erro no logout' });
   }
 };
@@ -231,7 +232,7 @@ export const refreshToken = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Erro ao renovar token:', err);
+    logger.error('Erro ao renovar token:', { error: err.message });
     res.status(500).json({ message: 'Erro ao renovar token' });
   }
 };

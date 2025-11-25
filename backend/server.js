@@ -27,33 +27,56 @@ dotenv.config();
 // Inicializa aplicação Express
 const app = express();
 
+// ========================================
+// 🔒 CONFIGURAÇÃO DE PROXY REVERSO
+// ========================================
+// Habilitar apenas se houver Nginx, CloudFlare, ALB na frente
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 1);
+  logger.info('✓ Trust proxy habilitado - IPs reais serão detectados');
+} else {
+  logger.info('ℹ Trust proxy desabilitado');
+}
+
 // 🔒 SEGURANÇA: CORS configurado PRIMEIRO (antes de qualquer outro middleware)
 // Isso garante que requisições OPTIONS (preflight) sejam tratadas corretamente
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  ...(process.env.NODE_ENV === 'development' ? [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173'
+  ] : [])
+].filter(Boolean);
+
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      process.env.FRONTEND_URL,
-      'http://localhost:5173',
-      'http://127.0.0.1:5173'
-    ];
-    
-    // Permite requisições sem origin (Postman, curl, etc) em desenvolvimento
-    if (!origin && process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
+    // 🔒 SEGURANÇA: Requisições sem origin (Postman, cURL)
+    if (!origin) {
+      // Em desenvolvimento, permitir ferramentas de API
+      if (process.env.NODE_ENV === 'development') {
+        return callback(null, true);
+      }
+      // Em produção, bloquear requisições sem origin
+      logger.warn('🔒 Requisição sem origin bloqueada');
+      return callback(new Error('Origin obrigatório'));
     }
     
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+    // Validar se origin está na whitelist
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      logger.warn('🔒 CORS bloqueado', { origin });
+      callback(new Error('Origem não permitida pelo CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Type', 'Authorization', 'Content-Range', 'X-Content-Range'],
   preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  maxAge: 600 // 10 minutos
 };
 
 app.use(cors(corsOptions));
@@ -83,19 +106,21 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // MUI/React precisa de unsafe-inline
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
+      connectSrc: ["'self'", ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])].filter(Boolean),
+      fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'none'"]
+      frameSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
     }
   },
   // Cross-Origin Policies
   crossOriginEmbedderPolicy: false, // Desabilitado para compatibilidade
   crossOriginOpenerPolicy: { policy: "same-origin" },
-  crossOriginResourcePolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-site" },
   // DNS Prefetch Control
   dnsPrefetchControl: { allow: false },
   // Frameguard - previne clickjacking
@@ -112,14 +137,10 @@ app.use(helmet({
   ieNoOpen: true,
   // No Sniff
   noSniff: true,
-  // Origin Agent Cluster
-  originAgentCluster: true,
-  // Permitted Cross-Domain Policies
-  permittedCrossDomainPolicies: { permittedPolicies: "none" },
   // Referrer Policy
   referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  // XSS Filter - desabilitado (deprecated em navegadores modernos, CSP é melhor)
-  xssFilter: false
+  // XSS Filter
+  xssFilter: true
 }));
 
 // 🔒 SEGURANÇA: Headers adicionais customizados
@@ -325,6 +346,66 @@ mongoose.connect(mongoUri, {
   process.exit(1);
 });
 
+// ========================================
+// 🔒 MIDDLEWARE DE ERRO GLOBAL
+// ========================================
+// DEVE SER O ÚLTIMO MIDDLEWARE (após todas as rotas)
+app.use((err, req, res, next) => {
+  // Logar erro completo internamente
+  logger.error('❌ Erro não tratado:', {
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    url: req.originalUrl,
+    method: req.method,
+    ip: req.ip,
+    userId: req.user?.id || req.userId || 'não autenticado',
+    userAgent: req.headers['user-agent']
+  });
+  
+  // 🔒 SEGURANÇA: Nunca expor detalhes internos em produção
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(err.status || 500).json({ 
+      message: 'Erro interno do servidor',
+      code: 'ERR_INTERNAL',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Em desenvolvimento: retornar detalhes completos
+  res.status(err.status || 500).json({ 
+    message: err.message,
+    stack: err.stack,
+    errors: err.errors
+  });
+});
+
+// ========================================
+// 🔒 HANDLERS DE ERROS NÃO CAPTURADOS
+// ========================================
+// Handler de exceções não capturadas
+process.on('uncaughtException', (error) => {
+  logger.error('🚨 Uncaught Exception:', {
+    message: error.message,
+    stack: error.stack
+  });
+  
+  // Dar tempo para logs serem escritos
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
+});
+
+// Handler de promises rejeitadas não tratadas
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('🚨 Unhandled Rejection:', {
+    reason: reason instanceof Error ? reason.message : reason,
+    stack: reason instanceof Error ? reason.stack : undefined
+  });
+});
+
+// ========================================
+// 🔒 GRACEFUL SHUTDOWN
+// ========================================
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} recebido, encerrando servidor gracefully...`);
   

@@ -1,4 +1,5 @@
 import logger from '../utils/logger.js';
+import { formatDateTime } from '../utils/timezone.js';
 // Controller para gerenciamento de bloqueios de horário
 // Permite que APENAS ENTREVISTADORES bloqueiem horários específicos em suas próprias agendas
 import Log from '../models/Log.js';
@@ -31,7 +32,7 @@ export const createBlockedSlot = async (req, res) => {
       user: req.user.id, 
       cras, 
       action: 'bloquear_horario', 
-      details: `Bloqueou o horário ${new Date(data).toLocaleString('pt-BR')} - Motivo: ${motivo}` 
+      details: `Bloqueou o horário ${formatDateTime(data)} - Motivo: ${motivo}` 
     });
     
     res.status(201).json(blocked);
@@ -97,37 +98,33 @@ export const deleteBlockedSlot = async (req, res) => {
     const { id } = req.params;
     const entrevistador = req.user.id;
     
-    console.log('Tentando deletar bloqueio:', id);
-    console.log('Usuário:', req.user.role, req.user.id);
-    console.log('CRAS do usuário:', req.user.cras);
+    logger.debug('Tentando deletar bloqueio', { id, role: req.user.role, userId: req.user.id });
     
     let slot;
     if (req.user.role === 'admin') {
       // Admin pode remover qualquer bloqueio
-      console.log('Admin - Busca por CRAS:', req.user.cras);
+      logger.debug('Admin - Busca por CRAS', { cras: req.user.cras });
       slot = await BlockedSlot.findOne({ _id: id, cras: req.user.cras });
     } else {
       // Entrevistador APENAS pode remover seus próprios bloqueios
-      console.log('Entrevistador - Busca por entrevistador:', entrevistador);
+      logger.debug('Entrevistador - Busca por entrevistador', { entrevistador });
       slot = await BlockedSlot.findOne({ _id: id, entrevistador });
     }
     
-    console.log('Slot encontrado:', slot);
-    
     if (!slot) {
-      console.log('Bloqueio não encontrado para ID:', id);
+      logger.warn('Bloqueio não encontrado', { id, userId: req.user.id });
       return res.status(404).json({ message: 'Bloqueio não encontrado' });
     }
     
     await BlockedSlot.deleteOne({ _id: id });
-    console.log('Bloqueio removido com sucesso');
+    logger.info('Bloqueio removido com sucesso', { id, userId: req.user.id });
     
     // Log automático
     await Log.create({ 
       user: req.user.id, 
       cras: slot.cras, 
       action: 'desbloquear_horario', 
-      details: `Desbloqueou o horário ${new Date(slot.data).toLocaleString('pt-BR')}` 
+      details: `Desbloqueou o horário ${formatDateTime(slot.data)}` 
     });
     
     res.json({ message: 'Bloqueio removido' });

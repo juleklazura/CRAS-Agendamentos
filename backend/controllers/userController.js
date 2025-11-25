@@ -1,4 +1,5 @@
 import logger from '../utils/logger.js';
+import cache from '../utils/cache.js';
 // Controller para gerenciamento de usuários
 // Controla criação, edição, listagem e exclusão de usuários do sistema
 import User from '../models/User.js';
@@ -40,6 +41,9 @@ export const createUser = async (req, res) => {
       details: `Usuário criado: ${name} (${role}) - Matrícula: ${matricula || 'N/A'}`
     });
     
+    // Invalidar cache de usuários após criação
+    cache.invalidateUsers();
+    
     res.status(201).json(user);
   } catch (err) {
     logger.error('Erro ao criar usuário:', err);
@@ -51,15 +55,26 @@ export const createUser = async (req, res) => {
 // Administradores veem todos, outros perfis veem apenas entrevistadores
 export const getUsers = async (req, res) => {
   try {
-    let query = {};
+    // Gerar chave de cache baseada no role do usuário
+    const cacheKey = `users:all:role:${req.user.role}`;
     
-    // Controle de acesso: recepção e entrevistadores só veem entrevistadores
-    if (req.user.role !== 'admin') {
-      query.role = 'entrevistador';
-    }
+    // Função que executa a query (será chamada se cache miss)
+    const fetchUsers = async () => {
+      let query = {};
+      
+      // Controle de acesso: recepção e entrevistadores só veem entrevistadores
+      if (req.user.role !== 'admin') {
+        query.role = 'entrevistador';
+      }
+      
+      // Busca usuários excluindo senha e populando dados do CRAS
+      const users = await User.find(query).select('-password').populate('cras');
+      return users;
+    };
     
-    // Busca usuários excluindo senha e populando dados do CRAS
-    const users = await User.find(query).select('-password').populate('cras');
+    // Usar cache com TTL de 5 minutos (padrão)
+    const users = await cache.cached(cacheKey, fetchUsers);
+    
     res.json(users);
   } catch (error) {
     logger.error('Erro ao buscar usuários:', error);
@@ -71,7 +86,14 @@ export const getUsers = async (req, res) => {
 // Usada para popular seletores de entrevistador em formulários
 export const getEntrevistadores = async (req, res) => {
   try {
-    const users = await User.find({ role: 'entrevistador' }).select('-password');
+    const cacheKey = 'users:entrevistadores';
+    
+    const fetchEntrevistadores = async () => {
+      const users = await User.find({ role: 'entrevistador' }).select('-password');
+      return users;
+    };
+    
+    const users = await cache.cached(cacheKey, fetchEntrevistadores);
     res.json(users);
   } catch (_) {
     res.status(500).json({ message: 'Erro ao buscar entrevistadores' });
@@ -83,12 +105,18 @@ export const getEntrevistadores = async (req, res) => {
 export const getEntrevistadoresByCras = async (req, res) => {
   try {
     const { crasId } = req.params;
+    const cacheKey = `users:entrevistadores:cras:${crasId}`;
     
-    // Busca apenas entrevistadores do CRAS especificado
-    const entrevistadores = await User.find({
-      role: 'entrevistador',
-      cras: crasId
-    }).select('-password').populate('cras');
+    const fetchEntrevistadores = async () => {
+      // Busca apenas entrevistadores do CRAS especificado
+      const entrevistadores = await User.find({
+        role: 'entrevistador',
+        cras: crasId
+      }).select('-password').populate('cras');
+      return entrevistadores;
+    };
+    
+    const entrevistadores = await cache.cached(cacheKey, fetchEntrevistadores);
     
     res.json(entrevistadores);
   } catch (error) {
@@ -141,6 +169,9 @@ export const updateUser = async (req, res) => {
       details: `Usuário editado: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`
     });
     
+    // Invalidar cache após edição
+    cache.invalidateUsers();
+    
     res.json(user);
   } catch (_) {
     res.status(400).json({ message: 'Erro ao atualizar usuário' });
@@ -167,6 +198,9 @@ export const deleteUser = async (req, res) => {
       action: 'excluir_usuario',
       details: `Usuário excluído: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`
     });
+    
+    // Invalidar cache após exclusão
+    cache.invalidateUsers();
     
     res.json({ message: 'Usuário removido' });
   } catch (_) {
