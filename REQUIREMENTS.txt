@@ -1,0 +1,345 @@
+=============================================================================
+SISTEMA DE AGENDAMENTOS CRAS - REQUISITOS E DEPENDÊNCIAS
+=============================================================================
+
+📋 ÍNDICE
+---------
+1. Requisitos de Sistema
+2. Dependências de Produção (Frontend)
+3. Dependências de Desenvolvimento (Frontend)
+4. Dependências de Produção (Backend)
+5. Banco de Dados
+6. Variáveis de Ambiente
+7. Configuração de Segurança
+8. Instalação e Deploy
+
+
+=============================================================================
+1. REQUISITOS DE SISTEMA
+=============================================================================
+
+✅ Node.js: v18.x ou superior (recomendado: v20.x LTS)
+✅ npm: v9.x ou superior
+✅ MongoDB: v6.x ou superior
+✅ Sistema Operacional: Linux (Ubuntu/Debian), macOS, ou Windows com WSL2
+✅ Memória RAM: Mínimo 2GB (recomendado: 4GB+)
+✅ Espaço em Disco: Mínimo 1GB livre
+
+
+=============================================================================
+2. DEPENDÊNCIAS DE PRODUÇÃO (FRONTEND)
+=============================================================================
+
+Framework Principal:
+--------------------
+react                      ^19.1.0      - Biblioteca UI
+react-dom                  ^19.1.0      - Renderização DOM
+react-router-dom           ^6.30.1      - Roteamento SPA
+
+Material-UI (Design System):
+-----------------------------
+@mui/material              ^7.1.1       - Componentes UI
+@mui/icons-material        ^7.1.1       - Ícones Material Design
+@mui/x-date-pickers        ^8.5.1       - Date Pickers
+@emotion/react             ^11.14.0     - CSS-in-JS
+@emotion/styled            ^11.14.0     - Styled Components
+
+Utilitários:
+------------
+axios                      ^1.9.0       - Cliente HTTP
+date-fns                   ^4.1.0       - Manipulação de datas
+joi                        ^18.0.2      - Validação de schemas
+
+
+=============================================================================
+3. DEPENDÊNCIAS DE DESENVOLVIMENTO (FRONTEND)
+=============================================================================
+
+Build Tools:
+------------
+vite                       ^6.3.5       - Build tool e dev server
+@vitejs/plugin-react       ^4.4.1       - Plugin Vite para React
+
+Linting:
+--------
+eslint                     ^9.25.0      - Linter JavaScript
+@eslint/js                 ^9.25.0      - Configurações ESLint
+eslint-plugin-react-hooks  ^5.2.0       - Regras React Hooks
+eslint-plugin-react-refresh ^0.4.19     - Hot reload React
+globals                    ^16.0.0      - Variáveis globais
+
+Type Definitions:
+-----------------
+@types/react               ^19.1.2      - Tipos TypeScript React
+@types/react-dom           ^19.1.2      - Tipos TypeScript React DOM
+
+
+=============================================================================
+4. DEPENDÊNCIAS DE PRODUÇÃO (BACKEND)
+=============================================================================
+
+Framework e Core:
+-----------------
+express                    ^5.1.0       - Framework web Node.js
+mongoose                   ^8.15.1      - ODM MongoDB
+dotenv                     ^16.5.0      - Carregador .env
+
+Autenticação e Segurança:
+-------------------------
+jsonwebtoken               ^9.0.2       - JWT tokens
+bcryptjs                   ^3.0.2       - Hash de senhas
+cookie-parser              ^1.4.7       - Parser de cookies
+helmet                     ^8.1.0       - Security headers HTTP
+cors                       ^2.8.5       - CORS middleware
+express-mongo-sanitize     ^2.2.0       - Sanitização MongoDB
+express-rate-limit         ^8.2.1       - Rate limiting
+
+Validação e Logging:
+--------------------
+joi                        ^18.0.2      - Validação de schemas
+winston                    ^3.18.3      - Sistema de logs
+
+
+=============================================================================
+5. BANCO DE DADOS - MongoDB
+=============================================================================
+
+Versão: MongoDB Community Edition v6.x ou superior
+
+Collections Principais:
+-----------------------
+✅ users           - Usuários do sistema (admin, coordenador, técnico, recepcionista)
+✅ cras            - Centros de Referência (unidades)
+✅ appointments    - Agendamentos (com dados criptografados)
+✅ blockedslots    - Bloqueios de horários
+✅ logs            - Logs de auditoria do sistema
+
+Autenticação MongoDB:
+---------------------
+🔒 Requer criação de usuário com permissões:
+   - Banco: agendamentos
+   - AuthSource: admin
+   - Roles: readWrite, dbAdmin
+
+Índices Criados:
+----------------
+✅ users.cpf (unique)
+✅ users.cras (referência)
+✅ cras.nome (unique)
+✅ appointments.date + time + cras
+✅ appointments.userCpf
+✅ blockedslots.date + startTime
+
+
+=============================================================================
+6. VARIÁVEIS DE AMBIENTE (.env)
+=============================================================================
+
+⚠️ CRITICAL - NUNCA COMMITAR ARQUIVO .env ⚠️
+
+Backend (.env obrigatório):
+---------------------------
+
+# MongoDB Configuration
+MONGO_URI=mongodb://[user]:[password]@[host]:[port]/[database]?authSource=[authSource]
+   Exemplo: mongodb://cras_admin:SenhaSegura123@localhost:27017/agendamentos?authSource=admin
+   ⚠️ NUNCA usar MongoDB sem autenticação em produção!
+
+# JWT Configuration (gerar com: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+JWT_SECRET=[128 caracteres hexadecimais]
+   Exemplo: 7b9f0d0886fba81b1102736104103188...
+   ⚠️ NUNCA reutilizar em ambientes diferentes!
+
+JWT_REFRESH_SECRET=[128 caracteres hexadecimais]
+   Exemplo: 35332537be449064435d9131a20d08d4...
+   ⚠️ DEVE ser diferente do JWT_SECRET!
+
+# Encryption Configuration
+ENCRYPTION_KEY=[string qualquer - NUNCA ALTERAR]
+   Exemplo: seu_segredo_jwt_super_secreto_aqui_troque_em_producao
+   ⚠️ CRÍTICO: Se alterar, TODOS os dados criptografados (CPF, nomes, telefones) 
+                ficarão ILEGÍVEIS permanentemente! Backup obrigatório antes de qualquer mudança!
+
+# Server Configuration
+PORT=5000
+NODE_ENV=development|production
+FRONTEND_URL=http://localhost:5173
+
+
+Frontend (.env.local opcional):
+-------------------------------
+VITE_API_URL=http://localhost:5000
+
+
+=============================================================================
+7. CONFIGURAÇÃO DE SEGURANÇA
+=============================================================================
+
+🔒 Segurança Implementada:
+---------------------------
+
+✅ JWT com httpOnly cookies (não acessível via JavaScript)
+✅ Cookies com flags: secure, httpOnly, sameSite=Strict
+✅ Rate limiting (20 requests/15min por IP)
+✅ Helmet.js (security headers HTTP)
+✅ CORS restrito ao FRONTEND_URL
+✅ Sanitização de queries MongoDB
+✅ Criptografia AES-256-CBC para dados sensíveis (CPF, nomes, telefones)
+✅ Hash bcrypt para senhas (salt rounds: 10)
+✅ Validação Joi em todas as rotas
+✅ Logs de auditoria com Winston
+✅ DevTools detection (anti-debugging frontend)
+✅ CSP (Content Security Policy) via meta tags
+
+🔐 Dados Criptografados no Banco:
+----------------------------------
+✅ CPF dos usuários e agendamentos
+✅ Nomes completos
+✅ Números de telefone
+
+⚠️ IMPORTANTE: A ENCRYPTION_KEY NUNCA pode ser alterada após o primeiro
+   registro no banco, caso contrário TODOS os dados ficarão ilegíveis!
+
+
+=============================================================================
+8. INSTALAÇÃO E DEPLOY
+=============================================================================
+
+Instalação Local:
+-----------------
+
+1. Clonar repositório:
+   $ git clone [repo-url]
+   $ cd CRAS-Agendamentos
+
+2. Configurar MongoDB:
+   $ sudo apt install mongodb-org  # Ubuntu/Debian
+   $ sudo systemctl start mongod
+   $ sudo systemctl enable mongod
+   
+   Criar usuário MongoDB:
+   $ mongosh
+   > use admin
+   > db.createUser({
+       user: "cras_admin",
+       pwd: "SenhaSegura123",
+       roles: [{role: "readWrite", db: "agendamentos"}, {role: "dbAdmin", db: "agendamentos"}]
+     })
+
+3. Configurar Backend:
+   $ cd backend
+   $ npm install
+   $ cp .env.example .env
+   $ nano .env  # Editar variáveis de ambiente
+   $ node server.js
+
+4. Configurar Frontend:
+   $ cd ..
+   $ npm install
+   $ npm run dev
+
+5. Acessar aplicação:
+   Frontend: http://localhost:5173
+   Backend API: http://localhost:5000
+
+
+Deploy em Produção:
+-------------------
+
+1. Variáveis de Ambiente:
+   ⚠️ Gerar novos secrets FORTES para JWT_SECRET e JWT_REFRESH_SECRET
+   ⚠️ Configurar MongoDB com TLS/SSL
+   ⚠️ NODE_ENV=production
+   ⚠️ Configurar FRONTEND_URL com domínio real
+
+2. Build Frontend:
+   $ npm run build
+   $ # Servir arquivos da pasta dist/ com nginx/apache
+
+3. Backend em PM2:
+   $ npm install -g pm2
+   $ cd backend
+   $ pm2 start server.js --name cras-api
+   $ pm2 startup
+   $ pm2 save
+
+4. Nginx Reverse Proxy:
+   server {
+       listen 80;
+       server_name api.seudominio.com;
+       
+       location / {
+           proxy_pass http://localhost:5000;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+       }
+   }
+
+5. HTTPS com Let's Encrypt:
+   $ sudo apt install certbot python3-certbot-nginx
+   $ sudo certbot --nginx -d api.seudominio.com
+
+
+=============================================================================
+SEGURANÇA - CHECKLIST PRÉ-DEPLOY
+=============================================================================
+
+✅ .env adicionado ao .gitignore
+✅ .env.backup* adicionado ao .gitignore
+✅ headers.txt deletado (contém tokens reais)
+✅ JWT_SECRET e JWT_REFRESH_SECRET gerados com 128+ caracteres
+✅ MongoDB com autenticação habilitada
+✅ MONGO_URI com senha forte (mínimo 20 caracteres)
+✅ NODE_ENV=production configurado
+✅ FRONTEND_URL configurado com domínio real (sem http://localhost)
+✅ Rate limiting configurado e testado
+✅ CORS restrito ao domínio do frontend
+✅ Helmet.js habilitado com todas as headers
+✅ Logs configurados (Winston) para arquivo + console
+✅ Backup da ENCRYPTION_KEY em local seguro (cofre, vault)
+✅ Firewall configurado (apenas portas 80, 443, 22 abertas)
+✅ MongoDB binding apenas localhost ou rede privada
+✅ SSL/TLS configurado (Let's Encrypt)
+✅ Testes de penetração realizados
+✅ Processo de rotação de secrets documentado
+
+
+=============================================================================
+MANUTENÇÃO E ATUALIZAÇÕES
+=============================================================================
+
+Verificar vulnerabilidades:
+---------------------------
+$ npm audit
+$ npm audit fix
+
+Atualizar dependências:
+-----------------------
+$ npm outdated
+$ npm update
+$ npm install <package>@latest
+
+Backup MongoDB:
+---------------
+$ mongodump --uri="mongodb://user:pass@localhost:27017/agendamentos?authSource=admin" --out=/backup/
+
+Restore MongoDB:
+----------------
+$ mongorestore --uri="mongodb://user:pass@localhost:27017" --db=agendamentos /backup/agendamentos/
+
+
+=============================================================================
+SUPORTE E DOCUMENTAÇÃO
+=============================================================================
+
+📧 Contato: Gabriel Julek
+📁 Repositório: [repo-url]
+📖 Documentação: README.md
+🔧 Changelog: CHANGELOG.md
+
+Versão: 1.0.0
+Última atualização: 2025-11-21
+=============================================================================
