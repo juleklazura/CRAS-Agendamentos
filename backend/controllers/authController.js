@@ -16,30 +16,27 @@ dotenv.config();
 // Configurações de cookie para token de acesso (8 horas)
 const ACCESS_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,                                    // Não acessível via JavaScript (previne XSS)
-  secure: process.env.NODE_ENV === 'production',   // Apenas HTTPS em produção
-  sameSite: 'strict',                               // Previne CSRF (strict = não envia em navegação cross-site)
+  secure: false,                                     // false em dev para funcionar sem HTTPS
+  sameSite: 'lax',                                   // lax permite cookies em localhost
   maxAge: 8 * 60 * 60 * 1000,                       // 8 horas em milissegundos
-  path: '/',                                         // Cookie disponível em toda aplicação
-  domain: process.env.COOKIE_DOMAIN || undefined    // Domain configurável (undefined = domain atual)
+  path: '/'                                          // Cookie disponível em toda aplicação
 };
 
 // Configurações de cookie para refresh token (7 dias)
 const REFRESH_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  secure: false,
+  sameSite: 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,                  // 7 dias em milissegundos
-  path: '/api/auth/refresh',                        // Apenas endpoint de refresh (mais seguro)
-  domain: process.env.COOKIE_DOMAIN || undefined
+  path: '/'                                          // Cookie disponível em toda aplicação
 };
 
 // Configurações para limpar cookies (sem maxAge)
 const CLEAR_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
-  path: '/',
-  domain: process.env.COOKIE_DOMAIN || undefined
+  secure: false,
+  sameSite: 'lax',
+  path: '/'
 };
 
 // Função principal de login do sistema
@@ -95,6 +92,18 @@ export const login = async (req, res) => {
     // 🔒 SEGURANÇA: Tokens enviados via httpOnly cookies (protege contra XSS)
     res.cookie('token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
     res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
+    
+    // Log de debug para verificar configuração dos cookies
+    logger.debug('Cookies definidos no login', {
+      userId: user._id,
+      cookieOptions: {
+        httpOnly: ACCESS_TOKEN_COOKIE_OPTIONS.httpOnly,
+        secure: ACCESS_TOKEN_COOKIE_OPTIONS.secure,
+        sameSite: ACCESS_TOKEN_COOKIE_OPTIONS.sameSite,
+        path: ACCESS_TOKEN_COOKIE_OPTIONS.path,
+        domain: ACCESS_TOKEN_COOKIE_OPTIONS.domain
+      }
+    });
     
     // Retorna apenas dados do usuário (sem token)
     res.json({ 
