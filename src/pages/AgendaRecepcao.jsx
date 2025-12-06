@@ -40,6 +40,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import EventIcon from '@mui/icons-material/Event';
 import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
+import PersonOffIcon from '@mui/icons-material/PersonOff';
 import ptBR from 'date-fns/locale/pt-BR';
 
 // 🎯 Importa utilitários humanizados e centralizados
@@ -398,6 +399,25 @@ export default function AgendaRecepcao() {
     }
   };
 
+  // Função para marcar como ausente
+  const marcarAusente = async (agendamento) => {
+    if (!agendamento?._id) {
+      mostrarMensagem('Agendamento inválido', 'error');
+      return;
+    }
+    try {
+      await api.patch(
+        `/appointments/${agendamento._id}`,
+        { status: 'ausente' }
+      );
+      mostrarMensagem('Marcado como ausente!');
+      await buscarAgendamentos();
+    } catch (erro) {
+      console.error('Erro ao marcar como ausente:', erro);
+      mostrarMensagem('Erro ao marcar como ausente', 'error');
+    }
+  };
+
   const abrirModalObservacoes = (agendamento) => {
     setObservacoesVisualizacao(agendamento?.observacoes || 'Nenhuma observação registrada');
     setNomeAgendamentoObservacoes(agendamento?.pessoa || 'Agendamento');
@@ -592,7 +612,11 @@ export default function AgendaRecepcao() {
                         <TableRow
                           key={horario}
                           sx={{
-                            backgroundColor: agendamento?.status === 'realizado' ? '#e8f5e8' : bloqueado ? '#fff3e0' : 'inherit'
+                            backgroundColor: 
+                              agendamento?.status === 'realizado' ? '#e8f5e8' : 
+                              agendamento?.status === 'ausente' ? '#fff9c4' :
+                              bloqueado ? '#fff3e0' : 
+                              'inherit'
                           }}
                         >
                           <TableCell>
@@ -605,12 +629,14 @@ export default function AgendaRecepcao() {
                               variant="body2"
                               color={
                                 agendado && agendamento?.status === 'realizado' ? 'success.main' :
+                                agendado && agendamento?.status === 'ausente' ? 'warning.main' :
                                 agendado ? 'primary.main' :
                                 bloqueado ? 'warning.main' :
                                 'success.main'
                               }
                             >
                               {agendado && agendamento?.status === 'realizado' ? 'Realizado' :
+                               agendado && agendamento?.status === 'ausente' ? 'Ausente' :
                                agendado ? 'Agendado' :
                                bloqueado ? 'Bloqueado' :
                                'Disponível'}
@@ -673,16 +699,26 @@ export default function AgendaRecepcao() {
                               {/* Apenas entrevistadores podem bloquear seus próprios horários */}
                               {agendado ? (
                                 <>
-                                  {agendamento?.status !== 'realizado' ? (
-                                    <IconButton
-                                      color="success"
-                                      size="small"
-                                      onClick={() => confirmarPresenca(agendamento)}
-                                      title="Confirmar presença"
-                                    >
-                                      <CheckCircleIcon fontSize="small" />
-                                    </IconButton>
-                                  ) : (
+                                  {agendamento?.status !== 'realizado' && agendamento?.status !== 'ausente' ? (
+                                    <>
+                                      <IconButton
+                                        color="success"
+                                        size="small"
+                                        onClick={() => confirmarPresenca(agendamento)}
+                                        title="Confirmar presença"
+                                      >
+                                        <CheckCircleIcon fontSize="small" />
+                                      </IconButton>
+                                      <IconButton
+                                        color="warning"
+                                        size="small"
+                                        onClick={() => marcarAusente(agendamento)}
+                                        title="Marcar como ausente"
+                                      >
+                                        <PersonOffIcon fontSize="small" />
+                                      </IconButton>
+                                    </>
+                                  ) : agendamento?.status === 'realizado' ? (
                                     <IconButton
                                       color="warning"
                                       size="small"
@@ -691,7 +727,16 @@ export default function AgendaRecepcao() {
                                     >
                                       <CancelIcon fontSize="small" />
                                     </IconButton>
-                                  )}
+                                  ) : agendamento?.status === 'ausente' ? (
+                                    <IconButton
+                                      color="info"
+                                      size="small"
+                                      onClick={() => removerConfirmacao(agendamento)}
+                                      title="Remover status ausente"
+                                    >
+                                      <CancelIcon fontSize="small" />
+                                    </IconButton>
+                                  ) : null}
                                   <IconButton
                                     color="primary"
                                     size="small"
@@ -973,7 +1018,12 @@ export default function AgendaRecepcao() {
         <Snackbar
           open={mensagem.visivel}
           autoHideDuration={6000}
-          onClose={() => setMensagem({ ...mensagem, visivel: false })}
+          onClose={(event, reason) => {
+            if (reason === 'clickaway') return;
+            setMensagem({ ...mensagem, visivel: false });
+          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          sx={{ mb: 2, mr: 2 }}
         >
           <Alert severity={mensagem.tipo} onClose={() => setMensagem({ ...mensagem, visivel: false })}>
             {mensagem.texto}

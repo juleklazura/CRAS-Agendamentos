@@ -165,8 +165,24 @@ export default function Cras() {
           </form>
         </Paper>
         {loading && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 2 }} />}
-        <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError('')}><Alert severity="error">{error}</Alert></Snackbar>
-        <Snackbar open={!!success} autoHideDuration={4000} onClose={() => setSuccess('')}><Alert severity="success">{success}</Alert></Snackbar>
+        <Snackbar 
+          open={!!error} 
+          autoHideDuration={4000} 
+          onClose={(e, reason) => { if (reason !== 'clickaway') setError(''); }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          sx={{ mb: 2, mr: 2 }}
+        >
+          <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
+        </Snackbar>
+        <Snackbar 
+          open={!!success} 
+          autoHideDuration={4000} 
+          onClose={(e, reason) => { if (reason !== 'clickaway') setSuccess(''); }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          sx={{ mb: 2, mr: 2 }}
+        >
+          <Alert severity="success" onClose={() => setSuccess('')}>{success}</Alert>
+        </Snackbar>
         <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
           <DialogTitle>Confirmar remoção</DialogTitle>
           <DialogContent><DialogContentText>Tem certeza que deseja remover este CRAS?</DialogContentText></DialogContent>

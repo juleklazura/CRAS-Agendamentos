@@ -78,10 +78,7 @@ export function auth(req, res, next) {
     if (!token) {
       logger.debug('Token não encontrado no cookie', {
         ip: req.ip,
-        path: req.path,
-        cookies: Object.keys(req.cookies || {}),
-        hasCookies: !!req.cookies,
-        cookieHeader: req.headers.cookie ? 'presente' : 'ausente'
+        path: req.path
       });
       return res.status(401).json({ 
         message: 'Token não fornecido',

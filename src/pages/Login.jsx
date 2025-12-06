@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 
 // Logo oficial da FASPG
-import logo from '../assets/logo-faspg.svg';
+import logo from '../assets/logo-anim.gif';
 
 // Componente principal de login
 export default function Login() {

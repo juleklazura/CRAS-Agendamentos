@@ -489,10 +489,13 @@ export default function Agendamentos() {
         <Snackbar
           open={!!error || !!success}
           autoHideDuration={6000}
-          onClose={() => {
+          onClose={(event, reason) => {
+            if (reason === 'clickaway') return; // Não fecha ao clicar fora
             setError('');
             setSuccess('');
           }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          sx={{ mb: 2, mr: 2 }}
         >
           <Alert
             severity={error ? "error" : "success"}

@@ -99,23 +99,32 @@ export const NotificationSnackbar = memo(({
   severity = 'info', 
   onClose,
   autoHideDuration = 6000 
-}) => (
-  <Snackbar
-    open={open}
-    autoHideDuration={autoHideDuration}
-    onClose={onClose}
-    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-  >
-    <Alert
-      onClose={onClose}
-      severity={severity}
-      variant="filled"
-      sx={{ width: '100%' }}
+}) => {
+  // Handler que ignora cliques fora do snackbar
+  const handleClose = (event, reason) => {
+    if (reason === 'clickaway') return; // Não fecha ao clicar fora
+    onClose?.(event, reason);
+  };
+
+  return (
+    <Snackbar
+      open={open}
+      autoHideDuration={autoHideDuration}
+      onClose={handleClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      sx={{ mb: 2, mr: 2 }}
     >
-      {message}
-    </Alert>
-  </Snackbar>
-));
+      <Alert
+        onClose={onClose}
+        severity={severity}
+        variant="filled"
+        sx={{ width: '100%' }}
+      >
+        {message}
+      </Alert>
+    </Snackbar>
+  );
+});
 
 NotificationSnackbar.displayName = 'NotificationSnackbar';
 

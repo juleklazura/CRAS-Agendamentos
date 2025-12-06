@@ -208,28 +208,17 @@ const Sidebar = memo(() => {
       {/* Cabeçalho - só aparece no desktop */}
       {!isMobile && (
         <Box sx={{ mb: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Avatar 
-            src="/cras-icon.svg" 
+          <Box
+            component="img"
+            src="/src/assets/logo-faspg (1).svg"
             alt="CRAS"
-            sx={{ 
-              width: 48, 
-              height: 48,
-              backgroundColor: 'transparent',
-              mb: 1
+            sx={{
+              width: '100%',
+              maxWidth: 240,
+              height: 'auto',
+              mb: 2
             }}
           />
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              fontWeight: 'bold',
-              color: 'white !important',
-              fontSize: '1.1rem',
-              lineHeight: 1.1,
-              textAlign: 'center'
-            }}
-          >
-            CRAS{'\n'}Agendamentos
-          </Typography>
         </Box>
       )}
 

@@ -5,6 +5,7 @@ import express from 'express';
 import { createUser, getUsers, updateUser, deleteUser, getEntrevistadoresByCras } from '../controllers/userController.js';
 import { auth, authorize } from '../middlewares/auth.js';
 import { createLimiter, deleteLimiter } from '../middlewares/rateLimiters.js';
+import { validateObjectId } from '../middlewares/validateObjectId.js';
 
 const router = express.Router();
 
@@ -16,7 +17,8 @@ router.get('/', auth, getUsers);
 // GET /api/users/entrevistadores/cras/:crasId - Buscar entrevistadores por CRAS específico
 // Usado pela recepção para filtrar apenas entrevistadores do próprio CRAS
 // Facilita criação de agendamentos com escopo restrito
-router.get('/entrevistadores/cras/:crasId', auth, authorize(['recepcao', 'admin']), getEntrevistadoresByCras);
+// 🔒 SEGURANÇA: Validação de ObjectId no parâmetro
+router.get('/entrevistadores/cras/:crasId', auth, validateObjectId('crasId'), authorize(['recepcao', 'admin']), getEntrevistadoresByCras);
 
 // Rotas restritas apenas para administradores
 // Operações de criação, edição e exclusão são privilégios administrativos
@@ -30,12 +32,13 @@ router.post('/', createLimiter, auth, authorize(['admin']), createUser);
 // PUT /api/users/:id - Editar usuário existente
 // Permite alterar dados pessoais, papel e vinculação a CRAS
 // Body: { name?, email?, matricula?, password?, role?, cras? }
-router.put('/:id', auth, authorize(['admin']), updateUser);
+// 🔒 SEGURANÇA: Validação de ObjectId no parâmetro
+router.put('/:id', auth, validateObjectId('id'), authorize(['admin']), updateUser);
 
 // DELETE /api/users/:id - Excluir usuário do sistema
 // Remove usuário permanentemente - deve validar dependências
 // Verifica se não há agendamentos ou logs vinculados antes de excluir
-// 🔒 SEGURANÇA: Rate limiter - máximo 10 exclusões por hora
-router.delete('/:id', deleteLimiter, auth, authorize(['admin']), deleteUser);
+// 🔒 SEGURANÇA: Rate limiter - máximo 10 exclusões por hora, validação de ObjectId
+router.delete('/:id', deleteLimiter, auth, validateObjectId('id'), authorize(['admin']), deleteUser);
 
 export default router;

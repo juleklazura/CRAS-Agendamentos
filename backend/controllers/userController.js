@@ -12,6 +12,22 @@ export const createUser = async (req, res) => {
   try {
     const { name, password, role, cras, matricula } = req.body;
     
+    // 🔒 SEGURANÇA: Validar campos obrigatórios
+    if (!name || !password || !role || !matricula) {
+      return res.status(400).json({ message: 'Todos os campos são obrigatórios: name, password, role, matricula' });
+    }
+    
+    // 🔒 SEGURANÇA: Whitelist de roles permitidos
+    const allowedRoles = ['admin', 'entrevistador', 'recepcao'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ message: 'Role inválido. Valores permitidos: admin, entrevistador, recepcao' });
+    }
+    
+    // 🔒 SEGURANÇA: Validar força da senha
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Senha deve ter pelo menos 8 caracteres' });
+    }
+    
     // Validação: Admin não deve ter CRAS
     if (role === 'admin' && cras) {
       return res.status(400).json({ message: 'Administradores não devem ter CRAS associado' });
@@ -22,8 +38,8 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ message: 'CRAS é obrigatório para entrevistadores e recepção' });
     }
     
-    // Gera hash seguro da senha antes de armazenar
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Gera hash seguro da senha antes de armazenar (custo 12 para maior segurança)
+    const hashedPassword = await bcrypt.hash(password, 12);
     
     // Cria novo usuário com dados validados (remove cras se for admin)
     const userData = { name, password: hashedPassword, role, matricula };
@@ -131,6 +147,19 @@ export const updateUser = async (req, res) => {
     const { id } = req.params;
     const { name, password, role, cras, matricula, agenda } = req.body;
     
+    // 🔒 SEGURANÇA: Whitelist de roles permitidos
+    if (role) {
+      const allowedRoles = ['admin', 'entrevistador', 'recepcao'];
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ message: 'Role inválido. Valores permitidos: admin, entrevistador, recepcao' });
+      }
+    }
+    
+    // 🔒 SEGURANÇA: Validar força da senha (se fornecida)
+    if (password && password.length < 8) {
+      return res.status(400).json({ message: 'Senha deve ter pelo menos 8 caracteres' });
+    }
+    
     // Validação: Admin não deve ter CRAS
     if (role === 'admin' && cras) {
       return res.status(400).json({ message: 'Administradores não devem ter CRAS associado' });
@@ -148,7 +177,8 @@ export const updateUser = async (req, res) => {
     } else {
       update.cras = cras;
     }
-    if (password) update.password = await bcrypt.hash(password, 10);
+    // 🔒 SEGURANÇA: Hash com custo 12 para maior segurança
+    if (password) update.password = await bcrypt.hash(password, 12);
     if (role === 'entrevistador' && agenda) {
       update.agenda = {
         horariosDisponiveis: agenda.horariosDisponiveis || [

@@ -97,7 +97,7 @@ const appointmentSchema = new mongoose.Schema({
   // Status do agendamento - controla o fluxo do atendimento
   status: { 
     type: String, 
-    enum: ['agendado', 'reagendar', 'realizado', 'faltou', 'cancelado'], 
+    enum: ['agendado', 'reagendar', 'realizado', 'faltou', 'cancelado', 'ausente'], 
     default: 'agendado' 
   },
   

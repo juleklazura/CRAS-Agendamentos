@@ -16,27 +16,30 @@ dotenv.config();
 // Configurações de cookie para token de acesso (8 horas)
 const ACCESS_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,                                    // Não acessível via JavaScript (previne XSS)
-  secure: false,                                     // false em dev para funcionar sem HTTPS
-  sameSite: 'lax',                                   // lax permite cookies em localhost
+  secure: process.env.NODE_ENV === 'production',   // Apenas HTTPS em produção
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // lax em dev para funcionar com localhost
   maxAge: 8 * 60 * 60 * 1000,                       // 8 horas em milissegundos
-  path: '/'                                          // Cookie disponível em toda aplicação
+  path: '/',                                         // Cookie disponível em toda aplicação
+  domain: process.env.COOKIE_DOMAIN || undefined    // Domain configurável (undefined = domain atual)
 };
 
 // Configurações de cookie para refresh token (7 dias)
 const REFRESH_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: false,
-  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,                  // 7 dias em milissegundos
-  path: '/'                                          // Cookie disponível em toda aplicação
+  path: '/',                                         // Cookie disponível em toda aplicação (mudado de /api/auth/refresh)
+  domain: process.env.COOKIE_DOMAIN || undefined
 };
 
 // Configurações para limpar cookies (sem maxAge)
 const CLEAR_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: false,
-  sameSite: 'lax',
-  path: '/'
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  path: '/',
+  domain: process.env.COOKIE_DOMAIN || undefined
 };
 
 // Função principal de login do sistema
@@ -66,20 +69,23 @@ export const login = async (req, res) => {
     
     // Gera access token JWT com informações essenciais do usuário
     // Token expira em 8 horas para segurança
+    // 🔒 SEGURANÇA: Não usar fallback - forçar configuração de JWT_SECRET
     const accessToken = jwt.sign({ 
       id: user._id, 
       role: user.role, 
       cras: user.cras ? user.cras.toString() : null,
       agenda: user.role === 'entrevistador' ? user.agenda : undefined,
       type: 'access' // Identificar tipo de token
-    }, process.env.JWT_SECRET || 'segredo_super_secreto', { expiresIn: '8h' });
+    }, process.env.JWT_SECRET, { expiresIn: '8h' });
     
     // Gera refresh token JWT (sem informações sensíveis, apenas ID)
     // Token expira em 7 dias
+    // 🔒 SEGURANÇA: Usar JWT_REFRESH_SECRET separado ou JWT_SECRET, sem fallback inseguro
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
     const refreshToken = jwt.sign({
       id: user._id,
       type: 'refresh' // Identificar tipo de token
-    }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'segredo_refresh', { expiresIn: '7d' });
+    }, refreshSecret, { expiresIn: '7d' });
     
     // Registra login no sistema de auditoria
     await Log.create({
@@ -92,18 +98,6 @@ export const login = async (req, res) => {
     // 🔒 SEGURANÇA: Tokens enviados via httpOnly cookies (protege contra XSS)
     res.cookie('token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
     res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
-    
-    // Log de debug para verificar configuração dos cookies
-    logger.debug('Cookies definidos no login', {
-      userId: user._id,
-      cookieOptions: {
-        httpOnly: ACCESS_TOKEN_COOKIE_OPTIONS.httpOnly,
-        secure: ACCESS_TOKEN_COOKIE_OPTIONS.secure,
-        sameSite: ACCESS_TOKEN_COOKIE_OPTIONS.sameSite,
-        path: ACCESS_TOKEN_COOKIE_OPTIONS.path,
-        domain: ACCESS_TOKEN_COOKIE_OPTIONS.domain
-      }
-    });
     
     // Retorna apenas dados do usuário (sem token)
     res.json({ 
@@ -188,7 +182,13 @@ export const refreshToken = async (req, res) => {
     }
     
     // Validar refresh token
-    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'segredo_refresh';
+    // 🔒 SEGURANÇA: Sem fallback inseguro
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+    
+    if (!refreshSecret) {
+      logger.error('ERRO CRÍTICO: JWT_SECRET não está definido');
+      return res.status(500).json({ message: 'Erro de configuração do servidor' });
+    }
     
     let decoded;
     try {
@@ -210,13 +210,14 @@ export const refreshToken = async (req, res) => {
     }
     
     // Gerar novo access token
+    // 🔒 SEGURANÇA: Sem fallback inseguro
     const newAccessToken = jwt.sign({
       id: user._id,
       role: user.role,
       cras: user.cras ? user.cras.toString() : null,
       agenda: user.role === 'entrevistador' ? user.agenda : undefined,
       type: 'access'
-    }, process.env.JWT_SECRET || 'segredo_super_secreto', { expiresIn: '8h' });
+    }, process.env.JWT_SECRET, { expiresIn: '8h' });
     
     // Enviar novo access token via cookie
     res.cookie('token', newAccessToken, ACCESS_TOKEN_COOKIE_OPTIONS);

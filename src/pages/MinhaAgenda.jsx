@@ -64,12 +64,14 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 // EditIcon: edição de registros
 // DescriptionIcon: visualização de observações
 // EventIcon: representação de eventos/agendamentos
+// PersonOffIcon: marcar pessoa como ausente
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditIcon from '@mui/icons-material/Edit';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EventIcon from '@mui/icons-material/Event';
+import PersonOffIcon from '@mui/icons-material/PersonOff';
 
 // Localização em português brasileiro para o date picker
 import ptBR from 'date-fns/locale/pt-BR';
@@ -485,6 +487,24 @@ export default function MinhaAgenda() {
     }
   }, [mostrarMensagem, buscarAgendamentos]);
 
+  // Função para marcar agendamento como ausente
+  const marcarAusente = useCallback(async (agendamento) => {
+    if (!agendamento?._id) return;
+
+    try {
+      await api.patch(
+        `/appointments/${agendamento._id}`,
+        { status: 'ausente' }
+      );
+
+      mostrarMensagem('Marcado como ausente!');
+      buscarAgendamentos();
+    } catch (erro) {
+      console.error('Erro ao marcar como ausente:', erro);
+      mostrarMensagem('😓 Não foi possível marcar como ausente. Tente novamente.', 'error');
+    }
+  }, [mostrarMensagem, buscarAgendamentos]);
+
   const excluirAgendamento = useCallback(async () => {
     if (!contexto.agendamentoParaExcluir) return;
 
@@ -693,7 +713,10 @@ export default function MinhaAgenda() {
                     <TableRow 
                       key={horario}
                       sx={{
-                        backgroundColor: agendamento?.status === 'realizado' ? '#e8f5e8' : 'inherit'
+                        backgroundColor: 
+                          agendamento?.status === 'realizado' ? '#e8f5e8' : 
+                          agendamento?.status === 'ausente' ? '#fff9c4' : 
+                          'inherit'
                       }}
                     >
                       <TableCell sx={{ fontWeight: 'bold' }}>{horario}</TableCell>
@@ -701,12 +724,14 @@ export default function MinhaAgenda() {
                         <Typography
                           color={
                             agendado && agendamento?.status === 'realizado' ? 'success.main' :
+                            agendado && agendamento?.status === 'ausente' ? 'warning.main' :
                             agendado ? 'primary.main' :
                             bloqueado ? 'warning.main' :
                             'success.main'
                           }
                         >
                           {agendado && agendamento?.status === 'realizado' ? 'Realizado' :
+                           agendado && agendamento?.status === 'ausente' ? 'Ausente' :
                            agendado ? 'Agendado' :
                            bloqueado ? 'Bloqueado' :
                            'Disponível'}
@@ -765,15 +790,26 @@ export default function MinhaAgenda() {
                           
                           {agendado && (
                             <>
-                              {agendamento.status !== 'realizado' && (
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => confirmarPresenca(agendamento)}
-                                  sx={{ color: 'success.main' }}
-                                  title="Confirmar Presença"
-                                >
-                                  <CheckCircleIcon fontSize="small" />
-                                </IconButton>
+                              {agendamento.status !== 'realizado' && agendamento.status !== 'ausente' && (
+                                <>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => confirmarPresenca(agendamento)}
+                                    sx={{ color: 'success.main' }}
+                                    title="Confirmar Presença"
+                                  >
+                                    <CheckCircleIcon fontSize="small" />
+                                  </IconButton>
+                                  
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => marcarAusente(agendamento)}
+                                    sx={{ color: 'warning.main' }}
+                                    title="Marcar como Ausente"
+                                  >
+                                    <PersonOffIcon fontSize="small" />
+                                  </IconButton>
+                                </>
                               )}
                               
                               {agendamento.status === 'realizado' && (
@@ -782,6 +818,17 @@ export default function MinhaAgenda() {
                                   onClick={() => removerConfirmacao(agendamento)}
                                   sx={{ color: 'warning.main' }}
                                   title="Remover Confirmação"
+                                >
+                                  <CancelIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                              
+                              {agendamento.status === 'ausente' && (
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => removerConfirmacao(agendamento)}
+                                  sx={{ color: 'info.main' }}
+                                  title="Remover Status Ausente"
                                 >
                                   <CancelIcon fontSize="small" />
                                 </IconButton>
@@ -1092,8 +1139,12 @@ export default function MinhaAgenda() {
           <Snackbar
             open={mensagem.visivel}
             autoHideDuration={4000}
-            onClose={() => setMensagem(INITIAL_MESSAGE_STATE)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            onClose={(event, reason) => {
+              if (reason === 'clickaway') return;
+              setMensagem(INITIAL_MESSAGE_STATE);
+            }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            sx={{ mb: 2, mr: 2 }}
           >
             <Alert 
               severity={mensagem.tipo} 

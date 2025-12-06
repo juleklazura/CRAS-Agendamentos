@@ -117,6 +117,7 @@ const STATUS_COLORS = {
   'livre': { color: 'success', label: 'Disponível' },
   'agendado': { color: 'primary', label: 'Agendado' },
   'realizado': { color: 'success', label: 'Realizado' },
+  'ausente': { color: 'warning', label: 'Ausente' },
   'bloqueado': { color: 'warning', label: 'Bloqueado' }
 };
 
@@ -149,7 +150,11 @@ const HorarioTableRow = memo(({
   <TableRow 
     sx={{
       // Destaque visual para agendamentos realizados com fundo verde claro
-      backgroundColor: status === 'realizado' ? '#e8f5e8' : 'inherit',
+      // e ausentes com fundo amarelo claro
+      backgroundColor: 
+        status === 'realizado' ? '#e8f5e8' : 
+        status === 'ausente' ? '#fff9c4' : 
+        'inherit',
       transition: 'background 0.2s',
       cursor: 'pointer',
       // Efeito hover suave com sombra azul para melhor UX
@@ -173,6 +178,7 @@ const HorarioTableRow = memo(({
         color={
           status === 'agendado' ? 'primary.main' :
           status === 'realizado' ? 'success.main' :
+          status === 'ausente' ? 'warning.main' :
           status === 'bloqueado' ? 'warning.main' :
           'success.main'
         }
@@ -180,6 +186,7 @@ const HorarioTableRow = memo(({
       >
         {status === 'agendado' ? 'Agendado' :
          status === 'realizado' ? 'Realizado' :
+         status === 'ausente' ? 'Ausente' :
          status === 'bloqueado' ? 'Bloqueado' :
          'Disponível'}
       </Typography>
@@ -1200,7 +1207,12 @@ const AgendaEntrevistadores = memo(() => {
         <Snackbar 
           open={!!feedbackState.error} 
           autoHideDuration={4000} 
-          onClose={() => setFeedbackState(prev => ({ ...prev, error: '' }))}
+          onClose={(event, reason) => {
+            if (reason === 'clickaway') return;
+            setFeedbackState(prev => ({ ...prev, error: '' }));
+          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          sx={{ mb: 2, mr: 2 }}
         >
           <Alert severity="error" onClose={() => setFeedbackState(prev => ({ ...prev, error: '' }))}>
             {feedbackState.error}
@@ -1210,7 +1222,12 @@ const AgendaEntrevistadores = memo(() => {
         <Snackbar 
           open={!!feedbackState.success} 
           autoHideDuration={4000} 
-          onClose={() => setFeedbackState(prev => ({ ...prev, success: '' }))}
+          onClose={(event, reason) => {
+            if (reason === 'clickaway') return;
+            setFeedbackState(prev => ({ ...prev, success: '' }));
+          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          sx={{ mb: 2, mr: 2 }}
         >
           <Alert severity="success" onClose={() => setFeedbackState(prev => ({ ...prev, success: '' }))}>
             {feedbackState.success}

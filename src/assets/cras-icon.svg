@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Fundo circular suave -->
+  <circle cx="100" cy="100" r="95" fill="#1976d2" opacity="0.08"/>
+  
+  <!-- Capa da agenda (parte esquerda - lombada) -->
+  <path d="M 45 50 L 65 50 L 65 150 L 45 155 Z" fill="#0d47a1"/>
+  
+  <!-- Corpo principal da agenda -->
+  <rect x="60" y="45" width="95" height="110" rx="4" fill="#1976d2"/>
+  
+  <!-- Páginas internas (efeito de profundidade) -->
+  <rect x="65" y="50" width="85" height="100" rx="2" fill="#e3f2fd"/>
+  <line x1="68" y1="52" x2="68" y2="148" stroke="#bbdefb" stroke-width="1"/>
+  <line x1="72" y1="52" x2="72" y2="148" stroke="#90caf9" stroke-width="0.5"/>
+  
+  <!-- Linhas pautadas da agenda -->
+  <g stroke="#90caf9" stroke-width="1" opacity="0.4">
+    <line x1="78" y1="65" x2="145" y2="65"/>
+    <line x1="78" y1="75" x2="145" y2="75"/>
+    <line x1="78" y1="85" x2="145" y2="85"/>
+    <line x1="78" y1="95" x2="145" y2="95"/>
+    <line x1="78" y1="105" x2="145" y2="105"/>
+    <line x1="78" y1="115" x2="145" y2="115"/>
+    <line x1="78" y1="125" x2="145" y2="125"/>
+    <line x1="78" y1="135" x2="145" y2="135"/>
+  </g>
+  
+  <!-- Marcador de página (fita) -->
+  <rect x="122" y="45" width="8" height="70" fill="#ff6f00" opacity="0.9"/>
+  <path d="M 122 115 L 126 110 L 130 115 Z" fill="#ff6f00" opacity="0.9"/>
+  
+  <!-- Texto simulado (anotações) -->
+  <g fill="#1976d2" opacity="0.5">
+    <rect x="80" y="62" width="35" height="2" rx="1"/>
+    <rect x="80" y="72" width="50" height="2" rx="1"/>
+    <rect x="80" y="82" width="42" height="2" rx="1"/>
+    <rect x="80" y="92" width="48" height="2" rx="1"/>
+    <rect x="80" y="102" width="38" height="2" rx="1"/>
+  </g>
+  
+  <!-- Ícone de caneta (sobre a agenda) -->
+  <g transform="translate(135, 120) rotate(-45 10 10)">
+    <!-- Corpo da caneta -->
+    <rect x="5" y="0" width="8" height="30" rx="1" fill="#424242"/>
+    <!-- Ponta da caneta -->
+    <path d="M 5 30 L 9 35 L 13 30 Z" fill="#616161"/>
+    <!-- Detalhe dourado -->
+    <rect x="5" y="8" width="8" height="3" fill="#fdd835"/>
+    <!-- Tampa/clip -->
+    <rect x="5" y="0" width="8" height="5" rx="1" fill="#1976d2"/>
+  </g>
+  
+  <!-- Sombra da agenda -->
+  <ellipse cx="102" cy="158" rx="50" ry="8" fill="#000000" opacity="0.1"/>
+</svg>

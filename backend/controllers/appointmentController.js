@@ -196,13 +196,20 @@ export const getAppointments = async (req, res) => {
 
       // Sistema de busca global por texto
       // Permite buscar por nome, CPF ou telefones
+      // 🔒 SEGURANÇA: Escapar caracteres especiais de regex para prevenir ReDoS
       if (req.query.search) {
         const search = req.query.search.trim();
+        // Limitar tamanho da busca para prevenir ataques
+        if (search.length > 100) {
+          return { results: [], total: 0 };
+        }
+        // Escapar caracteres especiais de regex
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         filter.$or = [
-          { pessoa: { $regex: search, $options: 'i' } },     // Nome da pessoa
-          { cpf: { $regex: search, $options: 'i' } },        // CPF
-          { telefone1: { $regex: search, $options: 'i' } },  // Telefone principal
-          { telefone2: { $regex: search, $options: 'i' } }   // Telefone secundário
+          { pessoa: { $regex: escapedSearch, $options: 'i' } },     // Nome da pessoa
+          { cpf: { $regex: escapedSearch, $options: 'i' } },        // CPF
+          { telefone1: { $regex: escapedSearch, $options: 'i' } },  // Telefone principal
+          { telefone2: { $regex: escapedSearch, $options: 'i' } }   // Telefone secundário
         ];
       }
 
@@ -282,7 +289,22 @@ export const getAppointments = async (req, res) => {
 export const updateAppointment = async (req, res) => {
   try {
     const { id } = req.params;
-    const update = req.body;
+    
+    // 🔒 SEGURANÇA: Whitelist de campos permitidos para atualização
+    // Previne que campos como _id, createdAt, createdBy sejam modificados
+    const allowedFields = [
+      'entrevistador', 'cras', 'pessoa', 'cpf', 'telefone1', 'telefone2',
+      'motivo', 'data', 'status', 'observacoes'
+    ];
+    
+    const update = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        update[field] = req.body[field];
+      }
+    }
+    
+    // Campos de auditoria sempre adicionados pelo servidor
     update.updatedBy = req.user.id;
     update.updatedAt = now();
     
