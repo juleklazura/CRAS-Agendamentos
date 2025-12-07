@@ -46,7 +46,7 @@ export default function Login() {
       } else {
         setErro(result.message);
       }
-    } catch (erro) {
+    } catch {
       // Exibe erro específico ou mensagem genérica
       setErro('Erro ao fazer login. Tente novamente.');
     } finally {

@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 // Cliente HTTP para comunicação com o backend
-import axios from 'axios';
 import api from '../services/api';
 
 // Componente da sidebar para navegação lateral
@@ -147,15 +146,6 @@ export default function MinhaAgenda() {
     usuarioId: user?.id,
     usuarioCras: user?.cras
   }), [user]);
-
-  // Mostrar loading enquanto autenticação está carregando
-  if (authLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   // Estado para data selecionada com lógica inteligente de inicialização
   // Se for fim de semana, automaticamente seleciona a próxima segunda-feira
@@ -419,10 +409,6 @@ export default function MinhaAgenda() {
         observacoes: dadosAgendamento.observacoes
       };
 
-      console.log('📤 Enviando agendamento:', dadosParaEnvio);
-      console.log('👤 Usuário ID:', usuarioId);
-      console.log('🏢 CRAS ID:', usuarioCras);
-
       // Envia requisição para criar agendamento na API
       await api.post(
         `/appointments`,
@@ -597,13 +583,13 @@ export default function MinhaAgenda() {
     }
   }, [dataSelecionada, mostrarMensagem, buscarBloqueios, obterBloqueio]);
 
-  // 🚫 Early return se não autenticado
-  if (!user) {
+  // 🚫 Early return se não autenticado ou carregando
+  if (authLoading || !user) {
     return (
       <Box sx={{ display: 'flex' }}>
         <Sidebar />
-        <Box sx={{ flexGrow: 1, p: 3, textAlign: 'center' }}>
-          <Typography variant="h6">Carregando...</Typography>
+        <Box sx={{ flexGrow: 1, p: 3, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+          <CircularProgress />
         </Box>
       </Box>
     );

@@ -7,8 +7,6 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
-// Axios para fazer requisições HTTP para o backend
-import axios from 'axios';
 import api from '../services/api';
 
 // Componentes do Material-UI para interface
@@ -376,15 +374,6 @@ const AgendaEntrevistadores = memo(() => {
   const user = useMemo(() => authUser || {}, [authUser]);
   const isEntrevistador = useMemo(() => user?.role === 'entrevistador', [user?.role]);
 
-  // Mostrar loading enquanto autentica\u00e7\u00e3o est\u00e1 carregando
-  if (authLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   // Funções helper memoizadas para feedback - evita recriação desnecessária
   const setError = useCallback((message) => {
     setFeedbackState(prev => ({ ...prev, error: message }));
@@ -749,7 +738,13 @@ const AgendaEntrevistadores = memo(() => {
       {/* Componente de navegação lateral */}
       <Sidebar />
       
-      {/* Container principal da página */}
+      {/* Loading enquanto autenticação está carregando */}
+      {authLoading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+          <CircularProgress />
+        </Box>
+      ) : (
+      /* Container principal da página */
       <Container 
         component="main" 
         maxWidth={false}
@@ -1234,6 +1229,7 @@ const AgendaEntrevistadores = memo(() => {
           </Alert>
         </Snackbar>
       </Container>
+      )}
     </>
   );
 });

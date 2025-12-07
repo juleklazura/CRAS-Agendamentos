@@ -1,7 +1,7 @@
 // Componente Dashboard - Página inicial do sistema CRAS Agendamentos
 // Exibe boas-vindas personalizadas e informações do usuário logado
 // Para entrevistadores e admin: exibe gráficos de desempenho com filtros por mês/ano
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import Sidebar from '../components/Sidebar';
@@ -63,38 +63,52 @@ export default function Dashboard() {
   const isAdmin = user?.role === 'admin';
   const showDashboard = isEntrevistador || isAdmin;
 
-  // Buscar lista de CRAS para admin
-  useEffect(() => {
-    async function fetchCrasList() {
-      if (isAdmin) {
-        try {
-          const response = await api.get('/cras');
-          setCrasList(response.data || []);
-        } catch (error) {
-          console.error('Erro ao buscar lista de CRAS:', error);
-        }
-      }
-    }
-    fetchCrasList();
-  }, [isAdmin]);
+  // Memoizar arrays estáticos para evitar re-renders desnecessários
+  const monthOptions = useMemo(() => 
+    Array.from({ length: 12 }, (_, i) => ({
+      value: i,
+      label: format(new Date(2024, i, 1), 'MMMM', { locale: ptBR })
+    })), 
+  []);
+  
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+  }, []);
 
-  // Buscar nome do CRAS
+  // Buscar dados de CRAS (lista para admin e nome do CRAS do usuário) em paralelo
   useEffect(() => {
-    async function fetchCras() {
+    async function fetchCrasData() {
+      const promises = [];
+      
+      // Admin precisa da lista de CRAS
+      if (isAdmin) {
+        promises.push(
+          api.get('/cras')
+            .then(res => ({ type: 'list', data: res.data || [] }))
+            .catch(() => ({ type: 'list', data: [] }))
+        );
+      }
+      
+      // Buscar nome do CRAS do usuário
       if (user?.cras && typeof user.cras === 'string') {
-        try {
-          const response = await api.get(`/cras/${user.cras}`);
-          setCrasNome(response.data.nome || user.cras);
-        } catch (error) {
-          if (error.response?.status !== 401) {
-            console.error('Erro ao buscar CRAS:', error.message);
-          }
-          setCrasNome(user.cras);
-        }
+        promises.push(
+          api.get(`/cras/${user.cras}`)
+            .then(res => ({ type: 'name', data: res.data?.nome || user.cras }))
+            .catch(() => ({ type: 'name', data: user.cras }))
+        );
+      }
+      
+      if (promises.length > 0) {
+        const results = await Promise.all(promises);
+        results.forEach(result => {
+          if (result.type === 'list') setCrasList(result.data);
+          if (result.type === 'name') setCrasNome(result.data);
+        });
       }
     }
-    fetchCras();
-  }, [user?.cras]);
+    fetchCrasData();
+  }, [isAdmin, user?.cras]);
 
   // Buscar dados dos gráficos para entrevistadores e admin
   const fetchChartData = useCallback(async () => {
@@ -117,13 +131,7 @@ export default function Dashboard() {
       }
       
       // Buscar agendamentos
-      console.log('Parâmetros da busca:', params);
       const response = await api.get('/appointments', { params });
-
-      console.log('Response completa:', response);
-      console.log('Response.data tipo:', typeof response.data);
-      console.log('Response.data:', response.data);
-      console.log('É array?', Array.isArray(response.data));
       
       // Garantir que temos um array - a API pode retornar { appointments: [...] } ou [...]
       let appointments = [];
@@ -131,21 +139,18 @@ export default function Dashboard() {
         appointments = response.data;
       } else if (response.data && Array.isArray(response.data.appointments)) {
         appointments = response.data.appointments;
+      } else if (response.data && Array.isArray(response.data.results)) {
+        appointments = response.data.results;
       } else if (response.data && typeof response.data === 'object') {
         // Se for objeto, pegar todas as propriedades que sejam arrays
         const keys = Object.keys(response.data);
-        console.log('Keys do response.data:', keys);
         for (const key of keys) {
           if (Array.isArray(response.data[key])) {
             appointments = response.data[key];
-            console.log(`Usando array da propriedade: ${key}`);
             break;
           }
         }
       }
-      
-      console.log('Total de agendamentos encontrados:', appointments.length);
-      console.log('Primeiros 2 agendamentos:', appointments.slice(0, 2));
       
       // Filtrar por período baseado no viewMode
       if (viewMode === 'mensal') {
@@ -166,13 +171,6 @@ export default function Dashboard() {
           return aptDate >= startDate && aptDate <= endDate;
         });
       }
-      
-      console.log('Agendamentos filtrados:', appointments.length);
-      console.log('Agendamentos por status:', {
-        realizado: appointments.filter(a => a.status === 'realizado').length,
-        ausente: appointments.filter(a => a.status === 'ausente').length,
-        agendado: appointments.filter(a => a.status === 'agendado').length
-      });
       
       if (viewMode === 'mensal') {
         // Agrupar por semana
@@ -236,8 +234,6 @@ export default function Dashboard() {
       const agendados = appointments.filter(a => 
         a.status === 'agendado' && new Date(a.data) > new Date()
       ).length;
-
-      console.log('Estatísticas finais:', { realizados, ausentes, agendados });
 
       setStats({
         realizados,
@@ -356,9 +352,9 @@ export default function Dashboard() {
                           onChange={(e) => setSelectedMonth(e.target.value)}
                           label="Mês"
                         >
-                          {Array.from({ length: 12 }, (_, i) => (
-                            <MenuItem key={i} value={i}>
-                              {format(new Date(2024, i, 1), 'MMMM', { locale: ptBR })}
+                          {monthOptions.map(({ value, label }) => (
+                            <MenuItem key={value} value={value}>
+                              {label}
                             </MenuItem>
                           ))}
                         </Select>
@@ -374,10 +370,9 @@ export default function Dashboard() {
                         onChange={(e) => setSelectedYear(e.target.value)}
                         label="Ano"
                       >
-                        {Array.from({ length: 5 }, (_, i) => {
-                          const year = new Date().getFullYear() - 2 + i;
-                          return <MenuItem key={year} value={year}>{year}</MenuItem>;
-                        })}
+                        {yearOptions.map(year => (
+                          <MenuItem key={year} value={year}>{year}</MenuItem>
+                        ))}
                       </Select>
                     </FormControl>
                   </Grid>

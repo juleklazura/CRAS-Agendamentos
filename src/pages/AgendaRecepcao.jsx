@@ -63,15 +63,6 @@ export default function AgendaRecepcao() {
   const navigate = useNavigate();
   const { user: usuario, loading: authLoading } = useAuth();  // 🔒 SEGURANÇA: Dados via httpOnly cookies
   
-  // Mostrar loading enquanto autenticação está carregando
-  if (authLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-  
   // Estados principais
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
   const [agendamentos, setAgendamentos] = useState([]);
@@ -485,6 +476,13 @@ export default function AgendaRecepcao() {
   return (
     <>
       <Sidebar />
+      
+      {/* Loading enquanto autenticação está carregando */}
+      {authLoading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+          <CircularProgress />
+        </Box>
+      ) : (
       <Box 
         className="main-content"
         sx={{ 
@@ -1030,6 +1028,7 @@ export default function AgendaRecepcao() {
           </Alert>
         </Snackbar>
       </Box>
+      )}
     </>
   );
 }

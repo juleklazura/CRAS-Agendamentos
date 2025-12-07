@@ -3,11 +3,8 @@
 // Fornece API consistente para operações CRUD com tratamento de erro padronizado
 // Otimizado para reutilização em diferentes componentes
 import { useState, useCallback, useMemo } from 'react';
-import axios from 'axios';  // Cliente HTTP para requisições
+import api from '../services/api';  // Cliente HTTP com cookies httpOnly
 import { validarCPF, validarTelefone, mensagens } from '../utils/agendamentoUtils';
-
-// URL base da API configurada
-const API_BASE_URL = 'http://localhost:5000/api';
 
 /**
  * Hook principal para gerenciamento de agendamentos
@@ -77,9 +74,7 @@ export const useAgendamento = () => {
         }
       });
       
-      const response = await axios.get(`${API_BASE_URL}/appointments?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`/appointments?${params}`);
       
       updateState({ agendamentos: response.data });
       return response.data;
@@ -128,9 +123,7 @@ export const useAgendamento = () => {
     }
 
     return makeRequest(async () => {
-      const response = await axios.post(`${API_BASE_URL}/appointments`, dadosAgendamento, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.post('/appointments', dadosAgendamento);
       
       // Atualizar lista local de agendamentos
       updateState(prev => ({
@@ -144,9 +137,7 @@ export const useAgendamento = () => {
   // Editar agendamento
   const editarAgendamento = useCallback(async (id, dadosAtualizados) => {
     return makeRequest(async () => {
-      const response = await axios.put(`${API_BASE_URL}/appointments/${id}`, dadosAtualizados, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.put(`/appointments/${id}`, dadosAtualizados);
       
       // Atualizar lista local
       updateState(prev => ({
@@ -162,9 +153,7 @@ export const useAgendamento = () => {
   // Cancelar agendamento
   const cancelarAgendamento = useCallback(async (id) => {
     return makeRequest(async () => {
-      await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.delete(`/appointments/${id}`);
       
       // Remover da lista local
       updateState(prev => ({
@@ -178,9 +167,7 @@ export const useAgendamento = () => {
   // Confirmar presença
   const confirmarPresenca = useCallback(async (id) => {
     return makeRequest(async () => {
-      const response = await axios.patch(`${API_BASE_URL}/appointments/${id}/confirm`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.patch(`/appointments/${id}/confirm`, {});
       
       // Atualizar lista local
       updateState(prev => ({
@@ -240,13 +227,10 @@ export const useCras = () => {
   const buscarCras = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/cras`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/cras');
       setCrasList(response.data);
       return response.data;
     } catch (error) {
-      console.error('Erro ao buscar CRAS:', error);
       setCrasList([]);
       throw error;
     } finally {
@@ -281,14 +265,11 @@ export const useUsuarios = () => {
         }
       });
       
-      const response = await axios.get(`${API_BASE_URL}/users?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`/users?${params}`);
       
       setUsuarios(response.data);
       return response.data;
     } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
       setUsuarios([]);
       throw error;
     } finally {

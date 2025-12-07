@@ -25,15 +25,14 @@ const removeAllSecurityListeners = () => {
 // 🔒 SEGURANÇA: Limpar console em produção e suprimir erros esperados
 // =============================================================================
 
-// TEMPORARIAMENTE DESABILITADO: console.log pode ser útil para debug inicial
-// if (import.meta.env.PROD) {
-//   const noop = () => {};
-//   console.log = noop;
-//   console.debug = noop;
-//   console.info = noop;
-//   console.warn = noop;
-//   // Manter console.error para debug crítico
-// }
+// Suprimir logs em produção para segurança
+if (import.meta.env.PROD) {
+  const noop = () => {};
+  console.log = noop;
+  console.debug = noop;
+  console.info = noop;
+  // Manter console.warn e console.error para debug crítico
+}
 
 // Suprimir erros 401 esperados no console (desenvolvimento)
 if (import.meta.env.DEV) {
