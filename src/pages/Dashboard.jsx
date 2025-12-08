@@ -17,7 +17,10 @@ import {
   Grid,
   CircularProgress,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
+  Avatar,
+  Chip,
+  Paper
 } from '@mui/material';
 import {
   BarChart,
@@ -29,10 +32,21 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  AreaChart,
+  Area
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import PersonIcon from '@mui/icons-material/Person';
+import BusinessIcon from '@mui/icons-material/Business';
 
 /**
  * Componente principal do dashboard
@@ -261,64 +275,314 @@ export default function Dashboard() {
       <Box 
         component="main" 
         className="main-content"
+        sx={{
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+          minHeight: '100vh'
+        }}
       >
         <Box sx={{ 
           width: '100%', 
-          maxWidth: 1200, 
+          maxWidth: 1400, 
           mx: 'auto',
-          p: 3
+          p: { xs: 2, md: 4 }
         }}>
-          {/* Título de boas-vindas */}
-          <Typography 
-            variant="h4" 
-            gutterBottom
-            sx={{ color: '#1E4976', mb: 1, textAlign: 'center' }}
+          {/* Header com boas-vindas */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 3, md: 4 },
+              mb: 4,
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, #1E4976 0%, #2d6aa3 50%, #3d8bd4 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '40%',
+                height: '100%',
+                background: 'radial-gradient(circle at 70% 50%, rgba(255,255,255,0.1) 0%, transparent 60%)',
+                pointerEvents: 'none'
+              }
+            }}
           >
-            Bem-vindo, {user?.name || 'Usuário'}!
-          </Typography>
-          
-          <Typography variant="body1" sx={{ color: '#1E4976', mb: 0.5, textAlign: 'center' }}>
-            Seu papel: <strong>{user?.role === 'admin' ? 'Administrador' : user?.role === 'entrevistador' ? 'Entrevistador' : 'Recepção'}</strong>
-          </Typography>
-          
-          <Typography variant="body1" sx={{ color: '#1E4976', mb: 4, textAlign: 'center' }}>
-            {isAdmin ? 'Todos os CRAS' : <>CRAS: <strong>{crasNome || user?.cras || 'N/A'}</strong></>}
-          </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+              <Avatar
+                sx={{
+                  width: 72,
+                  height: 72,
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  backdropFilter: 'blur(10px)',
+                  border: '3px solid rgba(255,255,255,0.3)',
+                  fontSize: '1.8rem',
+                  fontWeight: 700
+                }}
+              >
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </Avatar>
+              <Box sx={{ flex: 1 }}>
+                <Typography 
+                  variant="h4" 
+                  fontWeight={700}
+                  sx={{ 
+                    mb: 0.5,
+                    textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    fontSize: { xs: '1.5rem', md: '2rem' },
+                    color: 'white !important'
+                  }}
+                >
+                  Olá, {user?.name?.split(' ')[0] || 'Usuário'}! 👋
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Chip
+                    icon={<PersonIcon sx={{ color: 'white !important' }} />}
+                    label={user?.role === 'admin' ? 'Administrador' : user?.role === 'entrevistador' ? 'Entrevistador' : 'Recepção'}
+                    sx={{
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      fontWeight: 600,
+                      backdropFilter: 'blur(10px)',
+                      '& .MuiChip-icon': { color: 'white' }
+                    }}
+                  />
+                  <Chip
+                    icon={<BusinessIcon sx={{ color: 'white !important' }} />}
+                    label={isAdmin ? 'Todos os CRAS' : crasNome || user?.cras || 'N/A'}
+                    sx={{
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      fontWeight: 600,
+                      backdropFilter: 'blur(10px)',
+                      '& .MuiChip-icon': { color: 'white' }
+                    }}
+                  />
+                </Box>
+              </Box>
+              {showDashboard && (
+                <Box sx={{ textAlign: 'right', display: { xs: 'none', md: 'block' } }}>
+                  <Typography variant="body2" sx={{ opacity: 0.9, mb: 0.5, color: 'white !important' }}>
+                    {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                  </Typography>
+                  <Typography variant="h5" fontWeight={600} sx={{ color: 'white !important' }}>
+                    {format(new Date(), 'yyyy')}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Paper>
 
           {/* Gráficos para Entrevistadores e Admin */}
           {showDashboard && (
             <>
-              {/* Controles de filtro */}
-              <Card 
-              elevation={3}
-              sx={{ 
-                mb: 4,
-                borderRadius: 3,
-                overflow: 'hidden',
-                width: '100%',
-                boxSizing: 'border-box'
-              }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography 
-                  variant="h6" 
-                  gutterBottom 
-                  fontWeight={600}
-                  color="#1E4976"
-                  sx={{ mb: 3 }}
+              {/* Cards de Estatísticas */}
+              <Box 
+                sx={{ 
+                  display: 'flex',
+                  gap: 3,
+                  mb: 4,
+                  mt:3,
+                  maxWidth: 1400, 
+                  mx: 'auto',
+                  '& > *': {
+                    flex: '1 1 0',
+                    minWidth: 0,
+                    maxWidth: 1400
+                  }
+                }}
+              >
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    background: 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)',
+                    color: 'white',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    minHeight: 140,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 20px rgba(76, 175, 80, 0.3)'
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      top: -20,
+                      right: -20,
+                      width: 100,
+                      height: 100,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
                 >
-                  🔍 Filtros
-                </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
+                      <CheckCircleOutlineIcon sx={{ fontSize: 24 }} />
+                    </Avatar>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white' }}>
+                      Realizados
+                    </Typography>
+                  </Box>
+                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important' }}>
+                    {stats.realizados}
+                  </Typography>
+                </Paper>
+
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
+                    color: 'white',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    minHeight: 140,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 20px rgba(255, 152, 0, 0.3)'
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      top: -20,
+                      right: -20,
+                      width: 100,
+                      height: 100,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
+                      <EventBusyIcon sx={{ fontSize: 24 }} />
+                    </Avatar>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white' }}>
+                      Ausentes
+                    </Typography>
+                  </Box>
+                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important' }}>
+                    {stats.ausentes}
+                  </Typography>
+                </Paper>
+
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    background: 'linear-gradient(135deg, #2196f3 0%, #64b5f6 100%)',
+                    color: 'white',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    minHeight: 140,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 20px rgba(33, 150, 243, 0.3)'
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      top: -20,
+                      right: -20,
+                      width: 100,
+                      height: 100,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
+                      <EventAvailableIcon sx={{ fontSize: 24 }} />
+                    </Avatar>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white !important' }}>
+                      Agendados
+                    </Typography>
+                  </Box>
+                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important' }}>
+                    {stats.agendados}
+                  </Typography>
+                </Paper>
+
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    background: 'linear-gradient(135deg, #1E4976 0%, #2d6aa3 100%)',
+                    color: 'white',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    minHeight: 140,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 20px rgba(30, 73, 118, 0.3)'
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      top: -20,
+                      right: -20,
+                      width: 100,
+                      height: 100,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
+                      <AssessmentIcon sx={{ fontSize: 24 }} />
+                    </Avatar>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white' }}>
+                      Total
+                    </Typography>
+                  </Box>
+                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important'  }}>
+                    {stats.total}
+                  </Typography>
+                </Paper>
+              </Box>
+
+              {/* Controles de filtro */}
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  mb: 2,
+                  borderRadius: '8px 8px 0 0 !important',
+                  pl: 3,
+                  bgcolor: 'white'
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, verticalAlign:'middle' }}>
+                  <Avatar sx={{ bgcolor: '#1E4976', width: 40, height: 40 }}>
+                    <FilterListIcon />
+                  </Avatar>
+                  <Typography variant="h6" fontWeight={600} color="#1E4976" sx={{ height: 40, display: 'flex', alignItems: 'center', mb:4, p: 0 }}>
+                    Filtros
+                  </Typography>
+                </Box>
                 <Grid container spacing={2} alignItems="center">
                   {/* Filtro de CRAS - apenas para admin */}
                   {isAdmin && (
                     <Grid item xs={12} md={3}>
-                      <FormControl fullWidth>
+                      <FormControl fullWidth size="small">
                         <InputLabel>CRAS</InputLabel>
                         <Select
                           value={selectedCras}
                           onChange={(e) => setSelectedCras(e.target.value)}
                           label="CRAS"
+                          sx={{ borderRadius: 2 }}
                         >
                           <MenuItem value="todos">Todos os CRAS</MenuItem>
                           {crasList.map((cras) => (
@@ -337,15 +601,36 @@ export default function Dashboard() {
                       exclusive
                       onChange={(e, newMode) => newMode && setViewMode(newMode)}
                       fullWidth
+                      size="small"
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          '&.Mui-selected': {
+                            bgcolor: '#1E4976',
+                            color: 'white',
+                            '&:hover': {
+                              bgcolor: '#2d6aa3'
+                            }
+                          }
+                        }
+                      }}
                     >
-                      <ToggleButton value="mensal">Mensal</ToggleButton>
-                      <ToggleButton value="anual">Anual</ToggleButton>
+                      <ToggleButton value="mensal">
+                        <CalendarMonthIcon sx={{ mr: 1, fontSize: 18 }} />
+                        Mensal
+                      </ToggleButton>
+                      <ToggleButton value="anual">
+                        <TrendingUpIcon sx={{ mr: 1, fontSize: 18 }} />
+                        Anual
+                      </ToggleButton>
                     </ToggleButtonGroup>
                   </Grid>
                   
                   {viewMode === 'mensal' && (
                     <Grid item xs={12} md={isAdmin ? 3 : 4}>
-                      <FormControl fullWidth>
+                      <FormControl fullWidth size="small">
                         <InputLabel>Mês</InputLabel>
                         <Select
                           value={selectedMonth}
@@ -363,12 +648,13 @@ export default function Dashboard() {
                   )}
                   
                   <Grid item xs={12} md={isAdmin ? 3 : 4}>
-                    <FormControl fullWidth>
+                    <FormControl fullWidth size="small">
                       <InputLabel>Ano</InputLabel>
                       <Select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
                         label="Ano"
+                        sx={{ borderRadius: 2 }}
                       >
                         {yearOptions.map(year => (
                           <MenuItem key={year} value={year}>{year}</MenuItem>
@@ -377,222 +663,179 @@ export default function Dashboard() {
                     </FormControl>
                   </Grid>
                 </Grid>
-              </CardContent>
-            </Card>
+              </Paper>
 
-            {/* Cards de Estatísticas */}
-            <Card
-              elevation={3}
-              sx={{ 
-                my: 4,
-                borderRadius: 3,
-                overflow: 'hidden',
-                width: '100%',
-                boxSizing: 'border-box',
-                bgcolor: 'transparent',
-                boxShadow: 'none'
-              }}
-            >
-              <Box sx={{ display: 'flex', gap: 4 }}>
-                <Card 
-                  elevation={3}
-                  sx={{ 
-                    bgcolor: '#e8f5e9',
-                    flex: 1,
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6
-                    }
-                  }}
-                >
-                  <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography 
-                      variant="subtitle2" 
-                      color="success.main" 
-                      fontWeight={600}
-                      sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.75rem' }}
-                    >
-                      Realizados
+              {/* Gráfico */}
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  borderRadius: '0 0 8px 8px !important',
+                  p: 3,
+                  bgcolor: 'white'
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: '#1E4976', width: 40, height: 40 }}>
+                      {viewMode === 'mensal' ? <CalendarMonthIcon /> : <TrendingUpIcon />}
+                    </Avatar>
+                    <Typography variant="h6" fontWeight={600} color="#1E4976" sx={{ height: 40, display: 'flex', alignItems: 'center', mb: 4, p: 0 }}>
+                      {viewMode === 'mensal' ? 'Desempenho Semanal' : 'Evolução Anual'}
                     </Typography>
-                    <Typography 
-                      variant="h3" 
-                      color="success.dark"
-                      fontWeight="bold"
-                    >
-                      {stats.realizados}
-                    </Typography>
-                  </CardContent>
-                </Card>
-
-                <Card 
-                  elevation={3}
-                  sx={{ 
-                    bgcolor: '#fff9c4',
-                    flex: 1,
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6
-                    }
-                  }}
-                >
-                  <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography 
-                      variant="subtitle2" 
-                      color="warning.main" 
-                      fontWeight={600}
-                      sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.75rem' }}
-                    >
-                      Ausentes
-                    </Typography>
-                    <Typography 
-                      variant="h3" 
-                      color="warning.dark"
-                      fontWeight="bold"
-                    >
-                      {stats.ausentes}
-                    </Typography>
-                  </CardContent>
-                </Card>
-
-                <Card 
-                  elevation={3}
-                  sx={{ 
-                    bgcolor: '#e3f2fd',
-                    flex: 1,
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6
-                    }
-                  }}
-                >
-                  <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography 
-                      variant="subtitle2" 
-                      color="primary.main" 
-                      fontWeight={600}
-                      sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.75rem' }}
-                    >
-                      Agendados
-                    </Typography>
-                    <Typography 
-                      variant="h3" 
-                      color="primary.dark"
-                      fontWeight="bold"
-                    >
-                      {stats.agendados}
-                    </Typography>
-                  </CardContent>
-                </Card>
-
-                <Card 
-                  elevation={3}
-                  sx={{ 
-                    bgcolor: '#1E4976',
-                    flex: 1,
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6
-                    }
-                  }}
-                >
-                  <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography 
-                      variant="subtitle2" 
-                      color="white" 
-                      fontWeight={600}
-                      sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.75rem' }}
-                    >
-                      Total
-                    </Typography>
-                    <Typography 
-                      variant="h3" 
-                      color="white"
-                      fontWeight="bold"
-                    >
-                      {stats.total}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Box>
-            </Card>
-
-            {/* Gráfico */}
-            <Card 
-              elevation={4}
-              sx={{ 
-                borderRadius: 3,
-                overflow: 'hidden',
-                width: '100%',
-                boxSizing: 'border-box'
-              }}
-            >
-              <CardContent sx={{ p: 4 }}>
-                <Typography 
-                  variant="h5" 
-                  gutterBottom 
-                  fontWeight={600}
-                  color="#1E4976"
-                  sx={{ mb: 3 }}
-                >
-                  {viewMode === 'mensal' ? '📊 Desempenho Semanal' : '📈 Evolução Anual'}
-                </Typography>
+                  </Box>
+                  {!loading && chartData.length > 0 && (
+                    <Chip 
+                      label={`${chartData.length} ${viewMode === 'mensal' ? 'semanas' : 'meses'}`}
+                      size="small"
+                      sx={{ bgcolor: '#e3f2fd', color: '#1E4976', fontWeight: 600 }}
+                    />
+                  )}
+                </Box>
                 
                 {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                    <CircularProgress size={60} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 400, gap: 2 }}>
+                    <CircularProgress size={50} sx={{ color: '#1E4976' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Carregando dados...
+                    </Typography>
                   </Box>
                 ) : chartData.length === 0 ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    minHeight: 400,
+                    bgcolor: '#f5f5f5',
+                    borderRadius: 3,
+                    gap: 2
+                  }}>
+                    <AssessmentIcon sx={{ fontSize: 64, color: '#bdbdbd' }} />
                     <Typography variant="h6" color="text.secondary">
-                      Nenhum dado disponível para o período selecionado
+                      Nenhum dado disponível
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Selecione outro período para visualizar os dados
                     </Typography>
                   </Box>
                 ) : (
                   <ResponsiveContainer width="100%" height={400}>
                     {viewMode === 'mensal' ? (
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="realizados" fill="#4caf50" name="Realizados" />
-                        <Bar dataKey="ausentes" fill="#ff9800" name="Ausentes" />
-                        <Bar dataKey="agendados" fill="#2196f3" name="Agendados" />
+                      <BarChart data={chartData} barCategoryGap="20%">
+                        <defs>
+                          <linearGradient id="colorRealizados" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#4caf50" stopOpacity={0.9}/>
+                            <stop offset="95%" stopColor="#4caf50" stopOpacity={0.6}/>
+                          </linearGradient>
+                          <linearGradient id="colorAusentes" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ff9800" stopOpacity={0.9}/>
+                            <stop offset="95%" stopColor="#ff9800" stopOpacity={0.6}/>
+                          </linearGradient>
+                          <linearGradient id="colorAgendados" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#2196f3" stopOpacity={0.9}/>
+                            <stop offset="95%" stopColor="#2196f3" stopOpacity={0.6}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" vertical={false} />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#666', fontSize: 12 }}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#666', fontSize: 12 }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            borderRadius: 12, 
+                            border: 'none',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                          }}
+                        />
+                        <Legend 
+                          wrapperStyle={{ paddingTop: 20 }}
+                          iconType="circle"
+                        />
+                        <Bar dataKey="realizados" fill="url(#colorRealizados)" name="Realizados" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="ausentes" fill="url(#colorAusentes)" name="Ausentes" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="agendados" fill="url(#colorAgendados)" name="Agendados" radius={[8, 8, 0, 0]} />
                       </BarChart>
                     ) : (
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="realizados" stroke="#4caf50" name="Realizados" strokeWidth={2} />
-                        <Line type="monotone" dataKey="ausentes" stroke="#ff9800" name="Ausentes" strokeWidth={2} />
-                        <Line type="monotone" dataKey="agendados" stroke="#2196f3" name="Agendados" strokeWidth={2} />
-                      </LineChart>
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="areaRealizados" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#4caf50" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#4caf50" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="areaAusentes" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ff9800" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#ff9800" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="areaAgendados" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#2196f3" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#2196f3" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" vertical={false} />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#666', fontSize: 12 }}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#666', fontSize: 12 }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            borderRadius: 12, 
+                            border: 'none',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                          }}
+                        />
+                        <Legend 
+                          wrapperStyle={{ paddingTop: 20 }}
+                          iconType="circle"
+                        />
+                        <Area type="monotone" dataKey="realizados" stroke="#4caf50" fill="url(#areaRealizados)" name="Realizados" strokeWidth={3} />
+                        <Area type="monotone" dataKey="ausentes" stroke="#ff9800" fill="url(#areaAusentes)" name="Ausentes" strokeWidth={3} />
+                        <Area type="monotone" dataKey="agendados" stroke="#2196f3" fill="url(#areaAgendados)" name="Agendados" strokeWidth={3} />
+                      </AreaChart>
                     )}
                   </ResponsiveContainer>
                 )}
-              </CardContent>
-            </Card>
-          </>
-        )}
+              </Paper>
+            </>
+          )}
 
-        {/* Mensagem orientativa para recepção */}
-        {!showDashboard && (
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ mt: 3, textAlign: 'center' }}
-          >
-            Escolha uma opção no menu lateral para começar.
-          </Typography>
-        )}
+          {/* Mensagem orientativa para recepção */}
+          {!showDashboard && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 4,
+                borderRadius: 3,
+                bgcolor: 'white'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Avatar sx={{ bgcolor: '#1E4976', width: 48, height: 48 }}>
+                  <AssessmentIcon sx={{ fontSize: 28 }} />
+                </Avatar>
+                <Typography variant="h6" color="text.secondary" sx={{ height: 48, display: 'flex', alignItems: 'center', mb: 4 }}>
+                  Bem-vindo ao Sistema de Agendamentos
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 8 }}>
+                Escolha uma opção no menu lateral para começar.
+              </Typography>
+            </Paper>
+          )}
         </Box>
       </Box>
     </>
