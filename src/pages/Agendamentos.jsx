@@ -84,6 +84,9 @@ export default function Agendamentos() {
 
   // Ref para manter o foco no input de busca após operações
   const searchInputRef = useRef(null);
+  
+  // Ref para controlar intervalo de polling
+  const pollingIntervalRef = useRef(null);
 
   // Implementa debounce na busca para evitar muitas requisições
   // Aguarda 500ms após parar de digitar antes de executar a busca
@@ -147,6 +150,38 @@ export default function Agendamentos() {
 
   useEffect(() => {
     fetchAgendamentos();
+  }, [fetchAgendamentos]);
+
+  // ⏰ Polling: Atualização automática a cada 30 segundos
+  // Garante que a lista esteja sempre atualizada com alterações de outros usuários
+  useEffect(() => {
+    // Inicia polling quando componente monta
+    pollingIntervalRef.current = setInterval(() => {
+      fetchAgendamentos();
+    }, 30000); // 30 segundos
+    
+    return () => {
+      // Limpa intervalo quando componente desmonta
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [fetchAgendamentos]);
+
+  // 👁️ Atualiza quando a aba volta ao foco (visibility change)
+  // Garante dados frescos quando usuário retorna à página
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAgendamentos();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchAgendamentos]);
 
   // Ao mudar busca ou itens por página, volta para primeira página
@@ -499,10 +534,17 @@ export default function Agendamentos() {
         >
           <Alert
             severity={error ? "error" : "success"}
-            variant="filled"
+            variant="standard"
             onClose={() => {
               setError('');
               setSuccess('');
+            }}
+            sx={{
+              bgcolor: '#fff',
+              color: error ? 'error.main' : 'primary.main',
+              border: error ? '1px solid' : '1px solid',
+              borderColor: error ? 'error.main' : 'primary.main',
+              '& .MuiAlert-icon': { color: error ? 'error.main' : 'primary.main' }
             }}
           >
             {error || success}

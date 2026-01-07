@@ -127,7 +127,7 @@ const testRaceCondition = async () => {
     const successCount = results.filter(r => r.success).length;
     const blockedCount = results.filter(r => !r.success).length;
     
-    console.log('\n📈 ESTATÍSTICAS:');
+    console.log('\n� ESTATÍSTICAS:');
     console.log(`  ✅ Sucessos: ${successCount}`);
     console.log(`  ❌ Bloqueados: ${blockedCount}`);
     

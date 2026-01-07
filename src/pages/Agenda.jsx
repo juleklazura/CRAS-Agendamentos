@@ -409,9 +409,13 @@ const AgendaEntrevistadores = memo(() => {
       setLoading(true);
       
       // Se o usuário logado é um entrevistador, usa apenas seus próprios dados
-      if (isEntrevistador && user?._id) {
-        setEntrevistadores([user]);
-        setSelectedEntrevistador(user._id);
+      // Nota: AuthContext usa 'id' (vindo de /auth/me), API usa '_id'
+      const userId = user?._id || user?.id;
+      if (isEntrevistador && userId) {
+        // Normaliza o objeto do usuário para ter _id (compatibilidade com API)
+        const userNormalizado = { ...user, _id: userId };
+        setEntrevistadores([userNormalizado]);
+        setSelectedEntrevistador(userId);
         return;
       }
       
@@ -503,9 +507,10 @@ const AgendaEntrevistadores = memo(() => {
   );
   
   // Horários disponíveis - usa agenda personalizada do entrevistador ou padrão
+  // Importante: inclui horariosDisponiveis nas dependências por ser usado no fallback
   const horariosAgenda = useMemo(() => 
     entrevistadorSelecionado?.agenda?.horariosDisponiveis || horariosDisponiveis,
-    [entrevistadorSelecionado?.agenda?.horariosDisponiveis]
+    [entrevistadorSelecionado?.agenda?.horariosDisponiveis, horariosDisponiveis]
   );
 
   // Normaliza agendamentos para sempre trabalhar com array - memoizado

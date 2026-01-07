@@ -246,7 +246,7 @@ async function createIndexes() {
     console.log(`👥 Users: ${userIndexes.length} índices`);
     
     const blockedSlotIndexes = await BlockedSlot.collection.indexes();
-    console.log(`🚫 BlockedSlots: ${blockedSlotIndexes.length} índices`);
+    console.log(`� BlockedSlots: ${blockedSlotIndexes.length} índices`);
     
     const logIndexes = await Log.collection.indexes();
     console.log(`📜 Logs: ${logIndexes.length} índices`);

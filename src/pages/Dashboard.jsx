@@ -1,7 +1,7 @@
 // Componente Dashboard - Página inicial do sistema CRAS Agendamentos
 // Exibe boas-vindas personalizadas e informações do usuário logado
 // Para entrevistadores e admin: exibe gráficos de desempenho com filtros por mês/ano
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import Sidebar from '../components/Sidebar';
@@ -49,6 +49,35 @@ import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 
 /**
+ * Sanitiza nome do usuário para prevenir XSS e limitar tamanho
+ * @param {string} name - Nome do usuário
+ * @returns {string} Nome sanitizado
+ */
+const sanitizeName = (name) => {
+  if (!name || typeof name !== 'string') return 'Usuário';
+  // Remove caracteres especiais perigosos e limita tamanho
+  return name.replace(/[<>"'&\\]/g, '').substring(0, 50).split(' ')[0] || 'Usuário';
+};
+
+/**
+ * Valida se um appointment tem estrutura válida
+ * @param {object} apt - Objeto de agendamento
+ * @returns {boolean} Se é válido
+ */
+const isValidAppointment = (apt) => {
+  if (!apt || typeof apt !== 'object') return false;
+  if (!apt.data || typeof apt.data !== 'string') return false;
+  if (!apt.status || typeof apt.status !== 'string') return false;
+  const validStatuses = ['realizado', 'ausente', 'agendado', 'cancelado'];
+  return validStatuses.includes(apt.status);
+};
+
+/**
+ * Limite máximo de registros para prevenir DoS no frontend
+ */
+const MAX_APPOINTMENTS_LIMIT = 5000;
+
+/**
  * Componente principal do dashboard
  * Recepção: Boas-vindas simples
  * Entrevistador: Gráficos de desempenho com estatísticas do próprio usuário
@@ -64,6 +93,8 @@ export default function Dashboard() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedCras, setSelectedCras] = useState('todos'); // Para admin
   const [crasList, setCrasList] = useState([]); // Lista de CRAS para admin
+  const [selectedEntrevistador, setSelectedEntrevistador] = useState('todos'); // Para admin
+  const [entrevistadoresList, setEntrevistadoresList] = useState([]); // Lista de entrevistadores para admin
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
@@ -90,17 +121,26 @@ export default function Dashboard() {
     return Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
   }, []);
 
-  // Buscar dados de CRAS (lista para admin e nome do CRAS do usuário) em paralelo
+  // Buscar dados de CRAS e entrevistadores (lista para admin e nome do CRAS do usuário) em paralelo
   useEffect(() => {
     async function fetchCrasData() {
       const promises = [];
       
-      // Admin precisa da lista de CRAS
+      // Admin precisa da lista de CRAS e entrevistadores
       if (isAdmin) {
         promises.push(
           api.get('/cras')
-            .then(res => ({ type: 'list', data: res.data || [] }))
-            .catch(() => ({ type: 'list', data: [] }))
+            .then(res => ({ type: 'crasList', data: res.data || [] }))
+            .catch(() => ({ type: 'crasList', data: [] }))
+        );
+        promises.push(
+          api.get('/users')
+            .then(res => {
+              // Filtrar apenas entrevistadores da lista
+              const entrevistadores = (res.data || []).filter(u => u.role === 'entrevistador');
+              return { type: 'entrevistadores', data: entrevistadores };
+            })
+            .catch(() => ({ type: 'entrevistadores', data: [] }))
         );
       }
       
@@ -116,7 +156,8 @@ export default function Dashboard() {
       if (promises.length > 0) {
         const results = await Promise.all(promises);
         results.forEach(result => {
-          if (result.type === 'list') setCrasList(result.data);
+          if (result.type === 'crasList') setCrasList(result.data);
+          if (result.type === 'entrevistadores') setEntrevistadoresList(result.data);
           if (result.type === 'name') setCrasNome(result.data);
         });
       }
@@ -130,18 +171,32 @@ export default function Dashboard() {
     
     setLoading(true);
     try {
-      // Configurar parâmetros de busca
-      const params = {};
+      // Configurar parâmetros de busca com limite para prevenir DoS
+      const params = {
+        limit: MAX_APPOINTMENTS_LIMIT
+      };
       
       if (isEntrevistador) {
         // Entrevistador vê apenas seus próprios agendamentos
         params.entrevistador = user.id;
       } else if (isAdmin) {
-        // Admin pode filtrar por CRAS específico ou ver todos
-        if (selectedCras !== 'todos') {
-          params.cras = selectedCras;
+        // Admin pode filtrar por entrevistador específico
+        if (selectedEntrevistador !== 'todos') {
+          const isValidEntrevistador = entrevistadoresList.some(e => e._id === selectedEntrevistador);
+          if (isValidEntrevistador) {
+            params.entrevistador = selectedEntrevistador;
+          }
+        } else {
+          // Se não filtrou por entrevistador, pode filtrar por CRAS
+          // Validar que selectedCras é válido antes de usar
+          if (selectedCras !== 'todos') {
+            const isValidCras = crasList.some(c => c._id === selectedCras);
+            if (isValidCras) {
+              params.cras = selectedCras;
+            }
+          }
+          // Se for 'todos', não enviar parâmetro de cras nem entrevistador
         }
-        // Se for 'todos', não enviar parâmetro de cras nem entrevistador
       }
       
       // Buscar agendamentos
@@ -164,6 +219,14 @@ export default function Dashboard() {
             break;
           }
         }
+      }
+      
+      // Validar estrutura dos appointments para prevenir dados malformados
+      appointments = appointments.filter(isValidAppointment);
+      
+      // Limitar quantidade para prevenir problemas de performance
+      if (appointments.length > MAX_APPOINTMENTS_LIMIT) {
+        appointments = appointments.slice(0, MAX_APPOINTMENTS_LIMIT);
       }
       
       // Filtrar por período baseado no viewMode
@@ -201,8 +264,12 @@ export default function Dashboard() {
           if (apt.status === 'realizado') weekData[weekLabel].realizados++;
           else if (apt.status === 'ausente') weekData[weekLabel].ausentes++;
           else if (apt.status === 'agendado') {
-            // Conta como agendado se for futuro, senão ignora
-            if (new Date(apt.data) > new Date()) {
+            // Conta como agendado se for do dia atual ou futuro
+            const aptDate = new Date(apt.data);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            aptDate.setHours(0, 0, 0, 0);
+            if (aptDate >= today) {
               weekData[weekLabel].agendados++;
             }
           }
@@ -233,7 +300,11 @@ export default function Dashboard() {
           if (apt.status === 'realizado') monthData[monthKey].realizados++;
           else if (apt.status === 'ausente') monthData[monthKey].ausentes++;
           else if (apt.status === 'agendado') {
-            if (new Date(apt.data) > new Date()) {
+            const aptDate = new Date(apt.data);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            aptDate.setHours(0, 0, 0, 0);
+            if (aptDate >= today) {
               monthData[monthKey].agendados++;
             }
           }
@@ -245,9 +316,14 @@ export default function Dashboard() {
       // Calcular estatísticas totais
       const realizados = appointments.filter(a => a.status === 'realizado').length;
       const ausentes = appointments.filter(a => a.status === 'ausente').length;
-      const agendados = appointments.filter(a => 
-        a.status === 'agendado' && new Date(a.data) > new Date()
-      ).length;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const agendados = appointments.filter(a => {
+        if (a.status !== 'agendado') return false;
+        const aptDate = new Date(a.data);
+        aptDate.setHours(0, 0, 0, 0);
+        return aptDate >= today; // Inclui hoje e datas futuras
+      }).length;
 
       setStats({
         realizados,
@@ -257,17 +333,65 @@ export default function Dashboard() {
       });
 
     } catch (error) {
-      console.error('Erro ao buscar dados do gráfico:', error);
+      // Só logar erros em ambiente de desenvolvimento
+      if (import.meta.env.DEV) {
+        console.error('Erro ao buscar dados do gráfico:', error);
+      }
+      // Resetar dados em caso de erro
+      setChartData([]);
+      setStats({ realizados: 0, ausentes: 0, agendados: 0, total: 0 });
     } finally {
       setLoading(false);
     }
-  }, [showDashboard, isEntrevistador, isAdmin, viewMode, selectedMonth, selectedYear, selectedCras, user?.id]);
+  }, [showDashboard, isEntrevistador, isAdmin, viewMode, selectedMonth, selectedYear, selectedCras, selectedEntrevistador, user?.id, crasList, entrevistadoresList]);
+
+  // Ref para manter referência estável da função fetch (evita vazamento de memória)
+  const fetchChartDataRef = useRef(null);
+
+  // Atualiza a ref quando fetchChartData muda
+  useEffect(() => {
+    fetchChartDataRef.current = fetchChartData;
+  }, [fetchChartData]);
 
   useEffect(() => {
     if (showDashboard) {
       fetchChartData();
     }
   }, [showDashboard, fetchChartData]);
+
+  // ⏰ Polling: Atualização automática a cada 30 segundos
+  // Garante que os números estejam sempre atualizados com alterações de outros usuários
+  useEffect(() => {
+    if (!showDashboard) return;
+
+    const pollingInterval = setInterval(() => {
+      if (fetchChartDataRef.current) {
+        fetchChartDataRef.current();
+      }
+    }, 30000); // 30 segundos
+    
+    return () => {
+      clearInterval(pollingInterval);
+    };
+  }, [showDashboard]);
+
+  // 👁️ Atualiza quando a aba volta ao foco (visibility change)
+  // Garante dados frescos quando usuário retorna à página
+  useEffect(() => {
+    if (!showDashboard) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && fetchChartDataRef.current) {
+        fetchChartDataRef.current();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [showDashboard]);
 
   return (
     <>
@@ -321,7 +445,7 @@ export default function Dashboard() {
                   fontWeight: 700
                 }}
               >
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                {sanitizeName(user?.name)?.charAt(0)?.toUpperCase() || 'U'}
               </Avatar>
               <Box sx={{ flex: 1 }}>
                 <Typography 
@@ -334,7 +458,7 @@ export default function Dashboard() {
                     color: 'white !important'
                   }}
                 >
-                  Olá, {user?.name?.split(' ')[0] || 'Usuário'}! 👋
+                  Olá, {sanitizeName(user?.name)}! 👋
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Chip
@@ -580,7 +704,15 @@ export default function Dashboard() {
                         <InputLabel>CRAS</InputLabel>
                         <Select
                           value={selectedCras}
-                          onChange={(e) => setSelectedCras(e.target.value)}
+                          onChange={(e) => {
+                            // Validar que o valor é 'todos' ou um ID válido da lista
+                            const value = e.target.value;
+                            if (value === 'todos' || crasList.some(c => c._id === value)) {
+                              setSelectedCras(value);
+                              // Quando muda o CRAS, reseta o entrevistador
+                              setSelectedEntrevistador('todos');
+                            }
+                          }}
                           label="CRAS"
                           sx={{ borderRadius: 2 }}
                         >
@@ -590,6 +722,44 @@ export default function Dashboard() {
                               {cras.nome}
                             </MenuItem>
                           ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  )}
+                  
+                  {/* Filtro de Entrevistador - apenas para admin */}
+                  {isAdmin && (
+                    <Grid item xs={12} md={3}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Entrevistador</InputLabel>
+                        <Select
+                          value={selectedEntrevistador}
+                          onChange={(e) => {
+                            // Validar que o valor é 'todos' ou um ID válido da lista
+                            const value = e.target.value;
+                            if (value === 'todos' || entrevistadoresList.some(ent => ent._id === value)) {
+                              setSelectedEntrevistador(value);
+                            }
+                          }}
+                          label="Entrevistador"
+                          sx={{ borderRadius: 2 }}
+                        >
+                          <MenuItem value="todos">Todos os Entrevistadores</MenuItem>
+                          {entrevistadoresList
+                            .filter(ent => {
+                              // Primeiro filtro: garantir que é entrevistador
+                              if (ent.role !== 'entrevistador') return false;
+                              // Segundo filtro: filtrar por CRAS se selecionado
+                              if (selectedCras === 'todos') return true;
+                              // ent.cras pode ser um objeto (se populado) ou uma string (ID)
+                              const entCrasId = typeof ent.cras === 'object' && ent.cras?._id ? ent.cras._id : ent.cras;
+                              return entCrasId === selectedCras;
+                            })
+                            .map((entrevistador) => (
+                              <MenuItem key={entrevistador._id} value={entrevistador._id}>
+                                {entrevistador.name}
+                              </MenuItem>
+                            ))}
                         </Select>
                       </FormControl>
                     </Grid>
