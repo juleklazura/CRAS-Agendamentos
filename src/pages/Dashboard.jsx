@@ -14,13 +14,13 @@ import {
   InputLabel, 
   Select, 
   MenuItem,
-  Grid,
   CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
   Avatar,
   Chip,
-  Paper
+  Paper,
+  Grid
 } from '@mui/material';
 import {
   BarChart,
@@ -123,6 +123,9 @@ export default function Dashboard() {
 
   // Buscar dados de CRAS e entrevistadores (lista para admin e nome do CRAS do usuário) em paralelo
   useEffect(() => {
+    // 🔒 SEGURANÇA: Não fazer requisições se o usuário não está autenticado
+    if (!user) return;
+    
     async function fetchCrasData() {
       const promises = [];
       
@@ -163,11 +166,12 @@ export default function Dashboard() {
       }
     }
     fetchCrasData();
-  }, [isAdmin, user?.cras]);
+  }, [isAdmin, user, user?.cras]);
 
   // Buscar dados dos gráficos para entrevistadores e admin
   const fetchChartData = useCallback(async () => {
-    if (!showDashboard) return;
+    // 🔒 SEGURANÇA: Não fazer requisições se o usuário não está autenticado
+    if (!showDashboard || !user) return;
     
     setLoading(true);
     try {
@@ -343,7 +347,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [showDashboard, isEntrevistador, isAdmin, viewMode, selectedMonth, selectedYear, selectedCras, selectedEntrevistador, user?.id, crasList, entrevistadoresList]);
+  }, [showDashboard, isEntrevistador, isAdmin, viewMode, selectedMonth, selectedYear, selectedCras, selectedEntrevistador, user, crasList, entrevistadoresList]);
 
   // Ref para manter referência estável da função fetch (evita vazamento de memória)
   const fetchChartDataRef = useRef(null);
@@ -390,6 +394,24 @@ export default function Dashboard() {
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [showDashboard]);
+
+  // 🔄 Escuta eventos de mudança de agendamentos (exclusão, criação, atualização)
+  // Sincroniza dados em tempo real quando outro componente modifica agendamentos
+  useEffect(() => {
+    if (!showDashboard) return;
+
+    const handleAppointmentChanged = () => {
+      if (fetchChartDataRef.current) {
+        fetchChartDataRef.current();
+      }
+    };
+    
+    window.addEventListener('appointmentChanged', handleAppointmentChanged);
+    
+    return () => {
+      window.removeEventListener('appointmentChanged', handleAppointmentChanged);
     };
   }, [showDashboard]);
 
@@ -699,7 +721,7 @@ export default function Dashboard() {
                 <Grid container spacing={2} alignItems="center">
                   {/* Filtro de CRAS - apenas para admin */}
                   {isAdmin && (
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                       <FormControl fullWidth size="small">
                         <InputLabel>CRAS</InputLabel>
                         <Select
@@ -729,7 +751,7 @@ export default function Dashboard() {
                   
                   {/* Filtro de Entrevistador - apenas para admin */}
                   {isAdmin && (
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Entrevistador</InputLabel>
                         <Select
@@ -765,7 +787,7 @@ export default function Dashboard() {
                     </Grid>
                   )}
                   
-                  <Grid item xs={12} md={isAdmin ? 3 : 4}>
+                  <Grid size={{ xs: 12, md: isAdmin ? 3 : 4 }}>
                     <ToggleButtonGroup
                       value={viewMode}
                       exclusive
@@ -799,7 +821,7 @@ export default function Dashboard() {
                   </Grid>
                   
                   {viewMode === 'mensal' && (
-                    <Grid item xs={12} md={isAdmin ? 3 : 4}>
+                    <Grid size={{ xs: 12, md: isAdmin ? 3 : 4 }}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Mês</InputLabel>
                         <Select
@@ -817,7 +839,7 @@ export default function Dashboard() {
                     </Grid>
                   )}
                   
-                  <Grid item xs={12} md={isAdmin ? 3 : 4}>
+                  <Grid size={{ xs: 12, md: isAdmin ? 3 : 4 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Ano</InputLabel>
                       <Select

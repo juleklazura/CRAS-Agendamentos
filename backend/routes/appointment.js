@@ -44,7 +44,7 @@ router.put('/:id', auth, validateObjectId('id'), authorize(['entrevistador', 're
 // DELETE /api/appointments/:id - Excluir agendamento
 // Remove o agendamento do sistema completamente
 // Validações de permissão aplicadas no controller
-// 🔒 SEGURANÇA: Rate limiter - máximo 10 exclusões por hora
-router.delete('/:id', deleteLimiter, auth, validateObjectId('id'), authorize(['entrevistador', 'recepcao', 'admin']), deleteAppointment);
+// 🔒 SEGURANÇA: Rate limiter - máximo 10 exclusões por hora (auth vem primeiro para skip funcionar)
+router.delete('/:id', auth, deleteLimiter, validateObjectId('id'), authorize(['entrevistador', 'recepcao', 'admin']), deleteAppointment);
 
 export default router;

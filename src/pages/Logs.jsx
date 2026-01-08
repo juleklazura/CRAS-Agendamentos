@@ -300,7 +300,7 @@ export default function Logs() {
 
                 {/* Informações do Usuário */}
                 <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box 
                       display="flex" 
                       alignItems="center" 
@@ -348,7 +348,7 @@ export default function Logs() {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box 
                       display="flex" 
                       alignItems="center" 
@@ -386,7 +386,7 @@ export default function Logs() {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box 
                       display="flex" 
                       alignItems="center" 
@@ -421,7 +421,7 @@ export default function Logs() {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box 
                       display="flex" 
                       alignItems="center" 

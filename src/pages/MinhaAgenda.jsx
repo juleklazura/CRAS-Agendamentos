@@ -419,6 +419,9 @@ export default function MinhaAgenda() {
       mostrarMensagem(MESSAGES.SUCCESS.AGENDAMENTO_CRIADO);
       updateModal('agendamento', false);
       
+      // IMPORTANTE: Limpa o formulário para o próximo agendamento
+      setDadosAgendamento(INITIAL_FORM_STATE);
+      
       // Atualiza lista de agendamentos sem bloquear o fechamento do modal
       buscarAgendamentos();
       
@@ -450,6 +453,8 @@ export default function MinhaAgenda() {
 
       mostrarMensagem('Presença confirmada com sucesso!');
       buscarAgendamentos();  // Atualiza lista para refletir mudança
+      // Dispara evento para atualizar Dashboard
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'confirm' } }));
     } catch (erro) {
       console.error('Erro ao confirmar presença:', erro);
       mostrarMensagem('Não foi possível confirmar a presença. Tente novamente.', 'error');
@@ -467,6 +472,8 @@ export default function MinhaAgenda() {
 
       mostrarMensagem('Confirmação removida com sucesso!');
       buscarAgendamentos();
+      // Dispara evento para atualizar Dashboard
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'unconfirm' } }));
     } catch (erro) {
       console.error('Erro ao remover confirmação:', erro);
       mostrarMensagem('😓 Não foi possível remover a confirmação. Tente novamente.', 'error');
@@ -503,6 +510,8 @@ export default function MinhaAgenda() {
       mostrarMensagem(MESSAGES.SUCCESS.AGENDAMENTO_EXCLUIDO);
       updateModal('exclusao', false);
       buscarAgendamentos();
+      // Dispara evento para atualizar Dashboard
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'delete' } }));
     } catch (erro) {
       console.error('Erro ao excluir agendamento:', erro);
       mostrarMensagem(MESSAGES.ERROR.AGENDAMENTO_EXCLUSAO, 'error');

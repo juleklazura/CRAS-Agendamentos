@@ -221,11 +221,24 @@ export default function Agendamentos() {
   const paginatedAgendamentos = agendamentos.slice(startIndex, endIndex);
 
   /**
+   * Valida se o ID é um ObjectId MongoDB válido
+   * @param {string} id - ID a ser validado
+   * @returns {boolean} true se válido
+   */
+  const isValidObjectId = (id) => {
+    return id && typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+  };
+
+  /**
    * Inicia processo de exclusão de agendamento
    * Abre modal de confirmação para evitar exclusões acidentais
    * @param {string} id - ID do agendamento a ser excluído
    */
   const handleDelete = async (id) => {
+    if (!isValidObjectId(id)) {
+      setError('ID de agendamento inválido');
+      return;
+    }
     setDeleteId(id);
     setConfirmOpen(true);
   };
@@ -236,14 +249,25 @@ export default function Agendamentos() {
    * Exibe feedback de sucesso ou erro ao usuário
    */
   const confirmDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || !isValidObjectId(deleteId)) {
+      setError('ID de agendamento inválido');
+      setConfirmOpen(false);
+      setDeleteId(null);
+      return;
+    }
 
     try {
       await api.delete(`/appointments/${deleteId}`);
       setSuccess('Agendamento excluído com sucesso');
-      fetchAgendamentos(); // Recarrega lista após exclusão
-    } catch {
-      setError('Erro ao excluir o agendamento');
+      // Recarrega lista após exclusão
+      await fetchAgendamentos();
+      // Dispara evento customizado para atualizar outros componentes (Dashboard, etc)
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'delete' } }));
+    } catch (err) {
+      // Tratamento de erros específicos
+      const message = err.response?.data?.message || err.response?.data?.error || 'Erro ao excluir o agendamento';
+      setError(message);
+      console.error('Erro ao excluir agendamento:', err);
     } finally {
       setConfirmOpen(false);
       setDeleteId(null);

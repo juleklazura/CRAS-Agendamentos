@@ -350,6 +350,8 @@ export default function AgendaRecepcao() {
       await buscarAgendamentos();
       setModalExclusaoAberto(false);
       setAgendamentoParaExcluir(null);
+      // Dispara evento para atualizar Dashboard
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'delete' } }));
     } catch (erro) {
       console.error('Erro ao excluir agendamento:', erro);
       mostrarMensagem('Erro ao excluir agendamento', 'error');
@@ -365,6 +367,8 @@ export default function AgendaRecepcao() {
 
       mostrarMensagem('Presença confirmada com sucesso!');
       await buscarAgendamentos();
+      // Dispara evento para atualizar Dashboard
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'confirm' } }));
     } catch (erro) {
       console.error('Erro ao confirmar presença:', erro);
       mostrarMensagem('Erro ao confirmar presença', 'error');
@@ -384,6 +388,8 @@ export default function AgendaRecepcao() {
       );
       mostrarMensagem('Confirmação removida com sucesso!');
       await buscarAgendamentos();
+      // Dispara evento para atualizar Dashboard
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'unconfirm' } }));
     } catch (erro) {
       console.error('Erro ao remover confirmação:', erro);
       mostrarMensagem('Erro ao remover confirmação', 'error');

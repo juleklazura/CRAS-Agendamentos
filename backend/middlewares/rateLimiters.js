@@ -51,7 +51,7 @@ export const createLimiter = rateLimit({
 /**
  * Rate Limiter para operações de exclusão
  * Mais restritivo para prevenir exclusões em massa
- * 10 exclusões por hora
+ * 10 exclusões por hora (admin não tem limite)
  */
 export const deleteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
@@ -62,6 +62,22 @@ export const deleteLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Admin não tem limite de exclusões
+    return req.user?.role === 'admin';
+  },
+  handler: (req, res) => {
+    logger.warn('🔒 Rate limit de exclusões atingido', {
+      userId: req.user?.id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    res.status(429).json({
+      message: 'Muitas exclusões em pouco tempo. Aguarde antes de tentar novamente.',
+      code: 'TOO_MANY_DELETES',
+      retryAfter: '1 hora'
+    });
+  }
 });
 
 /**
