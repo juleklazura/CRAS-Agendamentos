@@ -1,0 +1,26 @@
+# Render Blueprint - Backend API
+# Deploy automático via GitHub
+
+services:
+  - type: web
+    name: cras-agendamentos-api
+    runtime: node
+    region: oregon  # Mais próximo do MongoDB Atlas gratuito
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false  # Configure manualmente no painel do Render
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false  # URL do Vercel após deploy
+    healthCheckPath: /health
+    autoDeploy: true

@@ -7,8 +7,11 @@
 
 import axios from 'axios';
 
-// Base URL da API (usa variável de ambiente ou fallback para dev)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// Base URL da API
+// Em produção (Vercel): usa /api que é redirecionado via vercel.json rewrites
+// Em desenvolvimento: usa localhost:5000
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
 
 // Criar instância do axios com configurações seguras
 const api = axios.create({

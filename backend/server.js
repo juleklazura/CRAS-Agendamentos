@@ -42,6 +42,8 @@ if (process.env.TRUST_PROXY === 'true') {
 // Isso garante que requisições OPTIONS (preflight) sejam tratadas corretamente
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  // URLs do Vercel (pattern para previews e produção)
+  ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
   ...(process.env.NODE_ENV === 'development' ? [
     'http://localhost:5173',
     'http://localhost:5174',
@@ -51,22 +53,28 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // 🔒 SEGURANÇA: Requisições sem origin (Postman, cURL)
+    // 🔒 SEGURANÇA: Requisições sem origin (Postman, cURL, health checks)
     if (!origin) {
       // Em desenvolvimento, permitir ferramentas de API
       if (process.env.NODE_ENV === 'development') {
         return callback(null, true);
       }
-      // Em produção, bloquear requisições sem origin
-      logger.warn('🔒 Requisição sem origin bloqueada');
-      return callback(new Error('Origin obrigatório'));
+      // Em produção, permitir apenas health checks (sem origin)
+      // Render e outros serviços fazem health checks sem origin
+      return callback(null, true);
     }
     
     // Validar se origin está na whitelist
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      logger.warn('🔒 CORS bloqueado', { origin });
+      // Permitir qualquer subdomínio do Vercel em produção
+      const isVercelPreview = origin.match(/https:\/\/.*\.vercel\.app$/);
+      if (isVercelPreview && process.env.NODE_ENV === 'production') {
+        return callback(null, true);
+      }
+      
+      logger.warn('🔒 CORS bloqueado', { origin, allowedOrigins });
       callback(new Error('Origem não permitida pelo CORS'));
     }
   },
