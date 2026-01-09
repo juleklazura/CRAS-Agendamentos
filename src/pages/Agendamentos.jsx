@@ -87,6 +87,12 @@ export default function Agendamentos() {
   
   // Ref para controlar intervalo de polling
   const pollingIntervalRef = useRef(null);
+  
+  // 🛡️ Ref para controlar se componente está montado (previne memory leak)
+  const isMountedRef = useRef(true);
+  
+  // 🛡️ Ref para AbortController (cancela requisições pendentes)
+  const abortControllerRef = useRef(null);
 
   // Implementa debounce na busca para evitar muitas requisições
   // Aguarda 500ms após parar de digitar antes de executar a busca
@@ -115,9 +121,18 @@ export default function Agendamentos() {
    * Admin: vê todos os agendamentos
    * Entrevistador: vê apenas seus agendamentos
    * Recepção: vê agendamentos do CRAS onde trabalha
+   * 🛡️ Protegido contra memory leak e race conditions
    */
   const fetchAgendamentos = useCallback(async () => {
     if (!user) return; // Validação de autenticação
+    
+    // 🛡️ Cancela requisição anterior se existir (evita race conditions)
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // 🛡️ Cria novo controller para esta requisição
+    abortControllerRef.current = new AbortController();
     
     try {
       // Monta URL com filtros baseados no perfil
@@ -136,17 +151,47 @@ export default function Agendamentos() {
 
       setLoading(true);
       
-      const res = await api.get(url);
+      const res = await api.get(url, {
+        signal: abortControllerRef.current.signal // 🛡️ Permite cancelar requisição
+      });
+      
+      // 🛡️ Só atualiza estado se componente ainda está montado
+      if (!isMountedRef.current) return;
+      
       const allResults = res.data.results || res.data || [];
       setAgendamentos(allResults);
       setTotal(allResults.length);
-    } catch {
+    } catch (err) {
+      // 🛡️ Ignora erros de cancelamento (não são erros reais)
+      if (err.name === 'AbortError' || err.name === 'CanceledError') {
+        return;
+      }
+      
+      // 🛡️ Só atualiza estado se componente ainda está montado
+      if (!isMountedRef.current) return;
+      
       setAgendamentos([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      // 🛡️ Só atualiza loading se componente ainda está montado
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [user, debouncedSearch, orderBy, order]);
+
+  // 🛡️ Cleanup do componente - previne memory leaks
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    return () => {
+      isMountedRef.current = false;
+      // Cancela requisições pendentes ao desmontar
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     fetchAgendamentos();

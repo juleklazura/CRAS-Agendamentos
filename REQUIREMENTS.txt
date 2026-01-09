@@ -101,10 +101,19 @@ winston                    ^3.18.3      - Sistema de logs
 
 
 =============================================================================
-5. BANCO DE DADOS - MongoDB
+5. BANCO DE DADOS - MongoDB Atlas (Cloud)
 =============================================================================
 
-Versão: MongoDB Community Edition v6.x ou superior
+☁️ Este sistema utiliza EXCLUSIVAMENTE MongoDB Atlas (cloud)
+📌 Crie sua conta gratuita em: https://cloud.mongodb.com
+
+Plano Gratuito (M0 Free Tier):
+------------------------------
+✅ 512 MB de armazenamento
+✅ Shared RAM e vCPU
+✅ Até 500 conexões simultâneas
+✅ Backups automáticos
+✅ Sem custo para sempre
 
 Collections Principais:
 -----------------------
@@ -114,12 +123,14 @@ Collections Principais:
 ✅ blockedslots    - Bloqueios de horários
 ✅ logs            - Logs de auditoria do sistema
 
-Autenticação MongoDB:
----------------------
-🔒 Requer criação de usuário com permissões:
-   - Banco: agendamentos
-   - AuthSource: admin
-   - Roles: readWrite, dbAdmin
+Configuração MongoDB Atlas:
+---------------------------
+1. Acesse https://cloud.mongodb.com
+2. Crie um cluster M0 (Free)
+3. Em "Database Access": crie usuário com senha forte
+4. Em "Network Access": adicione IP 0.0.0.0/0 (permite qualquer IP)
+5. Em "Connect": copie a connection string
+6. Substitua <password> pela senha criada
 
 Índices Criados:
 ----------------
@@ -140,10 +151,12 @@ Autenticação MongoDB:
 Backend (.env obrigatório):
 ---------------------------
 
-# MongoDB Configuration
-MONGO_URI=mongodb://[user]:[password]@[host]:[port]/[database]?authSource=[authSource]
-   Exemplo: mongodb://cras_admin:SenhaSegura123@localhost:27017/agendamentos?authSource=admin
-   ⚠️ NUNCA usar MongoDB sem autenticação em produção!
+# MongoDB Atlas Configuration (OBRIGATÓRIO)
+MONGODB_URI=mongodb+srv://[user]:[password]@[cluster].mongodb.net/[database]?retryWrites=true&w=majority
+   Exemplo: mongodb+srv://cras_admin:SenhaForte123@cluster0.abc123.mongodb.net/agendamentos?retryWrites=true&w=majority
+   
+   📌 Obtenha sua URI em: https://cloud.mongodb.com > Connect > Drivers
+   ⚠️ Substitua <password> pela senha do usuário criado no Atlas
 
 # JWT Configuration (gerar com: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
 JWT_SECRET=[128 caracteres hexadecimais]
@@ -212,25 +225,18 @@ Instalação Local:
    $ git clone [repo-url]
    $ cd CRAS-Agendamentos
 
-2. Configurar MongoDB:
-   $ sudo apt install mongodb-org  # Ubuntu/Debian
-   $ sudo systemctl start mongod
-   $ sudo systemctl enable mongod
-   
-   Criar usuário MongoDB:
-   $ mongosh
-   > use admin
-   > db.createUser({
-       user: "cras_admin",
-       pwd: "SenhaSegura123",
-       roles: [{role: "readWrite", db: "agendamentos"}, {role: "dbAdmin", db: "agendamentos"}]
-     })
+2. Configurar MongoDB Atlas (Gratuito):
+   a) Acesse https://cloud.mongodb.com e crie uma conta
+   b) Crie um cluster M0 (Free Tier)
+   c) Em "Database Access": crie um usuário com senha
+   d) Em "Network Access": adicione 0.0.0.0/0 (acesso de qualquer IP)
+   e) Em "Connect" > "Drivers": copie a connection string
 
 3. Configurar Backend:
    $ cd backend
    $ npm install
    $ cp .env.example .env
-   $ nano .env  # Editar variáveis de ambiente
+   $ nano .env  # Configurar MONGODB_URI com a string do Atlas
    $ node server.js
 
 4. Configurar Frontend:
@@ -322,13 +328,17 @@ $ npm outdated
 $ npm update
 $ npm install <package>@latest
 
-Backup MongoDB:
----------------
-$ mongodump --uri="mongodb://user:pass@localhost:27017/agendamentos?authSource=admin" --out=/backup/
+Backup MongoDB Atlas:
+---------------------
+# Via mongodump (instale mongodb-database-tools)
+$ mongodump --uri="mongodb+srv://user:pass@cluster.mongodb.net/agendamentos" --out=/backup/
 
-Restore MongoDB:
-----------------
-$ mongorestore --uri="mongodb://user:pass@localhost:27017" --db=agendamentos /backup/agendamentos/
+# Ou use o backup automático do Atlas (gratuito no M0):
+# Atlas > Database > Backups > Take Snapshot Now
+
+Restore MongoDB Atlas:
+----------------------
+$ mongorestore --uri="mongodb+srv://user:pass@cluster.mongodb.net" --db=agendamentos /backup/agendamentos/
 
 
 =============================================================================

@@ -313,25 +313,38 @@ app.get('/', (req, res) => res.send('API de Agendamento CRAS rodando!'));
 
 const PORT = process.env.PORT || 5000;
 
-// Obter URI de conexão MongoDB (suporta Atlas e local)
+// Obter URI de conexão MongoDB Atlas
 const mongoUri = process.env.MONGODB_URI;
 
 if (!mongoUri) {
   logger.error('❌ ERRO CRÍTICO: Variável MONGODB_URI não encontrada!');
   logger.error('Configure no arquivo .env:');
-  logger.error('  Para MongoDB Atlas: MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/database?retryWrites=true&w=majority');
-  logger.error('  Para MongoDB Local: MONGODB_URI=mongodb://user:pass@localhost:27017/database?authSource=admin');
+  logger.error('  MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/database?retryWrites=true&w=majority');
+  logger.error('');
+  logger.error('📌 Obtenha sua URI em: https://cloud.mongodb.com');
   process.exit(1);
 }
 
-// Configuração otimizada para MongoDB Atlas
+// Validar formato MongoDB Atlas (mongodb+srv://)
+if (!mongoUri.startsWith('mongodb+srv://')) {
+  logger.error('❌ ERRO: Este sistema requer MongoDB Atlas!');
+  logger.error('  A URI deve começar com: mongodb+srv://');
+  logger.error('  Formato: mongodb+srv://user:pass@cluster.mongodb.net/database?retryWrites=true&w=majority');
+  logger.error('');
+  logger.error('📌 Crie um cluster gratuito em: https://cloud.mongodb.com');
+  process.exit(1);
+}
+
+// Configuração otimizada para MongoDB Atlas (Free Tier M0)
 const mongooseOptions = {
   retryWrites: true,
   w: 'majority',
-  maxPoolSize: 10,
+  maxPoolSize: 10,      // Atlas M0 suporta até 500 conexões
   minPoolSize: 2,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000
+  serverSelectionTimeoutMS: 10000,  // Aumentado para cold starts
+  socketTimeoutMS: 45000,
+  heartbeatFrequencyMS: 30000,      // Manter conexão ativa
+  maxIdleTimeMS: 60000              // Tempo máximo de conexão ociosa
 };
 
 mongoose.connect(mongoUri, mongooseOptions)

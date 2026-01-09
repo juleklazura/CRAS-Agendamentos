@@ -421,16 +421,12 @@ export const generateAppointmentKey = ({ crasId, startDate, endDate, entrevistad
  * @param {string} entrevistadorId - ID do entrevistador (opcional)
  */
 export const invalidateAppointments = (crasId, entrevistadorId = null) => {
-  // Invalidar todos os appointments do CRAS
-  delPattern(`appointments:cras:${crasId}`);
-  
-  // Se entrevistador especificado, invalidar também
-  if (entrevistadorId) {
-    delPattern(`appointments:entrevistador:${entrevistadorId}`);
-  }
+  // Invalidar TODOS os caches de appointments para garantir consistência
+  // Isso é necessário porque o admin pode ver dados de qualquer CRAS
+  delPattern('appointments:');
   
   if (process.env.NODE_ENV === 'development') {
-    logger.debug('🔄 Cache de appointments invalidado', { crasId, entrevistadorId });
+    logger.debug('🔄 Cache de appointments invalidado (todos)', { crasId, entrevistadorId });
   }
 };
 

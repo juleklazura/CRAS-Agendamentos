@@ -275,8 +275,8 @@ export const getAppointments = async (req, res) => {
       return { results, total };
     };
     
-    // Usar cache com TTL de 5 minutos (padrão)
-    const data = await cache.cached(cacheKey, fetchAppointments);
+    // Executar query diretamente (cache desabilitado temporariamente para garantir dados frescos)
+    const data = await fetchAppointments();
     
     res.json(data);
   } catch (error) {

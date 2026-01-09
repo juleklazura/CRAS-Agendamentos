@@ -399,6 +399,25 @@ const AgendaEntrevistadores = memo(() => {
     setDadosAgendamento(prev => ({ ...prev, telefone2: telefoneFormatado }));
   }, []);
 
+  // Função para limpar o formulário de agendamento
+  const limparFormulario = useCallback(() => {
+    setDadosAgendamento({
+      pessoa: '',
+      cpf: '',
+      telefone1: '',
+      telefone2: '',
+      motivo: '',
+      observacoes: ''
+    });
+    setHorarioSelecionado('');
+  }, []);
+
+  // Função para fechar o modal e limpar o formulário
+  const fecharModalAgendamento = useCallback(() => {
+    setModalAberto(false);
+    limparFormulario();
+  }, [limparFormulario]);
+
   /**
    * Busca todos os entrevistadores disponíveis no sistema
    * Se o usuário logado for um entrevistador, retorna apenas ele mesmo
@@ -431,7 +450,7 @@ const AgendaEntrevistadores = memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [isEntrevistador, setError]);
+  }, [user, isEntrevistador, setError]);
 
   /**
    * Busca todos os agendamentos do entrevistador selecionado
@@ -718,8 +737,14 @@ const AgendaEntrevistadores = memo(() => {
       setSuccess(mensagens.sucesso.agendamentoCriado);
       setModalAberto(false);
       
+      // Limpa o formulário para o próximo agendamento
+      limparFormulario();
+      
       // Recarrega os dados
       fetchAgendamentos();
+      
+      // Dispara evento customizado para atualizar outros componentes (Dashboard, etc)
+      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'create' } }));
       
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Ocorreu um erro inesperado ao criar o agendamento. Por favor, tente novamente.';
@@ -734,6 +759,7 @@ const AgendaEntrevistadores = memo(() => {
     data, 
     horarioSelecionado, 
     fetchAgendamentos,
+    limparFormulario,
     setError,
     setSuccess
   ]);
@@ -924,7 +950,7 @@ const AgendaEntrevistadores = memo(() => {
         )}
 
         {/* Modal para criar novo agendamento */}
-        <Dialog open={modalAberto} onClose={() => setModalAberto(false)} maxWidth="sm" fullWidth>
+        <Dialog open={modalAberto} onClose={fecharModalAgendamento} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ pb: 2 }}>
             📅 Novo Agendamento
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -1045,7 +1071,7 @@ const AgendaEntrevistadores = memo(() => {
           {/* Botões de ação do modal */}
           <DialogActions sx={{ p: 3 }}>
             <Button 
-              onClick={() => setModalAberto(false)}
+              onClick={fecharModalAgendamento}
               size="large"
             >
               Cancelar
