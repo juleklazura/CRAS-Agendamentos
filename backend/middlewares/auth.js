@@ -9,6 +9,8 @@ import logger from '../utils/logger.js';
 const getAllowedOrigins = () => {
   const origins = [
     process.env.FRONTEND_URL,
+    // URLs do Vercel para este projeto
+    'https://cras-agendamentos.vercel.app',
   ];
   
   // Em desenvolvimento, adicionar origens locais
@@ -22,6 +24,12 @@ const getAllowedOrigins = () => {
   }
   
   return origins.filter(Boolean);
+};
+
+// Verifica se é um domínio Vercel válido
+const isVercelDomain = (origin) => {
+  if (!origin) return false;
+  return /^https:\/\/.*\.vercel\.app$/.test(origin);
 };
 
 // ========================================
@@ -42,7 +50,8 @@ export function auth(req, res, next) {
         origin.startsWith(allowed)
       );
       
-      if (!isAllowedOrigin) {
+      // Permitir qualquer subdomínio do Vercel
+      if (!isAllowedOrigin && !isVercelDomain(origin)) {
         logger.warn('🔒 Tentativa de acesso de origem não autorizada', {
           origin,
           ip: req.ip,
