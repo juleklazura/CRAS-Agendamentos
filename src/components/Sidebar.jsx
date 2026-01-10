@@ -210,7 +210,7 @@ const Sidebar = memo(() => {
         <Box sx={{ mb: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Box
             component="img"
-            src="/src/assets/logo-faspg (1).svg"
+            src="/logo-faspg.svg"
             alt="CRAS"
             sx={{
               width: '100%',
