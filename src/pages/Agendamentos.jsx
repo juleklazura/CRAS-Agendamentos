@@ -136,18 +136,25 @@ export default function Agendamentos() {
     
     try {
       // Monta URL com filtros baseados no perfil
-      let url = '/appointments?';
+      let url = '/appointments';
+      const params = [];
+      
       if (user?.role === 'entrevistador') {
-        url += `entrevistador=${user.id}&`;           // Filtra por entrevistador
+        params.push(`entrevistador=${user.id}`);           // Filtra por entrevistador
       } else if (user?.role === 'recepcao') {
-        url += `cras=${user.cras}&`;                  // Filtra por CRAS
+        params.push(`cras=${user.cras}`);                  // Filtra por CRAS
       }
       // Admin não tem filtro, vê todos os agendamentos
       
       // Adiciona parâmetros de busca e ordenação
-      if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`;
-      if (orderBy) url += `&sortBy=${orderBy}`;
-      if (order) url += `&order=${order}`;
+      if (debouncedSearch) params.push(`search=${encodeURIComponent(debouncedSearch)}`);
+      if (orderBy) params.push(`sortBy=${orderBy}`);
+      if (order) params.push(`order=${order}`);
+      
+      // Adiciona query params à URL se houver algum
+      if (params.length > 0) {
+        url += '?' + params.join('&');
+      }
 
       setLoading(true);
       
@@ -361,7 +368,7 @@ export default function Agendamentos() {
           width: '100%',
           maxWidth: 1200,
           margin: '0 auto',
-          padding: 3
+          padding: { xs: 2, md: 3 }
         }}
       >
         <Typography 
@@ -371,11 +378,21 @@ export default function Agendamentos() {
           fontWeight="bold" 
           textAlign="center"
           mb={0}
+          sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}
         >
           Agendamentos
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 1}}>
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          textAlign="center" 
+          sx={{ 
+            mb: { xs: 2, md: 1 },
+            px: { xs: 2, md: 0 },
+            fontSize: { xs: '0.8rem', md: '0.875rem' }
+          }}
+        >
           Para criar novos agendamentos, acesse a página "Agenda" e selecione um horário disponível.
         </Typography>
 
@@ -386,7 +403,13 @@ export default function Agendamentos() {
             </Box>
           ) : (
             <>
-              <Box mb={3} display="flex" gap={2} justifyContent="flex-start">
+              <Box 
+                mb={{ xs: 2, md: 3 }} 
+                display="flex" 
+                gap={{ xs: 1.5, md: 2 }} 
+                flexDirection={{ xs: 'column', sm: 'row' }}
+                justifyContent="flex-start"
+              >
                 <TextField
                   inputRef={searchInputRef}
                   label="Buscar agendamento"
@@ -395,12 +418,21 @@ export default function Agendamentos() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   autoFocus
-                  sx={{ width: 300 }}
+                  sx={{ 
+                    width: { xs: '100%', sm: 300 },
+                    '& .MuiInputBase-root': {
+                      minHeight: { xs: 48, md: 40 }
+                    }
+                  }}
                 />
                 <Button
                   startIcon={<FileDownloadIcon />}
                   onClick={exportToExcel}
                   variant="outlined"
+                  sx={{
+                    minHeight: { xs: 48, md: 40 },
+                    width: { xs: '100%', sm: 'auto' }
+                  }}
                 >
                   Exportar
                 </Button>

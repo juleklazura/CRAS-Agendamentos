@@ -62,9 +62,10 @@ export default function Login() {
           <Paper
             elevation={3}
             sx={{
-              p: 1,
-              borderRadius: 2,
-              textAlign: 'center'
+              p: { xs: 2, sm: 1 },
+              borderRadius: { xs: 3, sm: 2 },
+              textAlign: 'center',
+              mx: { xs: 1, sm: 0 }
             }}
           >
           <img
@@ -72,15 +73,20 @@ export default function Login() {
             alt="FASPG Logo"
             style={{
               width: '100%',
+              maxWidth: '280px',
               height: 'auto',
               marginBottom: '8px'
             }}
           />
 
-          <Box sx={{ px: 3, pb: 3 }}>
+          <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>
             <Typography
               variant="body2"
-              sx={{ mb: 3, color: 'black' }}
+              sx={{ 
+                mb: { xs: 2, sm: 3 }, 
+                color: 'black',
+                fontSize: { xs: '0.85rem', sm: '0.875rem' }
+              }}
             >
               Sistema de Gerenciamento de Agendamentos para Cadastro Único
             </Typography>
@@ -95,9 +101,15 @@ export default function Login() {
               required
               autoComplete="username"
               inputProps={{
-                'aria-describedby': 'matricula-help'
+                'aria-describedby': 'matricula-help',
+                style: { fontSize: '16px' } // Previne zoom no iOS
               }}
-              sx={{ mb: 2 }}
+              sx={{ 
+                mb: 2,
+                '& .MuiInputBase-root': {
+                  minHeight: { xs: 52, sm: 48 }
+                }
+              }}
             />
 
             <TextField
@@ -110,15 +122,24 @@ export default function Login() {
               required
               autoComplete="current-password"
               inputProps={{
-                'aria-describedby': 'senha-help'
+                'aria-describedby': 'senha-help',
+                style: { fontSize: '16px' } // Previne zoom no iOS
               }}
-              sx={{ mb: 3 }}
+              sx={{ 
+                mb: 3,
+                '& .MuiInputBase-root': {
+                  minHeight: { xs: 52, sm: 48 }
+                }
+              }}
             />
 
             {erro && (
               <Alert 
                 severity="error" 
-                sx={{ mb: 2 }}
+                sx={{ 
+                  mb: 2,
+                  borderRadius: { xs: 2, sm: 1 }
+                }}
               >
                 {erro}
               </Alert>
@@ -132,11 +153,18 @@ export default function Login() {
               disabled={loading}
               sx={{
                 bgcolor: '#1E4976',
+                minHeight: { xs: 52, sm: 48 },
+                fontSize: { xs: '1rem', sm: '0.95rem' },
+                fontWeight: 600,
+                borderRadius: { xs: 2, sm: 1 },
                 '&:hover': {
                   bgcolor: '#163558'
                 },
                 '&:disabled': {
                   bgcolor: '#93a3b0'
+                },
+                '&:active': {
+                  transform: 'scale(0.98)'
                 }
               }}
             >

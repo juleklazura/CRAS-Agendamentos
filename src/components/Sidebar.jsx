@@ -197,35 +197,38 @@ const Sidebar = memo(() => {
     <Box
       sx={{
         p: 2,
-        pt: isMobile ? 1 : 2, // Mais padding no mobile para evitar sobreposição
+        pt: isMobile ? 1 : 2,
         pb: 2,
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}
     >
-      {/* Cabeçalho - só aparece no desktop */}
-      {!isMobile && (
-        <Box sx={{ mb: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Box
-            component="img"
-            src="/logo-faspg.svg"
-            alt="CRAS"
-            sx={{
-              width: '100%',
-              maxWidth: 240,
-              height: 'auto',
-              mb: 2
-            }}
-          />
-        </Box>
-      )}
+      {/* Cabeçalho - logo aparece tanto no mobile quanto no desktop */}
+      <Box sx={{ mb: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+        <Box
+          component="img"
+          src="/logo-faspg.svg"
+          alt="CRAS"
+          sx={{
+            width: '100%',
+            maxWidth: 240,
+            height: 'auto',
+            mb: 2
+          }}
+        />
+      </Box>
 
       {/* Menu */}
       <List sx={{ 
         flexGrow: 1,
-        pt: isMobile ? 2 : 1 // Mais padding no topo para mobile
+        pt: isMobile ? 2 : 1,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        flexShrink: 1,
+        minHeight: 0
       }}>
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -241,7 +244,7 @@ const Sidebar = memo(() => {
       </List>
 
       {/* Perfil e Logout */}
-      <Box sx={{ mt: 'auto' }}>
+      <Box sx={{ mt: 'auto', flexShrink: 0 }}>
         <Typography 
           variant="body2" 
           sx={{ 
@@ -297,27 +300,24 @@ const Sidebar = memo(() => {
           sx={{ 
             bgcolor: '#1E4976 !important',
             zIndex: 1300,
-            height: '64px'
+            height: '56px'
           }}
         >
-          <Toolbar sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <Toolbar sx={{ 
+            display: 'flex',
+            alignItems: 'center',
+            minHeight: '56px !important',
+            height: '56px !important',
+            padding: '0 16px !important'
+          }}>
             <IconButton
               edge="start"
               color="inherit"
               aria-label="abrir menu"
               onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" noWrap component="div" sx={{ 
-              flexGrow: 1,
-              color: 'white !important',
-              textAlign: 'center',
-              mr: 6 // Compensar espaço do ícone para centralizar
-            }}>
-              CRAS Agendamentos
-            </Typography>
           </Toolbar>
         </AppBar>
       )}

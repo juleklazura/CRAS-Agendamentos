@@ -435,10 +435,11 @@ export default function Dashboard() {
           {/* Header com boas-vindas */}
           <Paper
             elevation={0}
+            className="dashboard-welcome-header"
             sx={{
-              p: { xs: 3, md: 4 },
-              mb: 4,
-              borderRadius: 4,
+              p: { xs: 2.5, md: 4 },
+              mb: { xs: 2, md: 4 },
+              borderRadius: { xs: 3, md: 4 },
               background: 'linear-gradient(135deg, #1E4976 0%, #2d6aa3 50%, #3d8bd4 100%)',
               color: 'white',
               position: 'relative',
@@ -455,54 +456,78 @@ export default function Dashboard() {
               }
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: { xs: 2, md: 3 }, 
+              flexWrap: 'wrap' 
+            }}>
               <Avatar
                 sx={{
-                  width: 72,
-                  height: 72,
+                  width: { xs: 56, md: 72 },
+                  height: { xs: 56, md: 72 },
                   bgcolor: 'rgba(255,255,255,0.2)',
                   backdropFilter: 'blur(10px)',
                   border: '3px solid rgba(255,255,255,0.3)',
-                  fontSize: '1.8rem',
+                  fontSize: { xs: '1.4rem', md: '1.8rem' },
                   fontWeight: 700
                 }}
               >
                 {sanitizeName(user?.name)?.charAt(0)?.toUpperCase() || 'U'}
               </Avatar>
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography 
                   variant="h4" 
                   fontWeight={700}
                   sx={{ 
                     mb: 0.5,
                     textShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    fontSize: { xs: '1.5rem', md: '2rem' },
-                    color: 'white !important'
+                    fontSize: { xs: '1.25rem', sm: '1.5rem', md: '2rem' },
+                    color: 'white !important',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   Olá, {sanitizeName(user?.name)}! 👋
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  gap: { xs: 1, md: 1.5 }, 
+                  flexWrap: 'wrap', 
+                  alignItems: 'center' 
+                }}>
                   <Chip
-                    icon={<PersonIcon sx={{ color: 'white !important' }} />}
+                    icon={<PersonIcon sx={{ color: 'white !important', fontSize: { xs: 16, md: 20 } }} />}
                     label={user?.role === 'admin' ? 'Administrador' : user?.role === 'entrevistador' ? 'Entrevistador' : 'Recepção'}
+                    size="small"
                     sx={{
                       bgcolor: 'rgba(255,255,255,0.2)',
                       color: 'white',
                       fontWeight: 600,
                       backdropFilter: 'blur(10px)',
+                      height: { xs: 28, md: 32 },
+                      fontSize: { xs: '0.75rem', md: '0.85rem' },
                       '& .MuiChip-icon': { color: 'white' }
                     }}
                   />
                   <Chip
-                    icon={<BusinessIcon sx={{ color: 'white !important' }} />}
+                    icon={<BusinessIcon sx={{ color: 'white !important', fontSize: { xs: 16, md: 20 } }} />}
                     label={isAdmin ? 'Todos os CRAS' : crasNome || user?.cras || 'N/A'}
+                    size="small"
                     sx={{
                       bgcolor: 'rgba(255,255,255,0.2)',
                       color: 'white',
                       fontWeight: 600,
                       backdropFilter: 'blur(10px)',
-                      '& .MuiChip-icon': { color: 'white' }
+                      height: { xs: 28, md: 32 },
+                      fontSize: { xs: '0.75rem', md: '0.85rem' },
+                      '& .MuiChip-icon': { color: 'white' },
+                      maxWidth: { xs: 150, sm: 'none' },
+                      '& .MuiChip-label': {
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }
                     }}
                   />
                 </Box>
@@ -525,56 +550,92 @@ export default function Dashboard() {
             <>
               {/* Cards de Estatísticas */}
               <Box 
+                className="dashboard-stats-container"
                 sx={{ 
-                  display: 'flex',
-                  gap: 3,
-                  mb: 4,
-                  mt:3,
+                  display: { xs: 'grid', md: 'flex' },
+                  gridTemplateColumns: { xs: 'repeat(2, 1fr)' },
+                  gridAutoRows: { xs: '1fr' },
+                  gap: { xs: 1.5, md: 3 },
+                  mb: { xs: 2, md: 4 },
+                  mt: { xs: 2, md: 3 },
                   maxWidth: 1400, 
                   mx: 'auto',
                   '& > *': {
-                    flex: '1 1 0',
-                    minWidth: 0,
-                    maxWidth: 1400
+                    flex: { md: '1 1 0' },
+                    minWidth: { xs: 0, md: 0 },
+                    maxWidth: { md: 1400 },
+                    width: { xs: '100%' },
+                    height: { xs: '100%' }
                   }
                 }}
               >
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 3,
-                    borderRadius: 3,
+                    p: { xs: 2, md: 3 },
+                    borderRadius: { xs: 2, md: 3 },
                     background: 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)',
                     color: 'white',
                     position: 'relative',
                     overflow: 'hidden',
-                    minHeight: 140,
+                    minHeight: { xs: 110, md: 140 },
+                    height: { xs: '100%', md: 'auto' },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                     transition: 'all 0.3s ease',
                     '&:hover': {
                       transform: 'translateY(-4px)',
                       boxShadow: '0 12px 20px rgba(76, 175, 80, 0.3)'
+                    },
+                    '&:active': {
+                      transform: { xs: 'scale(0.98)', md: 'translateY(-4px)' }
                     },
                     '&::after': {
                       content: '""',
                       position: 'absolute',
                       top: -20,
                       right: -20,
-                      width: 100,
-                      height: 100,
+                      width: { xs: 60, md: 100 },
+                      height: { xs: 60, md: 100 },
                       borderRadius: '50%',
                       background: 'rgba(255,255,255,0.1)'
                     }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
-                      <CheckCircleOutlineIcon sx={{ fontSize: 24 }} />
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: { xs: 0.5, md: 1 }, 
+                    mb: { xs: 1, md: 2 } 
+                  }}>
+                    <Avatar sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.2)', 
+                      width: { xs: 32, md: 40 }, 
+                      height: { xs: 32, md: 40 } 
+                    }}>
+                      <CheckCircleOutlineIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
                     </Avatar>
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white' }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.9, 
+                        fontWeight: 600, 
+                        color: 'white',
+                        fontSize: { xs: '0.75rem', md: '0.875rem' }
+                      }}
+                    >
                       Realizados
                     </Typography>
                   </Box>
-                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important' }}>
+                  <Typography 
+                    variant="h3" 
+                    fontWeight={700} 
+                    sx={{ 
+                      color: 'white !important',
+                      fontSize: { xs: '1.75rem', md: '3rem' }
+                    }}
+                  >
                     {stats.realizados}
                   </Typography>
                 </Paper>
@@ -582,39 +643,70 @@ export default function Dashboard() {
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 3,
-                    borderRadius: 3,
+                    p: { xs: 2, md: 3 },
+                    borderRadius: { xs: 2, md: 3 },
                     background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
                     color: 'white',
                     position: 'relative',
                     overflow: 'hidden',
-                    minHeight: 140,
+                    minHeight: { xs: 110, md: 140 },
+                    height: { xs: '100%', md: 'auto' },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                     transition: 'all 0.3s ease',
                     '&:hover': {
                       transform: 'translateY(-4px)',
                       boxShadow: '0 12px 20px rgba(255, 152, 0, 0.3)'
+                    },
+                    '&:active': {
+                      transform: { xs: 'scale(0.98)', md: 'translateY(-4px)' }
                     },
                     '&::after': {
                       content: '""',
                       position: 'absolute',
                       top: -20,
                       right: -20,
-                      width: 100,
-                      height: 100,
+                      width: { xs: 60, md: 100 },
+                      height: { xs: 60, md: 100 },
                       borderRadius: '50%',
                       background: 'rgba(255,255,255,0.1)'
                     }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
-                      <EventBusyIcon sx={{ fontSize: 24 }} />
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: { xs: 0.5, md: 1 }, 
+                    mb: { xs: 1, md: 2 } 
+                  }}>
+                    <Avatar sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.2)', 
+                      width: { xs: 32, md: 40 }, 
+                      height: { xs: 32, md: 40 } 
+                    }}>
+                      <EventBusyIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
                     </Avatar>
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white' }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.9, 
+                        fontWeight: 600, 
+                        color: 'white',
+                        fontSize: { xs: '0.75rem', md: '0.875rem' }
+                      }}
+                    >
                       Ausentes
                     </Typography>
                   </Box>
-                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important' }}>
+                  <Typography 
+                    variant="h3" 
+                    fontWeight={700} 
+                    sx={{ 
+                      color: 'white !important',
+                      fontSize: { xs: '1.75rem', md: '3rem' }
+                    }}
+                  >
                     {stats.ausentes}
                   </Typography>
                 </Paper>
@@ -622,39 +714,70 @@ export default function Dashboard() {
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 3,
-                    borderRadius: 3,
+                    p: { xs: 2, md: 3 },
+                    borderRadius: { xs: 2, md: 3 },
                     background: 'linear-gradient(135deg, #2196f3 0%, #64b5f6 100%)',
                     color: 'white',
                     position: 'relative',
                     overflow: 'hidden',
-                    minHeight: 140,
+                    minHeight: { xs: 110, md: 140 },
+                    height: { xs: '100%', md: 'auto' },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                     transition: 'all 0.3s ease',
                     '&:hover': {
                       transform: 'translateY(-4px)',
                       boxShadow: '0 12px 20px rgba(33, 150, 243, 0.3)'
+                    },
+                    '&:active': {
+                      transform: { xs: 'scale(0.98)', md: 'translateY(-4px)' }
                     },
                     '&::after': {
                       content: '""',
                       position: 'absolute',
                       top: -20,
                       right: -20,
-                      width: 100,
-                      height: 100,
+                      width: { xs: 60, md: 100 },
+                      height: { xs: 60, md: 100 },
                       borderRadius: '50%',
                       background: 'rgba(255,255,255,0.1)'
                     }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
-                      <EventAvailableIcon sx={{ fontSize: 24 }} />
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: { xs: 0.5, md: 1 }, 
+                    mb: { xs: 1, md: 2 } 
+                  }}>
+                    <Avatar sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.2)', 
+                      width: { xs: 32, md: 40 }, 
+                      height: { xs: 32, md: 40 } 
+                    }}>
+                      <EventAvailableIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
                     </Avatar>
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white !important' }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.9, 
+                        fontWeight: 600, 
+                        color: 'white !important',
+                        fontSize: { xs: '0.75rem', md: '0.875rem' }
+                      }}
+                    >
                       Agendados
                     </Typography>
                   </Box>
-                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important' }}>
+                  <Typography 
+                    variant="h3" 
+                    fontWeight={700} 
+                    sx={{ 
+                      color: 'white !important',
+                      fontSize: { xs: '1.75rem', md: '3rem' }
+                    }}
+                  >
                     {stats.agendados}
                   </Typography>
                 </Paper>
@@ -662,39 +785,70 @@ export default function Dashboard() {
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 3,
-                    borderRadius: 3,
+                    p: { xs: 2, md: 3 },
+                    borderRadius: { xs: 2, md: 3 },
                     background: 'linear-gradient(135deg, #1E4976 0%, #2d6aa3 100%)',
                     color: 'white',
                     position: 'relative',
                     overflow: 'hidden',
-                    minHeight: 140,
+                    minHeight: { xs: 110, md: 140 },
+                    height: { xs: '100%', md: 'auto' },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                     transition: 'all 0.3s ease',
                     '&:hover': {
                       transform: 'translateY(-4px)',
                       boxShadow: '0 12px 20px rgba(30, 73, 118, 0.3)'
+                    },
+                    '&:active': {
+                      transform: { xs: 'scale(0.98)', md: 'translateY(-4px)' }
                     },
                     '&::after': {
                       content: '""',
                       position: 'absolute',
                       top: -20,
                       right: -20,
-                      width: 100,
-                      height: 100,
+                      width: { xs: 60, md: 100 },
+                      height: { xs: 60, md: 100 },
                       borderRadius: '50%',
                       background: 'rgba(255,255,255,0.1)'
                     }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
-                      <AssessmentIcon sx={{ fontSize: 24 }} />
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: { xs: 0.5, md: 1 }, 
+                    mb: { xs: 1, md: 2 } 
+                  }}>
+                    <Avatar sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.2)', 
+                      width: { xs: 32, md: 40 }, 
+                      height: { xs: 32, md: 40 } 
+                    }}>
+                      <AssessmentIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
                     </Avatar>
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 600, color: 'white' }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.9, 
+                        fontWeight: 600, 
+                        color: 'white',
+                        fontSize: { xs: '0.75rem', md: '0.875rem' }
+                      }}
+                    >
                       Total
                     </Typography>
                   </Box>
-                  <Typography variant="h3" fontWeight={700} sx={{ color: 'white !important'  }}>
+                  <Typography 
+                    variant="h3" 
+                    fontWeight={700} 
+                    sx={{ 
+                      color: 'white !important',
+                      fontSize: { xs: '1.75rem', md: '3rem' }
+                    }}
+                  >
                     {stats.total}
                   </Typography>
                 </Paper>

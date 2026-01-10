@@ -3,7 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/cras-icon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- 📱 MOBILE: Viewport otimizado para dispositivos móveis -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    
+    <!-- 📱 MOBILE: Cor da barra de status e tema -->
+    <meta name="theme-color" content="#1E4976" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="CRAS Agendamentos" />
+    
+    <!-- 📱 MOBILE: Formato de detecção de telefone -->
+    <meta name="format-detection" content="telephone=no" />
     
     <!-- 🔒 SEGURANÇA: Content Security Policy gerenciado pelo backend via Helmet -->
     <!-- CSP removido do HTML para evitar conflitos - configurado em backend/server.js -->

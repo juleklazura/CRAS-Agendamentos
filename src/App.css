@@ -282,15 +282,17 @@ a:hover {
 /* Garantir cor correta da AppBar mobile */
 .MuiAppBar-root {
   background-color: #1E4976 !important;
-  height: 64px !important;
+  height: 56px !important;
 }
 
 .MuiAppBar-root .MuiToolbar-root {
   background-color: #1E4976 !important;
-  min-height: 64px !important;
-  height: 64px !important;
+  min-height: 56px !important;
+  height: 56px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
 }
 
 .MuiAppBar-root .MuiTypography-root {
@@ -379,8 +381,32 @@ a:hover {
   }
 
   /* Garantir que o backdrop do drawer funcione corretamente */
-  .MuiBackdrop-root {
+  .MuiDrawer-root > .MuiBackdrop-root {
     z-index: 1350 !important;
+  }
+
+  /* Garantir que menus dropdown (Select) funcionem no mobile */
+  .MuiPopover-root,
+  .MuiMenu-root {
+    z-index: 1500 !important;
+  }
+  
+  .MuiPopover-root > .MuiBackdrop-root,
+  .MuiMenu-root > .MuiBackdrop-root {
+    z-index: 1499 !important;
+  }
+  
+  .MuiMenu-paper,
+  .MuiPopover-paper {
+    z-index: 1500 !important;
+  }
+  
+  /* Garantir que MenuItems sejam clicáveis */
+  .MuiMenu-list,
+  .MuiMenuItem-root {
+    position: relative !important;
+    z-index: 1501 !important;
+    pointer-events: auto !important;
   }
 
   /* Garantir que os itens do menu ficam abaixo do header */
@@ -713,4 +739,522 @@ form {
   align-items: center !important;
   width: 100% !important;
   margin-top: 16px !important;
+}
+
+/* ============================================
+   OTIMIZAÇÕES MOBILE-FIRST
+   Mantém o layout desktop intacto e adiciona
+   melhorias específicas para dispositivos móveis
+   ============================================ */
+
+/* ---- Variáveis CSS para Mobile ---- */
+:root {
+  --mobile-touch-target: 44px;
+  --mobile-spacing-xs: 8px;
+  --mobile-spacing-sm: 12px;
+  --mobile-spacing-md: 16px;
+  --mobile-spacing-lg: 24px;
+  --mobile-border-radius: 12px;
+  --mobile-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---- Ajustes Globais Mobile ---- */
+@media (max-width: 899px) {
+  /* Melhorar scroll em touch devices */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Melhorar performance de scroll */
+  .main-content,
+  .MuiDrawer-paper,
+  .MuiTableContainer-root {
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth !important;
+  }
+
+  /* Otimização de texto para legibilidade */
+  body {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* ---- Botões Mobile com Touch Target 44px ---- */
+@media (max-width: 899px) {
+  .MuiButton-root {
+    min-height: var(--mobile-touch-target) !important;
+    min-width: var(--mobile-touch-target) !important;
+    padding: 12px 20px !important;
+    font-size: 0.95rem !important;
+    border-radius: var(--mobile-border-radius) !important;
+    font-weight: 600 !important;
+  }
+
+  .MuiButton-containedPrimary {
+    box-shadow: 0 4px 12px rgba(30, 73, 118, 0.25) !important;
+  }
+
+  .MuiButton-containedPrimary:active {
+    transform: scale(0.98) !important;
+    box-shadow: 0 2px 8px rgba(30, 73, 118, 0.2) !important;
+  }
+
+  /* Botões de ícone maiores */
+  .MuiIconButton-root {
+    min-width: var(--mobile-touch-target) !important;
+    min-height: var(--mobile-touch-target) !important;
+    padding: 10px !important;
+  }
+
+  /* Feedback visual ao tocar */
+  .MuiButtonBase-root:active {
+    opacity: 0.85;
+  }
+}
+
+/* ---- Inputs e Forms Mobile ---- */
+@media (max-width: 899px) {
+  .MuiTextField-root,
+  .MuiFormControl-root {
+    margin-bottom: var(--mobile-spacing-sm) !important;
+  }
+
+  .MuiInputBase-root {
+    min-height: 52px !important;
+    border-radius: var(--mobile-border-radius) !important;
+    font-size: 16px !important; /* Previne zoom no iOS */
+  }
+
+  .MuiInputBase-input {
+    padding: 14px 16px !important;
+    font-size: 16px !important;
+  }
+
+  .MuiInputLabel-root {
+    font-size: 14px !important;
+  }
+
+  .MuiSelect-select {
+    padding: 14px 16px !important;
+    min-height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  /* Autocomplete mobile */
+  .MuiAutocomplete-inputRoot {
+    padding: 8px 12px !important;
+  }
+}
+
+/* ---- Cards Mobile ---- */
+@media (max-width: 899px) {
+  .MuiCard-root,
+  .MuiPaper-root:not(.MuiMenu-paper):not(.MuiPopover-paper):not(.MuiDrawer-paper):not(.MuiDialog-paper) {
+    border-radius: var(--mobile-border-radius) !important;
+    margin-bottom: var(--mobile-spacing-md) !important;
+  }
+
+  .MuiCardContent-root {
+    padding: var(--mobile-spacing-md) !important;
+  }
+
+  /* Cards de estatísticas mobile - stack vertical */
+  .stats-cards-container,
+  .MuiBox-root[style*="display: flex"][style*="gap: 3"] {
+    flex-direction: column !important;
+    gap: var(--mobile-spacing-md) !important;
+  }
+}
+
+/* ---- Tabelas Mobile ---- */
+@media (max-width: 899px) {
+  .MuiTableContainer-root {
+    border-radius: var(--mobile-border-radius) !important;
+    margin: 0 var(--mobile-spacing-sm) !important;
+    width: calc(100% - calc(var(--mobile-spacing-sm) * 2)) !important;
+  }
+
+  .MuiTable-root {
+    min-width: 800px !important;
+  }
+
+  .MuiTableCell-root {
+    padding: 12px 8px !important;
+    font-size: 0.85rem !important;
+    white-space: nowrap !important;
+  }
+
+  .MuiTableCell-head {
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    background-color: #f0f4f8 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2 !important;
+  }
+
+  /* Hint de scroll horizontal */
+  .MuiTableContainer-root::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(90deg, transparent, rgba(0,0,0,0.05));
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
+
+  .MuiTableContainer-root::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .MuiTableContainer-root::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 3px;
+  }
+}
+
+/* ---- Diálogos/Modais Mobile ---- */
+@media (max-width: 899px) {
+  .MuiDialog-paper {
+    margin: var(--mobile-spacing-sm) !important;
+    width: calc(100% - var(--mobile-spacing-md)) !important;
+    max-width: none !important;
+    max-height: calc(100vh - 32px) !important;
+    border-radius: var(--mobile-border-radius) !important;
+  }
+
+  .MuiDialogTitle-root {
+    padding: var(--mobile-spacing-md) !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+  }
+
+  .MuiDialogContent-root {
+    padding: var(--mobile-spacing-md) !important;
+  }
+
+  .MuiDialogActions-root {
+    padding: var(--mobile-spacing-md) !important;
+    gap: var(--mobile-spacing-sm) !important;
+    flex-wrap: wrap !important;
+  }
+
+  .MuiDialogActions-root .MuiButton-root {
+    flex: 1 !important;
+    min-width: 120px !important;
+  }
+}
+
+/* ---- Tipografia Mobile ---- */
+@media (max-width: 899px) {
+  .page-title,
+  .MuiTypography-h4 {
+    font-size: 1.5rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: var(--mobile-spacing-md) !important;
+  }
+
+  .section-title,
+  .MuiTypography-h5,
+  .MuiTypography-h6 {
+    font-size: 1.1rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .MuiTypography-body1 {
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+  }
+
+  .MuiTypography-body2 {
+    font-size: 0.85rem !important;
+    line-height: 1.5 !important;
+  }
+}
+
+/* ---- Chips Mobile ---- */
+@media (max-width: 899px) {
+  .MuiChip-root {
+    height: 32px !important;
+    font-size: 0.8rem !important;
+    border-radius: 16px !important;
+  }
+
+  .MuiChip-label {
+    padding: 0 12px !important;
+  }
+}
+
+/* ---- Paginação Mobile ---- */
+@media (max-width: 899px) {
+  .MuiTablePagination-root {
+    overflow: visible !important;
+  }
+
+  .MuiTablePagination-toolbar {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    padding: var(--mobile-spacing-sm) !important;
+    gap: var(--mobile-spacing-sm) !important;
+  }
+
+  .MuiTablePagination-selectLabel,
+  .MuiTablePagination-displayedRows {
+    font-size: 0.8rem !important;
+  }
+
+  .MuiTablePagination-actions {
+    margin-left: 0 !important;
+  }
+
+  .MuiTablePagination-actions .MuiIconButton-root {
+    padding: 8px !important;
+  }
+}
+
+/* ---- Filtros Mobile ---- */
+@media (max-width: 899px) {
+  .filters-section {
+    flex-direction: column !important;
+    gap: var(--mobile-spacing-sm) !important;
+    padding: var(--mobile-spacing-md) !important;
+  }
+
+  .filters-section .MuiFormControl-root,
+  .filters-section .MuiTextField-root {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .filters-section .MuiButton-root {
+    width: 100% !important;
+  }
+}
+
+/* ---- Snackbar/Toast Mobile ---- */
+@media (max-width: 899px) {
+  .MuiSnackbar-root {
+    bottom: calc(var(--mobile-safe-area-bottom) + 16px) !important;
+    left: var(--mobile-spacing-md) !important;
+    right: var(--mobile-spacing-md) !important;
+  }
+
+  .MuiAlert-root {
+    width: 100% !important;
+    border-radius: var(--mobile-border-radius) !important;
+  }
+}
+
+/* ---- AppBar Mobile Otimizado ---- */
+@media (max-width: 899px) {
+  .MuiAppBar-root {
+    height: 56px !important;
+  }
+
+  .MuiAppBar-root .MuiToolbar-root {
+    min-height: 56px !important;
+    height: 56px !important;
+    padding: 0 var(--mobile-spacing-sm) !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  
+  .MuiAppBar-root .MuiToolbar-root .MuiTypography-root {
+    line-height: normal !important;
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+  }
+
+  .main-content {
+    margin-top: 56px !important;
+    min-height: calc(100vh - 56px) !important;
+  }
+}
+
+/* ---- Dashboard Mobile ---- */
+@media (max-width: 899px) {
+  /* Header de boas-vindas mais compacto */
+  .dashboard-welcome-header {
+    padding: var(--mobile-spacing-md) !important;
+    border-radius: var(--mobile-border-radius) !important;
+  }
+
+  .dashboard-welcome-header .MuiAvatar-root {
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  /* Cards de estatísticas em grid 2x2 */
+  .dashboard-stats-container {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: var(--mobile-spacing-sm) !important;
+  }
+
+  .dashboard-stats-container > * {
+    min-height: 100px !important;
+    padding: var(--mobile-spacing-sm) !important;
+  }
+
+  .dashboard-stats-container .MuiTypography-h3 {
+    font-size: 1.75rem !important;
+  }
+
+  /* Gráficos mobile */
+  .dashboard-chart-container {
+    height: 250px !important;
+    margin: 0 -8px !important;
+  }
+
+  .recharts-wrapper {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* ---- Formulário de Agendamento Mobile ---- */
+@media (max-width: 899px) {
+  .agendamento-form {
+    padding: var(--mobile-spacing-md) !important;
+  }
+
+  .agendamento-form .MuiGrid-container {
+    gap: var(--mobile-spacing-sm) !important;
+  }
+
+  .agendamento-form .MuiButton-root {
+    width: 100% !important;
+    margin-top: var(--mobile-spacing-sm) !important;
+  }
+}
+
+/* ---- Agenda/Calendário Mobile ---- */
+@media (max-width: 899px) {
+  .agenda-header {
+    padding: var(--mobile-spacing-md) !important;
+    margin-bottom: var(--mobile-spacing-md) !important;
+  }
+
+  .agenda-selectors {
+    gap: var(--mobile-spacing-sm) !important;
+  }
+
+  .agenda-selectors .MuiFormControl-root {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Horários da agenda */
+  .agenda-time-slot {
+    min-height: var(--mobile-touch-target) !important;
+    padding: var(--mobile-spacing-sm) !important;
+    margin-bottom: var(--mobile-spacing-xs) !important;
+    border-radius: 8px !important;
+  }
+}
+
+/* ---- Drawer Mobile Otimizado ---- */
+@media (max-width: 899px) {
+  .MuiDrawer-paper {
+    width: 85vw !important;
+    max-width: 320px !important;
+  }
+
+  .MuiDrawer-paper .MuiListItem-root {
+    min-height: var(--mobile-touch-target) !important;
+    padding: var(--mobile-spacing-sm) var(--mobile-spacing-md) !important;
+    margin-bottom: 4px !important;
+    border-radius: 8px !important;
+  }
+
+  .MuiDrawer-paper .MuiListItemIcon-root {
+    min-width: 40px !important;
+  }
+
+  .MuiDrawer-paper .MuiListItemText-primary {
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+  }
+}
+
+/* ---- Loading States Mobile ---- */
+@media (max-width: 899px) {
+  .MuiCircularProgress-root {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+/* ---- Acessibilidade - Contraste e Foco ---- */
+@media (max-width: 899px) {
+  /* Indicador de foco visível */
+  .MuiButtonBase-root:focus-visible,
+  .MuiInputBase-root:focus-visible,
+  a:focus-visible {
+    outline: 3px solid #1E4976 !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Melhor contraste para texto secundário */
+  .MuiTypography-colorTextSecondary {
+    color: #5f6368 !important;
+  }
+
+  /* Links com contraste adequado */
+  a {
+    color: #1565c0 !important;
+  }
+}
+
+/* ---- Telas muito pequenas (< 360px) ---- */
+@media (max-width: 360px) {
+  :root {
+    --mobile-spacing-md: 12px;
+    --mobile-spacing-lg: 16px;
+  }
+
+  .page-title,
+  .MuiTypography-h4 {
+    font-size: 1.25rem !important;
+  }
+
+  .MuiButton-root {
+    padding: 10px 16px !important;
+    font-size: 0.875rem !important;
+  }
+
+  .dashboard-stats-container .MuiTypography-h3 {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* ---- Orientação Paisagem Mobile ---- */
+@media (max-width: 899px) and (orientation: landscape) {
+  .MuiDialog-paper {
+    max-height: 90vh !important;
+  }
+
+  .dashboard-stats-container {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* ---- Prevenção de overflow global mobile ---- */
+@media (max-width: 899px) {
+  html, body {
+    overflow-x: hidden !important;
+  }
+
+  #root {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
 }
