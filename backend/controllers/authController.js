@@ -13,33 +13,33 @@ dotenv.config();
 // 🔒 CONFIGURAÇÃO SEGURA DE COOKIES
 // =============================================================================
 
+// Detecta se estamos em ambiente cross-site (frontend e backend em domínios diferentes)
+const isCrossSite = process.env.NODE_ENV === 'production';
+
 // Configurações de cookie para token de acesso (8 horas)
 const ACCESS_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,                                    // Não acessível via JavaScript (previne XSS)
   secure: process.env.NODE_ENV === 'production',   // Apenas HTTPS em produção
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // lax em dev para funcionar com localhost
+  sameSite: isCrossSite ? 'none' : 'lax',          // 'none' para cross-site (Vercel + Render)
   maxAge: 8 * 60 * 60 * 1000,                       // 8 horas em milissegundos
   path: '/',                                         // Cookie disponível em toda aplicação
-  domain: process.env.COOKIE_DOMAIN || undefined    // Domain configurável (undefined = domain atual)
 };
 
 // Configurações de cookie para refresh token (7 dias)
 const REFRESH_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  sameSite: isCrossSite ? 'none' : 'lax',          // 'none' para cross-site (Vercel + Render)
   maxAge: 7 * 24 * 60 * 60 * 1000,                  // 7 dias em milissegundos
-  path: '/',                                         // Cookie disponível em toda aplicação (mudado de /api/auth/refresh)
-  domain: process.env.COOKIE_DOMAIN || undefined
+  path: '/',                                         // Cookie disponível em toda aplicação
 };
 
 // Configurações para limpar cookies (sem maxAge)
 const CLEAR_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  sameSite: isCrossSite ? 'none' : 'lax',
   path: '/',
-  domain: process.env.COOKIE_DOMAIN || undefined
 };
 
 // Função principal de login do sistema
