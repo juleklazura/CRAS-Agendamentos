@@ -44,6 +44,9 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   // URLs do Vercel (pattern para previews e produção)
   ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+  // URLs comuns do Vercel para este projeto
+  'https://cras-agendamentos.vercel.app',
+  'https://cras-agendamentos-git-main-juleklazuras-projects.vercel.app',
   ...(process.env.NODE_ENV === 'development' ? [
     'http://localhost:5173',
     'http://localhost:5174',
@@ -51,16 +54,13 @@ const allowedOrigins = [
   ] : [])
 ].filter(Boolean);
 
+// Log das origens permitidas para debug
+console.log('🔐 CORS - Origens permitidas:', allowedOrigins);
+
 const corsOptions = {
   origin: function (origin, callback) {
     // 🔒 SEGURANÇA: Requisições sem origin (Postman, cURL, health checks)
     if (!origin) {
-      // Em desenvolvimento, permitir ferramentas de API
-      if (process.env.NODE_ENV === 'development') {
-        return callback(null, true);
-      }
-      // Em produção, permitir apenas health checks (sem origin)
-      // Render e outros serviços fazem health checks sem origin
       return callback(null, true);
     }
     
@@ -68,13 +68,14 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // Permitir qualquer subdomínio do Vercel em produção
-      const isVercelPreview = origin.match(/https:\/\/.*\.vercel\.app$/);
-      if (isVercelPreview && process.env.NODE_ENV === 'production') {
+      // Permitir qualquer subdomínio do Vercel
+      const isVercelDomain = origin.match(/https:\/\/.*\.vercel\.app$/);
+      if (isVercelDomain) {
+        console.log('✅ CORS permitido para Vercel:', origin);
         return callback(null, true);
       }
       
-      logger.warn('🔒 CORS bloqueado', { origin, allowedOrigins });
+      console.log('❌ CORS bloqueado:', origin);
       callback(new Error('Origem não permitida pelo CORS'));
     }
   },
