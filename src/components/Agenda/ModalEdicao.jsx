@@ -1,9 +1,10 @@
 /**
- * ModalEdicao - Modal para edição de agendamentos (AgendaRecepcao)
+ * ModalEdicao - Modal para edição de agendamentos
  * 
- * Versão refatorada usando AppointmentForm reutilizável
+ * Componente refatorado usando AppointmentForm reutilizável
+ * Mantém apenas lógica de apresentação do modal
  * 
- * @module AgendaRecepcao/ModalEdicao
+ * @module ModalEdicao
  */
 
 import {

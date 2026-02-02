@@ -1,21 +1,21 @@
-import logger from '../utils/logger.js';
-import cache from '../utils/cache.js';
-// Controller para gerenciamento de unidades CRAS
-// Controla operações CRUD para as unidades do Centro de Referência de Assistência Social
 import Cras from '../models/Cras.js';
 import Log from '../models/Log.js';
+import cache from '../utils/cache.js';
+import logger from '../utils/logger.js';
 
-// Função para criar nova unidade CRAS (apenas administradores)
-// Registra criação no sistema de auditoria
+// =============================================================================
+// 📋 GERENCIAMENTO DE UNIDADES CRAS
+// =============================================================================
+
+// Criar novo CRAS (apenas admin)
 export const createCras = async (req, res) => {
   try {
     const { nome, endereco, telefone } = req.body;
     
-    // Cria nova unidade CRAS
     const cras = new Cras({ nome, endereco, telefone });
     await cras.save();
     
-    // Registra criação no log de auditoria
+    // Registrar log
     await Log.create({
       user: req.user.id,
       cras: cras._id,
@@ -23,68 +23,73 @@ export const createCras = async (req, res) => {
       details: `CRAS criado: ${nome} - ${endereco}`
     });
     
-    // Invalidar cache após criação
+    // Invalidar cache
     cache.invalidateCras();
     
     res.status(201).json(cras);
-  } catch (_) {
+  } catch (error) {
+    logger.error('Erro ao criar CRAS:', error);
     res.status(400).json({ message: 'Erro ao criar CRAS' });
   }
 };
 
-// Função para listar todas as unidades CRAS
-// Acessível para todos os usuários autenticados
+// Listar todos os CRAS
 export const getCras = async (req, res) => {
   try {
     const cacheKey = 'cras:all';
     
     const fetchCras = async () => {
-      const cras = await Cras.find();
-      return cras;
+      return await Cras.find().sort({ nome: 1 });
     };
     
-    const cras = await cache.cached(cacheKey, fetchCras);
-    res.json(cras);
-  } catch (_) {
-    res.status(500).json({ message: 'Erro ao buscar CRAS' });
+    const crasList = await cache.cached(cacheKey, fetchCras, 300);
+    res.json(crasList);
+  } catch (error) {
+    logger.error('Erro ao buscar CRAS:', error);
+    res.status(400).json({ message: 'Erro ao buscar CRAS' });
   }
 };
 
-// Função para buscar unidade CRAS específica por ID
+// Buscar CRAS por ID
 export const getCrasById = async (req, res) => {
   try {
     const { id } = req.params;
-    const cacheKey = `cras:id:${id}`;
+    const cacheKey = `cras:${id}`;
     
     const fetchCras = async () => {
-      const cras = await Cras.findById(id);
-      
-      if (!cras) {
-        return null;
-      }
-      
-      return cras;
+      return await Cras.findById(id);
     };
     
-    const cras = await cache.cached(cacheKey, fetchCras);
+    const cras = await cache.cached(cacheKey, fetchCras, 300);
     
     if (!cras) {
       return res.status(404).json({ message: 'CRAS não encontrado' });
     }
     
     res.json(cras);
-  } catch (_) {
-    res.status(500).json({ message: 'Erro ao buscar CRAS' });
+  } catch (error) {
+    logger.error('Erro ao buscar CRAS:', error);
+    res.status(400).json({ message: 'Erro ao buscar CRAS' });
   }
 };
 
+// Atualizar CRAS
 export const updateCras = async (req, res) => {
   try {
     const { id } = req.params;
     const { nome, endereco, telefone } = req.body;
-    const cras = await Cras.findByIdAndUpdate(id, { nome, endereco, telefone }, { new: true });
     
-    // Criar log da ação
+    const cras = await Cras.findByIdAndUpdate(
+      id, 
+      { nome, endereco, telefone }, 
+      { new: true }
+    );
+    
+    if (!cras) {
+      return res.status(404).json({ message: 'CRAS não encontrado' });
+    }
+    
+    // Registrar log
     await Log.create({
       user: req.user.id,
       cras: cras._id,
@@ -92,40 +97,40 @@ export const updateCras = async (req, res) => {
       details: `CRAS editado: ${cras.nome} - ${cras.endereco}`
     });
     
-    // Invalidar cache após edição
+    // Invalidar cache
     cache.invalidateCras();
     
     res.json(cras);
-  } catch (_) {
+  } catch (error) {
+    logger.error('Erro ao atualizar CRAS:', error);
     res.status(400).json({ message: 'Erro ao atualizar CRAS' });
   }
 };
 
+// Remover CRAS
 export const deleteCras = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Buscar dados do CRAS antes de excluir para o log
-    const cras = await Cras.findById(id);
+    const cras = await Cras.findByIdAndDelete(id);
+    
     if (!cras) {
       return res.status(404).json({ message: 'CRAS não encontrado' });
     }
     
-    await Cras.findByIdAndDelete(id);
-    
-    // Criar log da ação
+    // Registrar log
     await Log.create({
       user: req.user.id,
-      cras: cras._id,
       action: 'excluir_cras',
       details: `CRAS excluído: ${cras.nome} - ${cras.endereco}`
     });
     
-    // Invalidar cache após exclusão
+    // Invalidar cache
     cache.invalidateCras();
     
-    res.json({ message: 'CRAS removido' });
-  } catch (_) {
+    res.json({ message: 'CRAS removido com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao remover CRAS:', error);
     res.status(400).json({ message: 'Erro ao remover CRAS' });
   }
 };

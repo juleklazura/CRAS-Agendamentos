@@ -90,14 +90,16 @@ import ptBR from 'date-fns/locale/pt-BR';
 // Componente personalizado da sidebar para navegação
 // Contém o menu lateral com as opções do sistema
 import Sidebar from '../components/Sidebar';
+import {
+  HorarioTableRow,
+  ModalAgendamento,
+  ModalEdicao,
+  ModalObservacoes,
+  SeletorEntrevistador,
+  SeletorData,
+  TabelaAgenda
+} from '../components/Agenda';
 
-// Utilitários centralizados para regras de negócio
-// formatarCPF/formatarTelefone: funções para formatação de dados
-// motivosAtendimento: lista dos motivos disponíveis
-// horariosDisponiveis: lista dos horários de atendimento
-// mensagens: mensagens padronizadas do sistema
-// criarDataHorario: função para criar objeto Date com data e hora específicas
-// ehFimDeSemana: função para verificar se uma data é sábado ou domingo
 import {
   formatarCPF,
   formatarTelefone,
@@ -120,195 +122,7 @@ const STATUS_COLORS = {
 };
 
 /**
- * Componente memoizado para linha da tabela de horários
- * Renderiza uma linha individual da grade de horários com todas as informações do agendamento
- * Memoizado para evitar re-renderizações desnecessárias quando props não mudam
- * 
- * @param {string} horario - Horário no formato "HH:MM" 
- * @param {string} status - Status do horário (livre/agendado/realizado/bloqueado)
- * @param {Object} agendamento - Dados do agendamento se existir
- * @param {Object} bloqueio - Dados do bloqueio se existir
- * @param {Function} formatarCPF - Função para formatar CPF
- * @param {Function} abrirModalObservacoes - Função para abrir modal de observações
- * @param {Function} abrirModalAgendamento - Função para abrir modal de novo agendamento
- * @param {Function} abrirModalEdicao - Função para abrir modal de edição
- * @param {boolean} isEntrevistador - Se o usuário logado é entrevistador
- */
-const HorarioTableRow = memo(({ 
-  horario, 
-  status, 
-  agendamento, 
-  bloqueio, 
-  formatarCPF, 
-  abrirModalObservacoes, 
-  abrirModalAgendamento,
-  abrirModalEdicao,
-  isEntrevistador
-}) => (
-  <TableRow 
-    sx={{
-      // Destaque visual para agendamentos realizados com fundo verde claro
-      // e ausentes com fundo amarelo claro
-      backgroundColor: 
-        status === 'realizado' ? '#e8f5e8' : 
-        status === 'ausente' ? '#fff9c4' : 
-        'inherit',
-      transition: 'background 0.2s',
-      cursor: 'pointer',
-      // Efeito hover suave com sombra azul para melhor UX
-      '&:hover': {
-        backgroundColor: '#e3e9f7',
-        boxShadow: '0 2px 8px 0 rgba(30,73,118,0.08)'
-      }
-    }}
-  >
-    {/* Coluna do horário - exibe hora formatada */}
-    <TableCell>
-      <Typography variant="body2" fontWeight="medium">
-        {horario}
-      </Typography>
-    </TableCell>
-    
-    {/* Coluna do status - cores condicionais com ícones para clareza visual */}
-    <TableCell>
-      <Typography
-        variant="body2"
-        color={
-          status === 'agendado' ? 'primary.main' :
-          status === 'realizado' ? 'success.main' :
-          status === 'ausente' ? 'warning.main' :
-          status === 'bloqueado' ? 'warning.main' :
-          'success.main'
-        }
-        fontWeight="medium"
-      >
-        {status === 'agendado' ? 'Agendado' :
-         status === 'realizado' ? 'Realizado' :
-         status === 'ausente' ? 'Ausente' :
-         status === 'bloqueado' ? 'Bloqueado' :
-         'Disponível'}
-      </Typography>
-    </TableCell>
-    
-    {/* Nome da pessoa - exibe nome do agendamento ou indicação de bloqueio */}
-    <TableCell>{agendamento?.pessoa || (bloqueio ? 'Horário Bloqueado' : '-')}</TableCell>
-    
-    {/* CPF formatado - usa função utilitária para formatação */}
-    <TableCell>{agendamento ? formatarCPF(agendamento.cpf) : '-'}</TableCell>
-    
-    {/* Telefones - exibe telefone principal e alternativo se existir */}
-    <TableCell>
-      {agendamento ? (
-        <Box>
-          <Typography variant="body2">{agendamento.telefone1}</Typography>
-          {agendamento.telefone2 && (
-            <Typography variant="body2">{agendamento.telefone2}</Typography>
-          )}
-        </Box>
-      ) : '-'}
-    </TableCell>
-    
-    {/* Motivo do atendimento ou bloqueio */}
-    <TableCell>{agendamento?.motivo || (bloqueio?.motivo || '-')}</TableCell>
-    
-    {/* Botão para visualizar observações - aparece só se existir observações */}
-    <TableCell>
-      {agendamento?.observacoes ? (
-        <IconButton
-          color="primary"
-          size="small"
-          onClick={() => abrirModalObservacoes(agendamento)}
-          title="Ver observações"
-        >
-          <DescriptionIcon fontSize="small" />
-        </IconButton>
-      ) : '-'}
-    </TableCell>
-    
-    {/* Usuário que criou o agendamento/bloqueio */}
-    <TableCell>{agendamento?.createdBy?.name || bloqueio?.createdBy?.name || '-'}</TableCell>
-    
-    {/* Coluna de ações - botões condicionais baseados no status */}
-    <TableCell align="center">
-      {/* Botão para agendar - só aparece se horário está livre */}
-      {status === 'livre' && (
-        <Button
-          variant="contained"
-          size="small"
-          color="primary"
-          onClick={() => abrirModalAgendamento(horario)}
-          startIcon={<EventIcon />}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 'medium'
-          }}
-        >
-          Agendar
-        </Button>
-      )}
-      
-      {/* Chip e botão de edição para agendamentos - edição só para entrevistadores */}
-      {status === 'agendado' && (
-        <Box display="flex" gap={1} alignItems="center" justifyContent="center">
-          <Chip 
-            label="Ocupado" 
-            color="primary" 
-            size="small"
-            icon={<PersonIcon />}
-          />
-          {isEntrevistador && (
-            <IconButton
-              color="primary"
-              size="small"
-              onClick={() => abrirModalEdicao(agendamento)}
-              title="Editar agendamento"
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-      )}
-      
-      {/* Chip para agendamentos realizados */}
-      {status === 'realizado' && (
-        <Chip 
-          label="Concluído" 
-          color="success" 
-          size="small"
-          icon={<CheckCircleIcon />}
-        />
-      )}
-      
-      {/* Chip para horários bloqueados */}
-      {status === 'bloqueado' && (
-        <Chip 
-          label="Indisponível" 
-          color="warning" 
-          size="small"
-          icon={<BlockIcon />}
-        />
-      )}
-    </TableCell>
-  </TableRow>
-));
-
-// Define displayName para debug e React DevTools
-HorarioTableRow.displayName = 'HorarioTableRow';
-
-/**
  * Componente principal da página de agenda dos entrevistadores
- * Permite visualizar e criar agendamentos para entrevistadores específicos
- * Otimizado para performance com memoização e lazy loading
- * 
- * Funcionalidades principais:
- * - Visualização de agenda por entrevistador e data
- * - Criação de novos agendamentos
- * - Edição de agendamentos existentes (apenas entrevistadores)
- * - Visualização de observações
- * - Suporte a diferentes perfis (admin, entrevistador, recepção)
- * - Validações de CPF e telefone com formatação automática
- * - Filtragem automática de fins de semana
  */
 const AgendaEntrevistadores = memo(() => {
   // Estados principais da aplicação - otimizados com valores iniciais
