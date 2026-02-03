@@ -1,359 +1,139 @@
-// Componente Agendamentos - Lista e gerencia todos os agendamentos do sistema
-// Permite visualizar, filtrar, editar e excluir agendamentos com controle de permissões
-// Implementa paginação, busca, ordenação e exportação de dados
-// Acesso controlado por perfil: admin vê todos, entrevistador vê seus, recepção vê do CRAS
-import { useEffect, useState, useCallback, useRef } from 'react';
+/**
+ * 🚀 Página de Agendamentos - Arquitetura Modular e Escalável
+ * 
+ * Separação de Responsabilidades:
+ * - AgendamentosHeader: Título e descrição
+ * - AgendamentosFilters: Busca e exportação
+ * - AgendamentosTable: Tabela com dados
+ * - AgendamentoRow: Linha individual (memoizado)
+ * - AgendamentosPagination: Controle de paginação
+ * - AgendamentosNotifications: Mensagens de erro/sucesso
+ * - useAgendamentoActions: Lógica de negócio
+ * 
+ * Benefícios:
+ * - Componentes testáveis isoladamente
+ * - Re-renders otimizados com React.memo
+ * - Código limpo e manutenível
+ * - Fácil adicionar novos recursos
+ */
+import { useRef, useState, useCallback } from 'react';
+import { CircularProgress, Box } from '@mui/material';
+
 import { useAuth } from '../hooks/useAuth';
-import api from '../services/api';  // Cliente HTTP configurado com httpOnly cookies
-import Sidebar from '../components/Sidebar';  // Componente de navegação lateral
+import { useAgendamentos } from '../hooks/useAgendamentos';
+import { useAgendamentoActions, canDeleteAgendamento } from '../hooks/useAgendamentoActions';
 
-// Componentes Material-UI para interface
-import {
-  Button,
-  TextField,
-  Snackbar,
-  Alert,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Typography,
-  Box,
-  TablePagination
-} from '@mui/material';
+import Sidebar from '../components/Sidebar';
+import AgendamentosHeader from '../components/Agendamentos/AgendamentosHeader';
+import AgendamentosFilters from '../components/Agendamentos/AgendamentosFilters';
+import AgendamentosTable from '../components/Agendamentos/AgendamentosTable';
+import AgendamentosPagination from '../components/Agendamentos/AgendamentosPagination';
+import AgendamentosNotifications from '../components/Agendamentos/AgendamentosNotifications';
+import ModalConfirmacao from '../components/Agendamentos/ModalConfirmacao';
+import ModalObservacoes from '../components/Agendamentos/ModalObservacoes';
 
-// Ícones para ações da interface
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import DescriptionIcon from '@mui/icons-material/Description';
-
-// Utilitário para exportação de dados em CSV
-import { exportToCSV } from '../utils/csvExport';
-
-// Opções de status disponíveis para agendamentos
-// Define todos os possíveis estados de um agendamento no sistema
-const STATUS_OPTIONS = [
-  { value: 'agendado', label: 'Agendado' },    // Status inicial após criação
-  { value: 'realizado', label: 'Realizado' },  // Atendimento foi concluído
-  { value: 'cancelado', label: 'Cancelado' },  // Cancelado pelo usuário/sistema
-  { value: 'reagendar', label: 'Reagendar' },  // Precisa ser reagendado
-  { value: 'faltou', label: 'Faltou' }         // Pessoa não compareceu
-];
+import { sanitizeText } from '../utils/formatters';
 
 /**
- * Componente principal para listagem e gerenciamento de agendamentos
- * Funcionalidades: listagem, busca, ordenação, paginação, edição, exclusão, exportação
- * Controle de acesso baseado no perfil do usuário logado
+ * Componente principal - Orquestração de componentes modulares
  */
 export default function Agendamentos() {
-  const { user } = useAuth();  // 🔒 SEGURANÇA: Dados via httpOnly cookies
-  
-  // Estados principais para dados e interface
-  const [agendamentos, setAgendamentos] = useState([]);       // Lista de agendamentos carregados
-  const [loading, setLoading] = useState(true);               // Estado de carregamento
-  const [error, setError] = useState('');                     // Mensagens de erro
-  const [success, setSuccess] = useState('');                 // Mensagens de sucesso
-  const [confirmOpen, setConfirmOpen] = useState(false);      // Modal de confirmação de exclusão
-  const [deleteId, setDeleteId] = useState(null);            // ID do agendamento a ser excluído
-  const [search, setSearch] = useState('');                   // Termo de busca atual
-  const [debouncedSearch, setDebouncedSearch] = useState(''); // Busca com debounce para performance
-  
-  // Estados para modal de visualização de observações
-  const [modalObservacoesAberto, setModalObservacoesAberto] = useState(false);
-  const [observacoesVisualizacao, setObservacoesVisualizacao] = useState('');     // Texto das observações para modal
-  const [nomeAgendamentoObservacoes, setNomeAgendamentoObservacoes] = useState(''); // Nome da pessoa para modal
-
-  // Estados para ordenação da tabela
-  const [orderBy, setOrderBy] = useState('data');    // Campo para ordenação (data, nome, etc.)
-  const [order, setOrder] = useState('asc');         // Direção da ordenação (asc/desc)
-
-  // Estados para paginação da tabela
-  const [page, setPage] = useState(0);               // Página atual (zero-indexed)
-  const [rowsPerPage, setRowsPerPage] = useState(20); // Itens por página
-  const [total, setTotal] = useState(0);             // Total de registros
-
-  // Ref para manter o foco no input de busca após operações
+  const { user } = useAuth();
   const searchInputRef = useRef(null);
   
-  // Ref para controlar intervalo de polling
-  const pollingIntervalRef = useRef(null);
+  // Hook de dados de agendamentos
+  const {
+    agendamentos,
+    loading,
+    error,
+    success,
+    search,
+    setSearch,
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    total,
+    paginatedAgendamentos,
+    deleteAgendamento,
+    clearMessages,
+    orderBy,
+    order,
+    handleSort
+  } = useAgendamentos(user);
   
-  // 🛡️ Ref para controlar se componente está montado (previne memory leak)
-  const isMountedRef = useRef(true);
+  // Hook de ações (exportação, auditoria, autorização)
+  const { handleExport } = useAgendamentoActions(user, agendamentos);
   
-  // 🛡️ Ref para AbortController (cancela requisições pendentes)
-  const abortControllerRef = useRef(null);
-
-  // Implementa debounce na busca para evitar muitas requisições
-  // Aguarda 500ms após parar de digitar antes de executar a busca
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]);
-
+  // Estados locais apenas para UI de modais
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [modalObservacoesAberto, setModalObservacoesAberto] = useState(false);
+  const [observacoesVisualizacao, setObservacoesVisualizacao] = useState('');
+  const [nomeAgendamentoObservacoes, setNomeAgendamentoObservacoes] = useState('');
+  
   /**
-   * Formata CPF para exibição na tabela
-   * Aceita CPF com ou sem formatação e padroniza para xxx.xxx.xxx-xx
-   * @param {string} cpf - CPF em qualquer formato
-   * @returns {string} CPF formatado ou '-' se inválido
+   * Handler de exclusão com callback memoizado
    */
-  const formatarCPFExibicao = (cpf) => {
-    if (!cpf) return '-';
-    if (cpf.includes('.')) return cpf; // Já formatado
-    const apenasNumeros = cpf.replace(/\D/g, '').slice(0, 11);
-    return apenasNumeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  /**
-   * Busca agendamentos do backend com filtros baseados no perfil do usuário
-   * Admin: vê todos os agendamentos
-   * Entrevistador: vê apenas seus agendamentos
-   * Recepção: vê agendamentos do CRAS onde trabalha
-   * 🛡️ Protegido contra memory leak e race conditions
-   */
-  const fetchAgendamentos = useCallback(async () => {
-    if (!user) return; // Validação de autenticação
-    
-    // 🛡️ Cancela requisição anterior se existir (evita race conditions)
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    // 🛡️ Cria novo controller para esta requisição
-    abortControllerRef.current = new AbortController();
-    
-    try {
-      // Monta URL com filtros baseados no perfil
-      let url = '/appointments';
-      const params = [];
-      
-      if (user?.role === 'entrevistador') {
-        params.push(`entrevistador=${user.id}`);           // Filtra por entrevistador
-      } else if (user?.role === 'recepcao') {
-        params.push(`cras=${user.cras}`);                  // Filtra por CRAS
-      }
-      // Admin não tem filtro, vê todos os agendamentos
-      
-      // Adiciona parâmetros de busca e ordenação
-      if (debouncedSearch) params.push(`search=${encodeURIComponent(debouncedSearch)}`);
-      if (orderBy) params.push(`sortBy=${orderBy}`);
-      if (order) params.push(`order=${order}`);
-      
-      // Adiciona query params à URL se houver algum
-      if (params.length > 0) {
-        url += '?' + params.join('&');
-      }
-
-      setLoading(true);
-      
-      const res = await api.get(url, {
-        signal: abortControllerRef.current.signal // 🛡️ Permite cancelar requisição
-      });
-      
-      // 🛡️ Só atualiza estado se componente ainda está montado
-      if (!isMountedRef.current) return;
-      
-      const allResults = res.data.results || res.data || [];
-      setAgendamentos(allResults);
-      setTotal(allResults.length);
-    } catch (err) {
-      // 🛡️ Ignora erros de cancelamento (não são erros reais)
-      if (err.name === 'AbortError' || err.name === 'CanceledError') {
-        return;
-      }
-      
-      // 🛡️ Só atualiza estado se componente ainda está montado
-      if (!isMountedRef.current) return;
-      
-      setAgendamentos([]);
-      setTotal(0);
-    } finally {
-      // 🛡️ Só atualiza loading se componente ainda está montado
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [user, debouncedSearch, orderBy, order]);
-
-  // 🛡️ Cleanup do componente - previne memory leaks
-  useEffect(() => {
-    isMountedRef.current = true;
-    
-    return () => {
-      isMountedRef.current = false;
-      // Cancela requisições pendentes ao desmontar
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    fetchAgendamentos();
-  }, [fetchAgendamentos]);
-
-  // ⏰ Polling: Atualização automática a cada 30 segundos
-  // Garante que a lista esteja sempre atualizada com alterações de outros usuários
-  useEffect(() => {
-    // Inicia polling quando componente monta
-    pollingIntervalRef.current = setInterval(() => {
-      fetchAgendamentos();
-    }, 30000); // 30 segundos
-    
-    return () => {
-      // Limpa intervalo quando componente desmonta
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [fetchAgendamentos]);
-
-  // 👁️ Atualiza quando a aba volta ao foco (visibility change)
-  // Garante dados frescos quando usuário retorna à página
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchAgendamentos();
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [fetchAgendamentos]);
-
-  // Ao mudar busca ou itens por página, volta para primeira página
-  // Evita exibir páginas vazias quando filtros reduzem resultados
-  useEffect(() => {
-    setPage(0);
-  }, [debouncedSearch, rowsPerPage]);
-
-  // Mantém foco no input de busca após carregamento para melhor UX
-  // Permite que usuário continue digitando sem perder foco
-  useEffect(() => {
-    if (!loading && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [loading, agendamentos]);
-
-  /**
-   * Gerencia ordenação da tabela ao clicar nos cabeçalhos
-   * Alterna entre ascendente/descendente no mesmo campo
-   * Volta para primeira página ao mudar ordenação
-   * @param {string} campo - Campo para ordenar (data, nome, etc.)
-   */
-  const handleSort = (campo) => {
-    if (orderBy === campo) {
-      setOrder(order === 'asc' ? 'desc' : 'asc');
-    } else {
-      setOrderBy(campo);
-      setOrder('asc');
-    }
-    setPage(0); // Volta para primeira página
-  };
-
-  // Implementa paginação no frontend após busca/ordenação no backend
-  // Garante performance mesmo com muitos registros
-  const startIndex = page * rowsPerPage;
-  const endIndex = startIndex + rowsPerPage;
-  const paginatedAgendamentos = agendamentos.slice(startIndex, endIndex);
-
-  /**
-   * Valida se o ID é um ObjectId MongoDB válido
-   * @param {string} id - ID a ser validado
-   * @returns {boolean} true se válido
-   */
-  const isValidObjectId = (id) => {
-    return id && typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
-  };
-
-  /**
-   * Inicia processo de exclusão de agendamento
-   * Abre modal de confirmação para evitar exclusões acidentais
-   * @param {string} id - ID do agendamento a ser excluído
-   */
-  const handleDelete = async (id) => {
-    if (!isValidObjectId(id)) {
-      setError('ID de agendamento inválido');
-      return;
-    }
-    setDeleteId(id);
+  const handleDelete = useCallback((id, agendamento) => {
+    setDeleteTarget({ id, agendamento });
     setConfirmOpen(true);
-  };
-
+  }, []);
+  
   /**
-   * Confirma e executa a exclusão do agendamento
-   * Chama API de exclusão e atualiza lista local
-   * Exibe feedback de sucesso ou erro ao usuário
+   * Confirma exclusão com proteção contra race condition
    */
-  const confirmDelete = async () => {
-    if (!deleteId || !isValidObjectId(deleteId)) {
-      setError('ID de agendamento inválido');
-      setConfirmOpen(false);
-      setDeleteId(null);
-      return;
-    }
-
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget || deleting) return;
+    
+    setDeleting(true);
     try {
-      await api.delete(`/appointments/${deleteId}`);
-      setSuccess('Agendamento excluído com sucesso');
-      // Recarrega lista após exclusão
-      await fetchAgendamentos();
-      // Dispara evento customizado para atualizar outros componentes (Dashboard, etc)
-      window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'delete' } }));
-    } catch (err) {
-      // Tratamento de erros específicos
-      const message = err.response?.data?.message || err.response?.data?.error || 'Erro ao excluir o agendamento';
-      setError(message);
-      console.error('Erro ao excluir agendamento:', err);
+      await deleteAgendamento(deleteTarget.id, deleteTarget.agendamento);
     } finally {
+      setDeleting(false);
       setConfirmOpen(false);
-      setDeleteId(null);
+      setDeleteTarget(null);
     }
-  };
+  }, [deleteTarget, deleting, deleteAgendamento]);
 
   /**
-   * Exporta dados dos agendamentos para arquivo CSV
-   * Aplica os mesmos filtros da visualização atual
-   * Formata dados para legibilidade no arquivo exportado
+   * Exportação com tratamento de erros
    */
-  const exportToExcel = () => {
-    const data = agendamentos.map(a => ({
-      Entrevistador: a.entrevistador?.name || '-',
-      CRAS: a.cras?.nome || '-',
-      Nome: a.pessoa || '-',
-      CPF: formatarCPFExibicao(a.cpf),
-      'Telefone 1': a.telefone1 || '-',
-      'Telefone 2': a.telefone2 || '-',
-      Motivo: a.motivo || '-',
-      'Data/Hora': new Date(a.data).toLocaleString() || '-',
-      Status: STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status,
-      'Criado Por': a.createdBy?.name || '-',
-      Observações: a.observacoes || '-'
-    }));
-    exportToCSV(data, 'agendamentos.csv');
-  };
+  const handleExportClick = useCallback(async () => {
+    const result = await handleExport();
+    if (!result.success && result.error) {
+      alert(result.error);
+    }
+  }, [handleExport]);
 
-  // Função para abrir modal de observações
-  const abrirModalObservacoes = (agendamento) => {
-    setObservacoesVisualizacao(agendamento?.observacoes || 'Nenhuma observação registrada');
-    setNomeAgendamentoObservacoes(agendamento?.pessoa || 'Agendamento');
+  /**
+   * Abre modal de observações com dados sanitizados
+   */
+  const abrirModalObservacoes = useCallback((agendamento) => {
+    setObservacoesVisualizacao(
+      sanitizeText(agendamento?.observacoes || 'Nenhuma observação registrada')
+    );
+    setNomeAgendamentoObservacoes(
+      sanitizeText(agendamento?.pessoa || 'Agendamento')
+    );
     setModalObservacoesAberto(true);
-  };
+  }, []);
+  
+  /**
+   * Handler de mudança de página memoizado
+   */
+  const handlePageChange = useCallback((newPage) => {
+    setPage(newPage);
+  }, [setPage]);
+  
+  /**
+   * Handler de mudança de linhas por página memoizado
+   */
+  const handleRowsPerPageChange = useCallback((newRowsPerPage) => {
+    setRowsPerPage(newRowsPerPage);
+    setPage(0);
+  }, [setPage, setRowsPerPage]);
 
   return (
     <>
@@ -371,286 +151,75 @@ export default function Agendamentos() {
           padding: { xs: 2, md: 3 }
         }}
       >
-        <Typography 
-          variant="h4" 
-          className="main-page-title"
-          color="primary" 
-          fontWeight="bold" 
-          textAlign="center"
-          mb={0}
-          sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}
-        >
-          Agendamentos
-        </Typography>
+        {/* Cabeçalho */}
+        <AgendamentosHeader />
 
-        <Typography 
-          variant="body2" 
-          color="text.secondary" 
-          textAlign="center" 
-          sx={{ 
-            mb: { xs: 2, md: 1 },
-            px: { xs: 2, md: 0 },
-            fontSize: { xs: '0.8rem', md: '0.875rem' }
-          }}
-        >
-          Para criar novos agendamentos, acesse a página "Agenda" e selecione um horário disponível.
-        </Typography>
-
+        {/* Conteúdo Principal */}
         <Box sx={{ width: '100%' }}>
           {loading ? (
             <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
+              <CircularProgress aria-label="Carregando agendamentos" />
             </Box>
           ) : (
             <>
-              <Box 
-                mb={{ xs: 2, md: 3 }} 
-                display="flex" 
-                gap={{ xs: 1.5, md: 2 }} 
-                flexDirection={{ xs: 'column', sm: 'row' }}
-                justifyContent="flex-start"
-              >
-                <TextField
-                  inputRef={searchInputRef}
-                  label="Buscar agendamento"
-                  variant="outlined"
-                  size="small"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  autoFocus
-                  sx={{ 
-                    width: { xs: '100%', sm: 300 },
-                    '& .MuiInputBase-root': {
-                      minHeight: { xs: 48, md: 40 }
-                    }
-                  }}
-                />
-                <Button
-                  startIcon={<FileDownloadIcon />}
-                  onClick={exportToExcel}
-                  variant="outlined"
-                  sx={{
-                    minHeight: { xs: 48, md: 40 },
-                    width: { xs: '100%', sm: 'auto' }
-                  }}
-                >
-                  Exportar
-                </Button>
-              </Box>
-
-            <TableContainer component={Paper} className="agendamentos-table-container">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell onClick={() => handleSort('entrevistador')} sx={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Entrevistador {orderBy === 'entrevistador' ? <span style={{ fontSize: 14 }}>{order === 'asc' ? '▲' : '▼'}</span> : ''}
-                      </span>
-                    </TableCell>
-                    <TableCell onClick={() => handleSort('cras')} sx={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        CRAS {orderBy === 'cras' ? <span style={{ fontSize: 14 }}>{order === 'asc' ? '▲' : '▼'}</span> : ''}
-                      </span>
-                    </TableCell>
-                    <TableCell onClick={() => handleSort('pessoa')} sx={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Nome {orderBy === 'pessoa' ? <span style={{ fontSize: 14 }}>{order === 'asc' ? '▲' : '▼'}</span> : ''}
-                      </span>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>CPF</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Telefones</TableCell>
-                    <TableCell onClick={() => handleSort('motivo')} sx={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Motivo {orderBy === 'motivo' ? <span style={{ fontSize: 14 }}>{order === 'asc' ? '▲' : '▼'}</span> : ''}
-                      </span>
-                    </TableCell>
-                    <TableCell onClick={() => handleSort('data')} sx={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Data/Hora {orderBy === 'data' ? <span style={{ fontSize: 14 }}>{order === 'asc' ? '▲' : '▼'}</span> : ''}
-                      </span>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                    <TableCell onClick={() => handleSort('createdBy')} sx={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Criado Por {orderBy === 'createdBy' ? <span style={{ fontSize: 14 }}>{order === 'asc' ? '▲' : '▼'}</span> : ''}
-                      </span>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Observações</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Ações</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paginatedAgendamentos.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={11} sx={{ textAlign: 'center', py: 4 }}>
-                        <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-                          <DescriptionIcon color="disabled" sx={{ fontSize: 48 }} />
-                          <Typography variant="body1" color="text.secondary">
-                            {debouncedSearch ? 'Nenhum agendamento encontrado para a busca realizada' : 'Nenhum agendamento cadastrado no sistema'}
-                          </Typography>
-                          {!debouncedSearch && (
-                            <Typography variant="body2" color="text.secondary">
-                              Vá para a página "Agenda" para criar novos agendamentos
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    paginatedAgendamentos.map((agendamento) => (
-                      <TableRow key={agendamento._id}>
-                        <TableCell>{agendamento.entrevistador?.name || '-'}</TableCell>
-                        <TableCell>{agendamento.cras?.nome || '-'}</TableCell>
-                        <TableCell>{agendamento.pessoa}</TableCell>
-                        <TableCell>{formatarCPFExibicao(agendamento.cpf)}</TableCell>
-                        <TableCell>
-                          {agendamento.telefone1 || '-'}
-                          {agendamento.telefone2 && <><br />{agendamento.telefone2}</>}
-                        </TableCell>
-                        <TableCell>{agendamento.motivo || '-'}</TableCell>
-                        <TableCell>
-                          {new Date(agendamento.data).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {STATUS_OPTIONS.find(s => s.value === agendamento.status)?.label || agendamento.status}
-                        </TableCell>
-                        <TableCell>{agendamento.createdBy?.name || '-'}</TableCell>
-                        <TableCell>
-                          <IconButton
-                            color="primary"
-                            size="small"
-                            onClick={() => abrirModalObservacoes(agendamento)}
-                            title="Ver observações"
-                          >
-                            <DescriptionIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            onClick={() => handleDelete(agendamento._id)}
-                            color="error"
-                            size="small"
-                            title="Excluir agendamento"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <Box display="flex" justifyContent="center" mt={2} className="pagination-container">
-              <TablePagination
-                component="div"
-                count={total}
-                page={page}
-                onPageChange={(event, newPage) => setPage(newPage)}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={event => {
-                  setRowsPerPage(parseInt(event.target.value, 10));
-                  setPage(0);
-                }}
-                rowsPerPageOptions={[10, 20, 50, 100]}
-                labelRowsPerPage="Agendamentos por página"
+              {/* Filtros e Exportação */}
+              <AgendamentosFilters
+                search={search}
+                onSearchChange={setSearch}
+                onExport={handleExportClick}
+                searchInputRef={searchInputRef}
+                disabled={loading}
               />
-            </Box>
-          </>
-        )}
 
-        <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-          <DialogTitle>Confirmar exclusão</DialogTitle>
-          <DialogContent>
-            Tem certeza que deseja excluir este agendamento?
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmDelete} color="error">
-              Excluir
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Dialog
-          open={modalObservacoesAberto}
-          onClose={() => setModalObservacoesAberto(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle sx={{ pb: 1 }}>
-            📝 Observações do Agendamento
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="subtitle1" color="primary" gutterBottom>
-                👤 {nomeAgendamentoObservacoes}
-              </Typography>
-              <Paper 
-                variant="outlined" 
-                sx={{ 
-                  p: 2, 
-                  mt: 2, 
-                  backgroundColor: '#f8f9fa',
-                  border: '1px solid #e9ecef',
-                  borderRadius: 2
-                }}
-              >
-                <Typography 
-                  variant="body1" 
-                  style={{ 
-                    whiteSpace: 'pre-wrap', 
-                    lineHeight: 1.6,
-                    color: '#495057',
-                    fontSize: '1rem'
-                  }}
-                >
-                  {observacoesVisualizacao}
-                </Typography>
-              </Paper>
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button 
-              onClick={() => setModalObservacoesAberto(false)} 
-              variant="contained"
-              size="large"
-            >
-              Fechar
-            </Button>
-          </DialogActions>
-        </Dialog>
+              {/* Tabela de Dados */}
+              <AgendamentosTable
+                agendamentos={paginatedAgendamentos}
+                loading={loading}
+                search={search}
+                rowsPerPage={rowsPerPage}
+                orderBy={orderBy}
+                order={order}
+                onSort={handleSort}
+                canDeleteFn={canDeleteAgendamento}
+                onDelete={handleDelete}
+                onViewObservacoes={abrirModalObservacoes}
+                deleting={deleting}
+                user={user}
+              />
+              
+              {/* Paginação */}
+              <AgendamentosPagination
+                total={total}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                onPageChange={handlePageChange}
+                onRowsPerPageChange={handleRowsPerPageChange}
+              />
+            </>
+          )}
         </Box>
 
-        <Snackbar
-          open={!!error || !!success}
-          autoHideDuration={6000}
-          onClose={(event, reason) => {
-            if (reason === 'clickaway') return; // Não fecha ao clicar fora
-            setError('');
-            setSuccess('');
-          }}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          sx={{ mb: 2, mr: 2 }}
-        >
-          <Alert
-            severity={error ? "error" : "success"}
-            variant="standard"
-            onClose={() => {
-              setError('');
-              setSuccess('');
-            }}
-            sx={{
-              bgcolor: '#fff',
-              color: error ? 'error.main' : 'primary.main',
-              border: error ? '1px solid' : '1px solid',
-              borderColor: error ? 'error.main' : 'primary.main',
-              '& .MuiAlert-icon': { color: error ? 'error.main' : 'primary.main' }
-            }}
-          >
-            {error || success}
-          </Alert>
-        </Snackbar>
+        {/* Modais */}
+        <ModalConfirmacao
+          open={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          onConfirm={confirmDelete}
+          loading={deleting}
+        />
+
+        <ModalObservacoes
+          open={modalObservacoesAberto}
+          onClose={() => setModalObservacoesAberto(false)}
+          observacoes={observacoesVisualizacao}
+          nomePessoa={nomeAgendamentoObservacoes}
+        />
+
+        {/* Notificações */}
+        <AgendamentosNotifications
+          error={error}
+          success={success}
+          onClose={clearMessages}
+        />
       </Box>
     </>
   );

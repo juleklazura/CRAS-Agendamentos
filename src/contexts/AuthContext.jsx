@@ -8,6 +8,7 @@
 import { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import logger from '../utils/logger';
 
 export const AuthContext = createContext();
 
@@ -28,13 +29,8 @@ export function AuthProvider({ children }) {
       if (error.isSilent401) {
         // Erro esperado - não logar nada
       } else if (error.response?.status !== 401) {
-        // Logar apenas em desenvolvimento e sem dados sensíveis
-        if (import.meta.env.MODE === 'development') {
-          console.error('Erro ao buscar usuário:', {
-            status: error.response?.status,
-            message: error.message
-          });
-        }
+        // ⚠️ Erro sanitizado - não expor dados sensíveis
+        logger.error('Erro ao buscar usuário', error);
       }
       setUser(null);
     } finally {
@@ -67,13 +63,8 @@ export function AuthProvider({ children }) {
       
       return { success: true, user: response.data.user };
     } catch (error) {
-      // 🔒 SEGURANÇA: Não logar dados completos de erro (podem conter info sensível)
-      if (import.meta.env.MODE === 'development') {
-        console.error('Erro no login:', {
-          status: error.response?.status,
-          message: error.response?.data?.message || error.message
-        });
-      }
+      // ⚠️ Erro sanitizado - não expor dados sensíveis
+      logger.error('Erro no login', error);
       return { 
         success: false, 
         message: error.response?.data?.message || 'Erro ao fazer login' 
@@ -86,17 +77,10 @@ export function AuthProvider({ children }) {
     try {
       await api.post('/auth/logout');
     } catch (error) {
-      // 🔒 SEGURANÇA: Não logar erros de logout (podem conter info de sessão)
-      // Silenciar erros 401 esperados e outros erros
-      if (import.meta.env.MODE === 'development' && !error.isSilent401) {
-        console.error('Erro no logout:', {
-          status: error.response?.status,
-          message: error.message
-        });
-      }
+      // ⚠️ Silenciar erros de logout (erro esperado)
+      logger.error('Erro no logout', error);
     } finally {
       setUser(null);
-      localStorage.clear(); // Limpar qualquer dado residual
       navigate('/login');
     }
   }, [navigate]);

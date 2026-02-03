@@ -92,18 +92,18 @@ const sanitizeCacheKey = (key) => {
  * Cache principal com configuração otimizada
  * 
  * Opções:
- * - stdTTL: Tempo de vida padrão (5 minutos = 300 segundos)
- * - checkperiod: Intervalo de limpeza de cache expirado (60 segundos)
+ * - stdTTL: Tempo de vida padrão (2 minutos = 120 segundos) 🚀
+ * - checkperiod: Intervalo de limpeza de cache expirado (30 segundos) 🚀
  * - useClones: false para melhor performance (não clona objetos)
  * - deleteOnExpire: true (remove automaticamente quando expira)
- * - maxKeys: 1000 (limite de chaves para evitar memory leak)
+ * - maxKeys: 2000 (aumentado para suportar mais dados) 🚀
  */
 const cache = new NodeCache({
-  stdTTL: 300,              // 5 minutos padrão
-  checkperiod: 60,          // Limpar cache expirado a cada 1min
+  stdTTL: 120,              // 🚀 2 minutos (mais agressivo)
+  checkperiod: 30,          // 🚀 Limpar a cada 30s
   useClones: false,         // Performance (não clona - cuidado com mutações!)
   deleteOnExpire: true,     // Remove automaticamente
-  maxKeys: 1000,            // Limite de 1000 chaves
+  maxKeys: 2000,            // 🚀 Aumentado para 2000 chaves
   errorOnMissing: false     // Não lança erro se chave não existe
 });
 

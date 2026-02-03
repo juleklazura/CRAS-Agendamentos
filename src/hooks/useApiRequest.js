@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import { useApp } from './useApp';
-import logger from '../utils/performanceUtils';
+import logger from '../utils/logger';
 
 export default function useApiRequest() {
   const [loading, setLoading] = useState(false);
