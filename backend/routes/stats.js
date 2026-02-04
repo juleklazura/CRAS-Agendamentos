@@ -9,10 +9,9 @@ import { auth, authorize } from '../middlewares/auth.js';
 const router = express.Router();
 
 // Endpoint de estatísticas do dashboard
-// Apenas entrevistadores e admin podem acessar
+// Todos os usuários autenticados podem acessar
 router.get('/dashboard',
   auth,
-  authorize(['entrevistador', 'admin']),
   getDashboardStats
 );
 

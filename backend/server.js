@@ -125,9 +125,10 @@ const mongooseOptions = {
 
 mongoose.connect(mongoUri, mongooseOptions)
 .then(() => {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     logger.success(`Servidor rodando na porta ${PORT}`);
     logger.info('MongoDB conectado com sucesso');
+    logger.info(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
   });
 })
 .catch((err) => {
