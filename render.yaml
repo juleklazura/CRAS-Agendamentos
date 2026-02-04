@@ -1,5 +1,6 @@
 # Render Blueprint - Backend API
 # Deploy automático via GitHub
+# Última atualização: 2026-02-04 - Corrigir rootDir
 
 services:
   - type: web
