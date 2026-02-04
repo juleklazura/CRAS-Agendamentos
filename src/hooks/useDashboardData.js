@@ -63,11 +63,18 @@ export const useDashboardData = ({
       setStats(response.data.stats || { realizados: 0, ausentes: 0, agendados: 0, total: 0 });
       
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Erro ao buscar dados do gráfico:', error);
+      // Fallback: se endpoint não existir (404), retornar dados vazios
+      if (error.response?.status === 404) {
+        console.warn('Endpoint /stats/dashboard não encontrado. Aguardando deploy do backend.');
+        setChartData([]);
+        setStats({ realizados: 0, ausentes: 0, agendados: 0, total: 0 });
+      } else {
+        if (import.meta.env.DEV) {
+          console.error('Erro ao buscar dados do gráfico:', error);
+        }
+        setChartData([]);
+        setStats({ realizados: 0, ausentes: 0, agendados: 0, total: 0 });
       }
-      setChartData([]);
-      setStats({ realizados: 0, ausentes: 0, agendados: 0, total: 0 });
     } finally {
       setLoading(false);
     }
