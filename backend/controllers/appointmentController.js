@@ -137,6 +137,7 @@ export const getAppointments = async (req, res) => {
       crasId: req.query.cras || req.user.cras?.toString(),
       entrevistadorId: req.query.entrevistador || (req.user.role === 'entrevistador' ? req.user.id : null),
       status: req.query.status,
+      data: req.query.data, // Data específica do dia selecionado
       search: req.query.search,
       page: req.query.page,
       pageSize: req.query.pageSize,
@@ -191,6 +192,36 @@ export const getAppointments = async (req, res) => {
         // Admin pode filtrar por entrevistador específico
         if (req.query.entrevistador) {
           filter.entrevistador = req.query.entrevistador;
+        }
+      }
+
+      // Filtro por data específica (dia completo)
+      // Se fornecido, retorna apenas agendamentos do dia selecionado
+      if (req.query.data) {
+        try {
+          // Parsing da data no formato YYYY-MM-DD
+          // Adiciona horário para garantir interpretação correta no timezone local
+          const [ano, mes, dia] = req.query.data.split('-').map(Number);
+          
+          // Criar intervalo do dia no timezone local (00:00:00 até 23:59:59)
+          const inicioDia = new Date(ano, mes - 1, dia, 0, 0, 0, 0);
+          const fimDia = new Date(ano, mes - 1, dia, 23, 59, 59, 999);
+          
+          filter.data = {
+            $gte: inicioDia,
+            $lte: fimDia
+          };
+          
+          if (process.env.NODE_ENV === 'development') {
+            logger.debug('Filtro de data aplicado:', {
+              dataRecebida: req.query.data,
+              inicioDia: inicioDia.toISOString(),
+              fimDia: fimDia.toISOString()
+            });
+          }
+        } catch (err) {
+          logger.warn('Data inválida fornecida no filtro:', req.query.data);
+          // Ignora filtro de data se inválido
         }
       }
 

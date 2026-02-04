@@ -402,12 +402,13 @@ export const ttl = (key) => {
  * @param {Object} params - Parâmetros da query
  * @returns {string} Chave única
  */
-export const generateAppointmentKey = ({ crasId, startDate, endDate, entrevistadorId, status }) => {
+export const generateAppointmentKey = ({ crasId, startDate, endDate, entrevistadorId, status, data }) => {
   const parts = ['appointments'];
   
   if (crasId) parts.push(`cras:${crasId}`);
   if (entrevistadorId) parts.push(`entrevistador:${entrevistadorId}`);
   if (status) parts.push(`status:${status}`);
+  if (data) parts.push(`data:${data}`); // Data específica do dia
   if (startDate) parts.push(`start:${startDate}`);
   if (endDate) parts.push(`end:${endDate}`);
   

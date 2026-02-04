@@ -53,7 +53,9 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
   const buscarAgendamentos = useCallback(async () => {
     if (!entrevistadorSelecionado) return;
     try {
-      const resposta = await api.get(`/appointments?entrevistador=${entrevistadorSelecionado}`);
+      // Formatar data para ISO string (YYYY-MM-DD)
+      const dataFormatada = dataSelecionada.toISOString().split('T')[0];
+      const resposta = await api.get(`/appointments?entrevistador=${entrevistadorSelecionado}&data=${dataFormatada}`);
       let data = resposta.data;
       if (data && typeof data === 'object' && Array.isArray(data.results)) {
         data = data.results;
@@ -63,7 +65,7 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
       console.error('Erro ao buscar agendamentos:', erro);
       mostrarMensagem('Erro ao carregar agendamentos', 'error');
     }
-  }, [entrevistadorSelecionado, mostrarMensagem]);
+  }, [entrevistadorSelecionado, dataSelecionada, mostrarMensagem]);
 
   // Criar agendamento
   const criarAgendamento = async (dadosAgendamento, horarioParaAgendamento) => {
@@ -216,7 +218,13 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
         return false;
       }
       const dataAgendamento = new Date(agendamento.data);
-      return Math.abs(dataAgendamento.getTime() - dataHorario.getTime()) < 60000;
+      return (
+        dataAgendamento.getFullYear() === dataHorario.getFullYear() &&
+        dataAgendamento.getMonth() === dataHorario.getMonth() &&
+        dataAgendamento.getDate() === dataHorario.getDate() &&
+        dataAgendamento.getHours() === dataHorario.getHours() &&
+        dataAgendamento.getMinutes() === dataHorario.getMinutes()
+      );
     });
   };
 
@@ -226,7 +234,13 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
     if (!dataHorario) return false;
     return bloqueios.some(b => {
       const dataBloqueio = new Date(b.data);
-      return dataBloqueio.getTime() === dataHorario.getTime();
+      return (
+        dataBloqueio.getFullYear() === dataHorario.getFullYear() &&
+        dataBloqueio.getMonth() === dataHorario.getMonth() &&
+        dataBloqueio.getDate() === dataHorario.getDate() &&
+        dataBloqueio.getHours() === dataHorario.getHours() &&
+        dataBloqueio.getMinutes() === dataHorario.getMinutes()
+      );
     });
   };
 

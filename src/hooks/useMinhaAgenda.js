@@ -114,14 +114,16 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
     if (!usuarioId) return;
     
     try {
-      const { data } = await api.get(`/appointments?entrevistador=${usuarioId}`);
+      // Formatar data para ISO string (YYYY-MM-DD)
+      const dataFormatada = dataSelecionada.toISOString().split('T')[0];
+      const { data } = await api.get(`/appointments?entrevistador=${usuarioId}&data=${dataFormatada}`);
       const agendamentos = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
       setAgendamentos(agendamentos);
     } catch (erro) {
       console.error('Erro ao buscar agendamentos:', erro);
       mostrarMensagem('Não foi possível carregar seus agendamentos. Tente novamente.', 'error');
     }
-  }, [usuarioId, mostrarMensagem]);
+  }, [usuarioId, dataSelecionada, mostrarMensagem]);
 
   const buscarBloqueios = useCallback(async () => {
     try {
@@ -145,7 +147,13 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
     
     return bloqueios.some(bloqueio => {
       const dataBloqueio = new Date(bloqueio.data);
-      return dataBloqueio.getTime() === dataHorario.getTime();
+      return (
+        dataBloqueio.getFullYear() === dataHorario.getFullYear() &&
+        dataBloqueio.getMonth() === dataHorario.getMonth() &&
+        dataBloqueio.getDate() === dataHorario.getDate() &&
+        dataBloqueio.getHours() === dataHorario.getHours() &&
+        dataBloqueio.getMinutes() === dataHorario.getMinutes()
+      );
     });
   }, [bloqueios]);
 
@@ -155,7 +163,13 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
     
     return bloqueios.find(bloqueio => {
       const dataBloqueio = new Date(bloqueio.data);
-      return dataBloqueio.getTime() === dataHorario.getTime();
+      return (
+        dataBloqueio.getFullYear() === dataHorario.getFullYear() &&
+        dataBloqueio.getMonth() === dataHorario.getMonth() &&
+        dataBloqueio.getDate() === dataHorario.getDate() &&
+        dataBloqueio.getHours() === dataHorario.getHours() &&
+        dataBloqueio.getMinutes() === dataHorario.getMinutes()
+      );
     });
   }, [bloqueios]);
 

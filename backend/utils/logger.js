@@ -100,6 +100,33 @@ const logger = {
     } else {
       logger.info(message, meta);
     }
+  },
+
+  // Sanitiza dados sensíveis antes de logar (remove senhas, tokens, etc)
+  sanitize: (data) => {
+    if (!data || typeof data !== 'object') return data;
+    
+    const sensitiveFields = ['password', 'senha', 'token', 'cpf', 'telefone1', 'telefone2', 'authorization'];
+    const sanitized = { ...data };
+    
+    // Se for um objeto com request dentro
+    if (sanitized.request && typeof sanitized.request === 'object') {
+      sanitized.request = { ...sanitized.request };
+      for (const field of sensitiveFields) {
+        if (sanitized.request[field]) {
+          sanitized.request[field] = '[REDACTED]';
+        }
+      }
+    }
+    
+    // Sanitiza campos no nível raiz também
+    for (const field of sensitiveFields) {
+      if (sanitized[field]) {
+        sanitized[field] = '[REDACTED]';
+      }
+    }
+    
+    return sanitized;
   }
 };
 
