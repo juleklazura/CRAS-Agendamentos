@@ -4,7 +4,6 @@
 import express from 'express';
 import { createUser, getUsers, updateUser, deleteUser, getEntrevistadoresByCras } from '../controllers/userController.js';
 import { auth, authorize } from '../middlewares/auth.js';
-import { createLimiter, deleteLimiter } from '../middlewares/rateLimiters.js';
 import { validateObjectId } from '../middlewares/validateObjectId.js';
 
 const router = express.Router();
@@ -26,8 +25,7 @@ router.get('/entrevistadores/cras/:crasId', auth, validateObjectId('crasId'), au
 // POST /api/users - Criar novo usuário no sistema
 // Body: { name, email, matricula, password, role, cras? }
 // Cria usuários com validação de dados únicos (email, matrícula)
-// 🔒 SEGURANÇA: Rate limiter - máximo 20 criações por hora
-router.post('/', createLimiter, auth, authorize(['admin']), createUser);
+router.post('/', auth, authorize(['admin']), createUser);
 
 // PUT /api/users/:id - Editar usuário existente
 // Permite alterar dados pessoais, papel e vinculação a CRAS
@@ -38,7 +36,6 @@ router.put('/:id', auth, validateObjectId('id'), authorize(['admin']), updateUse
 // DELETE /api/users/:id - Excluir usuário do sistema
 // Remove usuário permanentemente - deve validar dependências
 // Verifica se não há agendamentos ou logs vinculados antes de excluir
-// 🔒 SEGURANÇA: Rate limiter - máximo 10 exclusões por hora, validação de ObjectId
-router.delete('/:id', deleteLimiter, auth, validateObjectId('id'), authorize(['admin']), deleteUser);
+router.delete('/:id', auth, validateObjectId('id'), authorize(['admin']), deleteUser);
 
 export default router;

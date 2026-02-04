@@ -3,7 +3,6 @@
 // Sistema utiliza JWT para autenticação stateless
 import express from 'express';
 import * as authController from '../controllers/authController.js';
-import { loginLimiter } from '../middlewares/rateLimiters.js';
 import { auth } from '../middlewares/auth.js';
 
 const router = express.Router();
@@ -12,8 +11,7 @@ const router = express.Router();
 // Recebe matrícula e senha, retorna token JWT se credenciais válidas
 // Body: { matricula: string, password: string }
 // Response: { user: { id, name, role, cras } } + httpOnly cookie com token
-// 🔒 SEGURANÇA: Rate limiter aplicado - máximo 5 tentativas a cada 15 minutos
-router.post('/login', loginLimiter, authController.login);
+router.post('/login', authController.login);
 
 // GET /api/auth/me - Retorna dados do usuário autenticado
 // 🔒 Requer autenticação via cookie httpOnly

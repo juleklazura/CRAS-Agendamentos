@@ -4,7 +4,6 @@
 import express from 'express';
 import { createBlockedSlot, getBlockedSlots, deleteBlockedSlot } from '../controllers/blockedSlotController.js';
 import { auth, authorize } from '../middlewares/auth.js';
-import { createLimiter, deleteLimiter } from '../middlewares/rateLimiters.js';
 import { validateObjectId, validateQueryObjectIds } from '../middlewares/validateObjectId.js';
 
 const router = express.Router();
@@ -12,8 +11,7 @@ const router = express.Router();
 // POST /api/blocked-slots - Criar novo bloqueio de horário
 // APENAS entrevistadores podem bloquear seus próprios horários
 // Body: { data, motivo, observacoes? }
-// 🔒 SEGURANÇA: Rate limiter - máximo 20 criações por hora
-router.post('/', createLimiter, auth, authorize(['entrevistador', 'admin']), createBlockedSlot);
+router.post('/', auth, authorize(['entrevistador', 'admin']), createBlockedSlot);
 
 // GET /api/blocked-slots - Listar bloqueios conforme permissões do usuário
 // Admin vê todos, entrevistador vê apenas os seus, recepção vê os do CRAS (somente leitura)
@@ -24,7 +22,6 @@ router.get('/', auth, validateQueryObjectIds(['entrevistador', 'cras']), authori
 // DELETE /api/blocked-slots/:id - Remover bloqueio de horário
 // APENAS entrevistadores podem desbloquear seus próprios horários
 // Admin também pode remover qualquer bloqueio
-// 🔒 SEGURANÇA: Rate limiter - máximo 10 exclusões por hora, validação de ObjectId
-router.delete('/:id', deleteLimiter, auth, validateObjectId('id'), authorize(['entrevistador', 'admin']), deleteBlockedSlot);
+router.delete('/:id', auth, validateObjectId('id'), authorize(['entrevistador', 'admin']), deleteBlockedSlot);
 
 export default router;

@@ -1,176 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import api from '../services/api';
-import { startOfMonth, endOfMonth, startOfYear, endOfYear, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
-/**
- * Limite máximo de registros para prevenir DoS no frontend
- */
-const MAX_APPOINTMENTS_LIMIT = 5000;
-
-/**
- * Valida se um appointment tem estrutura válida
- * @param {object} apt - Objeto de agendamento
- * @returns {boolean} Se é válido
- */
-const isValidAppointment = (apt) => {
-  if (!apt || typeof apt !== 'object') return false;
-  if (!apt.data || typeof apt.data !== 'string') return false;
-  if (!apt.status || typeof apt.status !== 'string') return false;
-  const validStatuses = ['realizado', 'ausente', 'agendado', 'cancelado'];
-  return validStatuses.includes(apt.status);
-};
-
-/**
- * Normaliza a resposta da API para sempre retornar um array
- * @param {object} response - Resposta da API
- * @returns {Array} Array de appointments
- */
-const normalizeAppointments = (response) => {
-  if (Array.isArray(response.data)) return response.data;
-  if (response.data?.appointments) return response.data.appointments;
-  if (response.data?.results) return response.data.results;
-  
-  const keys = Object.keys(response.data || {});
-  for (const key of keys) {
-    if (Array.isArray(response.data[key])) return response.data[key];
-  }
-  return [];
-};
-
-/**
- * Filtra appointments por período
- * @param {Array} appointments - Array de appointments
- * @param {string} viewMode - Modo de visualização ('mensal' ou 'anual')
- * @param {number} selectedMonth - Mês selecionado
- * @param {number} selectedYear - Ano selecionado
- * @returns {Array} Appointments filtrados
- */
-const filterByPeriod = (appointments, viewMode, selectedMonth, selectedYear) => {
-  if (viewMode === 'mensal') {
-    const date = new Date(selectedYear, selectedMonth, 1);
-    const startDate = startOfMonth(date);
-    const endDate = endOfMonth(date);
-    
-    return appointments.filter(apt => {
-      const aptDate = new Date(apt.data);
-      return aptDate >= startDate && aptDate <= endDate;
-    });
-  }
-  
-  const startDate = startOfYear(new Date(selectedYear, 0, 1));
-  const endDate = endOfYear(new Date(selectedYear, 11, 31));
-  
-  return appointments.filter(apt => {
-    const aptDate = new Date(apt.data);
-    return aptDate >= startDate && aptDate <= endDate;
-  });
-};
-
-/**
- * Agrupa appointments por semana
- * @param {Array} appointments - Array de appointments
- * @returns {Array} Dados agrupados por semana
- */
-const groupByWeek = (appointments) => {
-  const weekData = {};
-  
-  appointments.forEach(apt => {
-    const date = new Date(apt.data);
-    const weekNum = Math.ceil(date.getDate() / 7);
-    const weekLabel = `Semana ${weekNum}`;
-    
-    if (!weekData[weekLabel]) {
-      weekData[weekLabel] = { name: weekLabel, realizados: 0, ausentes: 0, agendados: 0 };
-    }
-    
-    if (apt.status === 'realizado') {
-      weekData[weekLabel].realizados++;
-    } else if (apt.status === 'ausente') {
-      weekData[weekLabel].ausentes++;
-    } else if (apt.status === 'agendado') {
-      const aptDate = new Date(apt.data);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      aptDate.setHours(0, 0, 0, 0);
-      if (aptDate >= today) {
-        weekData[weekLabel].agendados++;
-      }
-    }
-  });
-  
-  return Object.values(weekData);
-};
-
-/**
- * Agrupa appointments por mês
- * @param {Array} appointments - Array de appointments
- * @param {number} selectedYear - Ano selecionado
- * @returns {Array} Dados agrupados por mês
- */
-const groupByMonth = (appointments, selectedYear) => {
-  const monthData = {};
-  const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  
-  // Inicializar todos os meses
-  monthNames.forEach((month, index) => {
-    monthData[month] = { 
-      name: format(new Date(selectedYear, index, 1), 'MMM', { locale: ptBR }), 
-      realizados: 0, 
-      ausentes: 0, 
-      agendados: 0 
-    };
-  });
-  
-  // Preencher com dados reais
-  appointments.forEach(apt => {
-    const date = new Date(apt.data);
-    const monthIndex = date.getMonth();
-    const monthKey = monthNames[monthIndex];
-    
-    if (apt.status === 'realizado') {
-      monthData[monthKey].realizados++;
-    } else if (apt.status === 'ausente') {
-      monthData[monthKey].ausentes++;
-    } else if (apt.status === 'agendado') {
-      const aptDate = new Date(apt.data);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      aptDate.setHours(0, 0, 0, 0);
-      if (aptDate >= today) {
-        monthData[monthKey].agendados++;
-      }
-    }
-  });
-  
-  return Object.values(monthData);
-};
-
-/**
- * Calcula estatísticas totais
- * @param {Array} appointments - Array de appointments
- * @returns {object} Estatísticas { realizados, ausentes, agendados, total }
- */
-const calculateStats = (appointments) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const realizados = appointments.filter(a => a.status === 'realizado').length;
-  const ausentes = appointments.filter(a => a.status === 'ausente').length;
-  const agendados = appointments.filter(a => {
-    if (a.status !== 'agendado') return false;
-    const aptDate = new Date(a.data);
-    aptDate.setHours(0, 0, 0, 0);
-    return aptDate >= today;
-  }).length;
-  
-  return { 
-    realizados, 
-    ausentes, 
-    agendados, 
-    total: realizados + ausentes + agendados 
-  };
-};
 
 /**
  * Hook customizado para gerenciar dados do dashboard
@@ -208,7 +37,12 @@ export const useDashboardData = ({
     
     setLoading(true);
     try {
-      const params = { limit: MAX_APPOINTMENTS_LIMIT };
+      // 🚀 OTIMIZAÇÃO: Usar endpoint de estatísticas agregadas
+      const params = { 
+        viewMode,
+        month: selectedMonth,
+        year: selectedYear
+      };
       
       if (isEntrevistador) {
         params.entrevistador = user.id;
@@ -222,21 +56,11 @@ export const useDashboardData = ({
         }
       }
       
-      const response = await api.get('/appointments', { params });
-      let appointments = normalizeAppointments(response);
+      // Requisição única com dados agregados do backend
+      const response = await api.get('/stats/dashboard', { params });
       
-      appointments = appointments
-        .filter(isValidAppointment)
-        .slice(0, MAX_APPOINTMENTS_LIMIT);
-      
-      appointments = filterByPeriod(appointments, viewMode, selectedMonth, selectedYear);
-      
-      const grouped = viewMode === 'mensal' 
-        ? groupByWeek(appointments)
-        : groupByMonth(appointments, selectedYear);
-      
-      setChartData(grouped);
-      setStats(calculateStats(appointments));
+      setChartData(response.data.chartData || []);
+      setStats(response.data.stats || { realizados: 0, ausentes: 0, agendados: 0, total: 0 });
       
     } catch (error) {
       if (import.meta.env.DEV) {

@@ -109,6 +109,11 @@ export function useAgendamentos(user) {
       
       if (!isMountedRef.current) return;
       
+      // Não mostrar erro se for 401 (não autenticado) - é esperado
+      if (err.response?.status !== 401) {
+        setError('Erro ao carregar agendamentos');
+      }
+      
       setAgendamentos([]);
       setTotal(0);
     } finally {

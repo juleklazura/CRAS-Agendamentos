@@ -228,8 +228,19 @@ export const getAppointments = async (req, res) => {
       }
 
       // 🚀 OTIMIZAÇÃO: Paginação no servidor
-      const page = parseInt(req.query.page) || 0;
-      const pageSize = Math.min(parseInt(req.query.pageSize) || 20, 100); // Máximo 100 por página
+      // Valores permitidos: 10, 20, 50, 100 (frontend)
+      const page = Math.max(0, parseInt(req.query.page) || 0); // Garantir página >= 0
+      let pageSize = parseInt(req.query.pageSize) || 50; // Padrão: 50
+      
+      // Validar e limitar pageSize aos valores permitidos
+      const allowedPageSizes = [10, 20, 50, 100];
+      if (!allowedPageSizes.includes(pageSize)) {
+        // Se valor inválido, usar o mais próximo
+        pageSize = allowedPageSizes.reduce((prev, curr) => 
+          Math.abs(curr - pageSize) < Math.abs(prev - pageSize) ? curr : prev
+        );
+      }
+      
       const skip = page * pageSize;
 
       // Calcula total de registros para paginação (antes de aplicar limit/skip)
@@ -275,12 +286,25 @@ export const getAppointments = async (req, res) => {
         total,
         page,
         pageSize,
-        totalPages: Math.ceil(total / pageSize)
+        totalPages: Math.ceil(total / pageSize),
+        hasNextPage: (page + 1) * pageSize < total,
+        hasPrevPage: page > 0
       };
     };
     
     // Executar query diretamente (cache desabilitado temporariamente para garantir dados frescos)
     const data = await fetchAppointments();
+    
+    // Log de paginação em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('Paginação de agendamentos:', {
+        total: data.total,
+        page: data.page,
+        pageSize: data.pageSize,
+        totalPages: data.totalPages,
+        returned: data.results.length
+      });
+    }
     
     res.json(data);
   } catch (error) {

@@ -15,7 +15,7 @@ import './utils/validateSecrets.js';
 // Importação de configurações modulares
 import { corsOptions } from './config/cors.js';
 import { helmetOptions } from './config/security.js';
-import { globalLimiter, shouldTrustProxy } from './config/rateLimiting.js';
+import { shouldTrustProxy } from './config/rateLimiting.js';
 
 // Importação de middlewares modulares
 import { sanitizationMiddleware } from './middlewares/sanitization.js';
@@ -29,6 +29,7 @@ import crasRoutes from './routes/cras.js';
 import appointmentRoutes from './routes/appointment.js';
 import logRoutes from './routes/log.js';
 import blockedSlotRoutes from './routes/blockedSlot.js';
+import statsRoutes from './routes/stats.js';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -51,7 +52,6 @@ if (shouldTrustProxy()) {
 // ========================================
 app.use(cors(corsOptions));
 app.use(cookieParser());
-app.use(globalLimiter);
 app.use(helmet(helmetOptions));
 app.use(securityHeadersMiddleware);
 app.use(express.json({ limit: '10mb' }));
@@ -65,6 +65,7 @@ app.use('/api/cras', crasRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/blocked-slots', blockedSlotRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {

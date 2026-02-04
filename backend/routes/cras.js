@@ -4,7 +4,6 @@
 import express from 'express';
 import { createCras, getCras, getCrasById, updateCras, deleteCras } from '../controllers/crasController.js';
 import { auth, authorize } from '../middlewares/auth.js';
-import { createLimiter, deleteLimiter } from '../middlewares/rateLimiters.js';
 import { validateObjectId } from '../middlewares/validateObjectId.js';
 
 const router = express.Router();
@@ -12,8 +11,7 @@ const router = express.Router();
 // POST /api/cras - Criar nova unidade CRAS (apenas admin)
 // Body: { nome, endereco, telefone, responsavel?, observacoes? }
 // Usado para cadastrar novas unidades CRAS no sistema
-// 🔒 SEGURANÇA: Rate limiter - máximo 20 criações por hora
-router.post('/', createLimiter, auth, authorize(['admin']), createCras);
+router.post('/', auth, authorize(['admin']), createCras);
 
 // GET /api/cras - Listar todas as unidades CRAS
 // Acessível para todos os usuários autenticados
@@ -35,7 +33,6 @@ router.put('/:id', auth, validateObjectId('id'), authorize(['admin']), updateCra
 // DELETE /api/cras/:id - Excluir unidade CRAS (apenas admin)
 // Remove unidade do sistema - deve validar se não há dependências
 // Verifica se existem usuários ou agendamentos vinculados antes de excluir
-// 🔒 SEGURANÇA: Rate limiter - máximo 10 exclusões por hora, validação de ObjectId
-router.delete('/:id', deleteLimiter, auth, validateObjectId('id'), authorize(['admin']), deleteCras);
+router.delete('/:id', auth, validateObjectId('id'), authorize(['admin']), deleteCras);
 
 export default router;

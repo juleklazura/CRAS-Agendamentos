@@ -49,14 +49,22 @@ api.interceptors.response.use(
   (error) => {
     // 🔒 SEGURANÇA: Tratamento seguro de erros sem expor detalhes sensíveis
     
-    // Detectar erro de CORS (sem response)
-    if (!error.response && error.message?.includes('Network Error')) {
-      if (import.meta.env.MODE === 'development') {
-        console.error('Erro de rede (possível CORS):', {
-          message: 'Falha na conexão com o servidor',
-          url: error.config?.url
-        });
+    // Detectar erro de CORS ou rede (sem response)
+    if (!error.response) {
+      // Verificar se é página de login ou endpoint de auth - não logar esses erros
+      const isLoginPage = window.location.pathname === '/login';
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.includes('/auth/');
+      
+      if (!isLoginPage && !isAuthEndpoint && error.message?.includes('Network Error')) {
+        if (import.meta.env.MODE === 'development') {
+          console.error('Erro de rede:', {
+            message: 'Falha na conexão com o servidor',
+            url: error.config?.url
+          });
+        }
       }
+      
       // Criar erro amigável sem expor detalhes internos
       error.message = 'Erro de conexão com o servidor';
       return Promise.reject(error);
@@ -96,12 +104,16 @@ api.interceptors.response.use(
     }
     
     // 🔒 SEGURANÇA: Logar erros apenas em desenvolvimento e sem dados sensíveis
-    if (import.meta.env.MODE === 'development' && error.response?.status !== 401) {
+    // Não logar 401 (esperado quando não autenticado) nem erros silenciados
+    if (import.meta.env.MODE === 'development' && 
+        error.response?.status !== 401 && 
+        !error.isSilent401) {
       console.error('Erro na resposta da API:', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         url: error.config?.url,
-        method: error.config?.method
+        method: error.config?.method,
+        data: error.response?.data
       });
     }
     

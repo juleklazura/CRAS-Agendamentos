@@ -68,8 +68,7 @@
 // Componente de rota protegida com validação rigorosa de permissões
 // Controla acesso baseado em autenticação e roles (perfis) de usuário
 import { Navigate, useLocation } from 'react-router-dom';
-import { useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { Box, CircularProgress, Typography, Button, Paper } from '@mui/material';
 import { Lock as LockIcon, Home as HomeIcon } from '@mui/icons-material';
 
@@ -82,7 +81,7 @@ const ROLE_NAMES = {
 
 // Componente principal de proteção de rotas
 const ProtectedRoute = ({ children, allowedRoles = null, requireAuth = true }) => {
-  const { user, loading, isAuthenticated } = useContext(AuthContext);
+  const { user, loading, isAuthenticated } = useAuth();
   const location = useLocation();
 
   // Mostrar loading enquanto verifica autenticação
