@@ -5,10 +5,6 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://cras-agendamentos.onrender.com/api/:path*"
-    },
-    {
       "source": "/((?!api).*)",
       "destination": "/index.html"
     }

@@ -181,7 +181,11 @@ FRONTEND_URL=http://localhost:5173
 
 Frontend (.env.local opcional):
 -------------------------------
-VITE_API_URL=http://localhost:5000
+VITE_API_BASE_URL=http://localhost:5000/api
+
+Produção (Vercel - configurar no dashboard):
+-------------------------------
+VITE_API_BASE_URL=https://cras-agendamentos.onrender.com/api
 
 
 =============================================================================
