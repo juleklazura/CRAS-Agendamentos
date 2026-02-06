@@ -4,6 +4,7 @@
 // Funcionalidades: CRUD completo, busca, paginação, exportação
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';  // Cliente HTTP configurado com httpOnly cookies
+import { useAuth } from '../hooks/useAuth';  // Hook de autenticação
 import Sidebar from '../components/Sidebar';  // Navegação lateral
 
 // Componentes Material-UI para interface completa
@@ -28,6 +29,8 @@ import { exportToCSV } from '../utils/csvExport';
  * Permite CRUD completo de usuários com validações
  */
 export default function Usuarios() {
+  const { user: currentUser } = useAuth();  // Usuário logado
+  
   // Estados principais para dados
   const [usuarios, setUsuarios] = useState([]);              // Lista de usuários carregados
   const [form, setForm] = useState({                         // Formulário de criação/edição
@@ -167,8 +170,8 @@ export default function Usuarios() {
       await api.delete(`/users/${deleteId}`);
       fetchUsuarios();
       setSuccess('Usuário removido com sucesso!');
-    } catch {
-      setError('Erro ao remover usuário');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erro ao remover usuário');
     }
     setLoading(false);
   }
@@ -281,7 +284,9 @@ export default function Usuarios() {
                   <TableCell>{u.cras?.nome || '-'}</TableCell>
                   <TableCell>
                     <IconButton onClick={() => handleEdit(u)} color="primary"><EditIcon /></IconButton>
-                    <IconButton onClick={() => handleDelete(u._id)} color="error"><DeleteIcon /></IconButton>
+                    {u._id !== currentUser?.id && (
+                      <IconButton onClick={() => handleDelete(u._id)} color="error"><DeleteIcon /></IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

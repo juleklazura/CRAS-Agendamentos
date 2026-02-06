@@ -47,5 +47,20 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// 🔒 SEGURANÇA: Nunca expor senha na serialização JSON
+userSchema.set('toJSON', {
+  transform: function(_doc, ret) {
+    delete ret.password;
+    return ret;
+  }
+});
+
+userSchema.set('toObject', {
+  transform: function(_doc, ret) {
+    delete ret.password;
+    return ret;
+  }
+});
+
 const User = mongoose.model('User', userSchema);
 export default User;

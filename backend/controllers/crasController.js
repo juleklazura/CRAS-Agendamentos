@@ -1,4 +1,7 @@
 import Cras from '../models/Cras.js';
+import User from '../models/User.js';
+import Appointment from '../models/Appointment.js';
+import BlockedSlot from '../models/BlockedSlot.js';
 import Log from '../models/Log.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
@@ -112,11 +115,43 @@ export const deleteCras = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const cras = await Cras.findByIdAndDelete(id);
-    
+    // 🔒 SEGURANÇA: Verificar se o CRAS existe antes de tudo
+    const cras = await Cras.findById(id);
     if (!cras) {
       return res.status(404).json({ message: 'CRAS não encontrado' });
     }
+    
+    // 🔒 VERIFICAÇÃO DE DEPENDÊNCIAS: Não permitir exclusão se houver dados vinculados
+    const [usuariosVinculados, agendamentosAtivos, bloqueiosAtivos] = await Promise.all([
+      User.countDocuments({ cras: id }),
+      Appointment.countDocuments({ cras: id, status: { $in: ['agendado', 'reagendar'] } }),
+      BlockedSlot.countDocuments({ cras: id })
+    ]);
+    
+    const dependencias = [];
+    if (usuariosVinculados > 0) {
+      dependencias.push(`${usuariosVinculados} usuário(s) vinculado(s)`);
+    }
+    if (agendamentosAtivos > 0) {
+      dependencias.push(`${agendamentosAtivos} agendamento(s) ativo(s)`);
+    }
+    if (bloqueiosAtivos > 0) {
+      dependencias.push(`${bloqueiosAtivos} bloqueio(s) de horário`);
+    }
+    
+    if (dependencias.length > 0) {
+      return res.status(409).json({ 
+        message: `Não é possível excluir o CRAS "${cras.nome}". Existem: ${dependencias.join(', ')}. Remova as dependências antes de excluir.`,
+        code: 'CRAS_HAS_DEPENDENCIES',
+        dependencias: {
+          usuarios: usuariosVinculados,
+          agendamentos: agendamentosAtivos,
+          bloqueios: bloqueiosAtivos
+        }
+      });
+    }
+    
+    await Cras.findByIdAndDelete(id);
     
     // Registrar log
     await Log.create({

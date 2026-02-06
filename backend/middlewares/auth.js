@@ -1,6 +1,7 @@
 // Middleware de autenticação e autorização
 // Protege rotas que requerem usuário logado e controla permissões por role
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 import logger from '../utils/logger.js';
 
 // ========================================
@@ -36,7 +37,7 @@ const isVercelDomain = (origin) => {
 // MIDDLEWARE PRINCIPAL DE AUTENTICAÇÃO
 // ========================================
 // Verifica se o token JWT é válido e valida origem da requisição
-export function auth(req, res, next) {
+export async function auth(req, res, next) {
   try {
     // ========================================
     // 🔒 VALIDAÇÃO DE ORIGEM (Anti-CSRF adicional)
@@ -95,6 +96,15 @@ export function auth(req, res, next) {
       });
     }
     
+    // 🔒 SEGURANÇA: Validar que JWT_SECRET está configurado
+    if (!process.env.JWT_SECRET) {
+      logger.error('ERRO CRÍTICO: JWT_SECRET não está definido no ambiente');
+      return res.status(500).json({ 
+        message: 'Erro de configuração do servidor',
+        code: 'CONFIG_ERROR'
+      });
+    }
+    
     // Verificar e decodificar token
     let decoded;
     try {
@@ -119,8 +129,34 @@ export function auth(req, res, next) {
       throw jwtError;
     }
     
-    // Adiciona dados do usuário ao objeto request para uso nas rotas
-    req.user = decoded;
+    // ========================================
+    // 🔒 VERIFICAÇÃO DE EXISTÊNCIA DO USUÁRIO
+    // ========================================
+    // Garante que o token pertence a um usuário que ainda existe no sistema
+    // Previne acesso com tokens de usuários deletados
+    const userExists = await User.findById(decoded.id).select('_id role cras name matricula').lean();
+    
+    if (!userExists) {
+      logger.warn('🔒 Token válido mas usuário não existe mais no sistema', {
+        userId: decoded.id,
+        ip: req.ip,
+        path: req.path
+      });
+      return res.status(401).json({ 
+        message: 'Usuário não encontrado. Faça login novamente',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+    
+    // Adiciona dados ATUALIZADOS do usuário ao objeto request
+    // Usa dados do banco (não do token) para garantir que role/cras estão atualizados
+    req.user = {
+      id: userExists._id.toString(),
+      role: userExists.role,
+      cras: userExists.cras ? userExists.cras.toString() : null,
+      name: userExists.name,
+      matricula: userExists.matricula
+    };
     next();
     
   } catch (error) {

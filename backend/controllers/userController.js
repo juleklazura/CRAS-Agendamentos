@@ -4,6 +4,7 @@ import cache from '../utils/cache.js';
 // Controla criação, edição, listagem e exclusão de usuários do sistema
 import User from '../models/User.js';
 import Log from '../models/Log.js';
+import Appointment from '../models/Appointment.js';
 import bcrypt from 'bcryptjs';  // Para hash seguro de senhas
 
 // Função para criar novo usuário (apenas administradores)
@@ -60,7 +61,9 @@ export const createUser = async (req, res) => {
     // Invalidar cache de usuários após criação
     cache.invalidateUsers();
     
-    res.status(201).json(user);
+    // 🔒 SEGURANÇA: Retornar usuário sem senha (toJSON já remove, mas garantir com select)
+    const createdUser = await User.findById(user._id).select('-password').populate('cras');
+    res.status(201).json(createdUser);
   } catch (err) {
     logger.error('Erro ao criar usuário:', err);
     res.status(400).json({ message: 'Erro ao criar usuário' });
@@ -160,6 +163,11 @@ export const updateUser = async (req, res) => {
       return res.status(400).json({ message: 'Senha deve ter pelo menos 8 caracteres' });
     }
     
+    // 🔒 SEGURANÇA: Impedir que admin altere o próprio role
+    if (role && req.user.id === id && role !== req.user.role) {
+      return res.status(403).json({ message: 'Você não pode alterar seu próprio perfil de acesso' });
+    }
+    
     // Validação: Admin não deve ter CRAS
     if (role === 'admin' && cras) {
       return res.status(400).json({ message: 'Administradores não devem ter CRAS associado' });
@@ -189,7 +197,11 @@ export const updateUser = async (req, res) => {
         diasAtendimento: agenda.diasAtendimento || [1, 2, 3, 4, 5]
       };
     }
-    const user = await User.findByIdAndUpdate(id, update, { new: true });
+    const user = await User.findByIdAndUpdate(id, update, { new: true }).select('-password').populate('cras');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
     
     // Criar log da ação
     await Log.create({
@@ -202,6 +214,7 @@ export const updateUser = async (req, res) => {
     // Invalidar cache após edição
     cache.invalidateUsers();
     
+    // 🔒 SEGURANÇA: Retornar usuário sem senha
     res.json(user);
   } catch (_) {
     res.status(400).json({ message: 'Erro ao atualizar usuário' });
@@ -213,10 +226,41 @@ export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     
+    // 🔒 SEGURANÇA: Impedir auto-exclusão
+    // Usa toString() em ambos para garantir comparação correta (ObjectId vs string)
+    if (id.toString() === req.user.id.toString()) {
+      return res.status(400).json({ message: 'Você não pode excluir a si mesmo' });
+    }
+    
     // Buscar dados do usuário antes de excluir para o log
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+    
+    // 🔒 SEGURANÇA: Impedir exclusão do último administrador
+    if (user.role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount <= 1) {
+        return res.status(400).json({ message: 'Não é possível excluir o último administrador do sistema' });
+      }
+    }
+    
+    // 🔒 SEGURANÇA: Verificar dependências antes de deletar entrevistador
+    if (user.role === 'entrevistador') {
+      const agendamentosFuturos = await Appointment.countDocuments({
+        entrevistador: id,
+        data: { $gte: new Date() },
+        status: 'agendado'
+      });
+      
+      if (agendamentosFuturos > 0) {
+        return res.status(409).json({
+          message: `Não é possível excluir: existem ${agendamentosFuturos} agendamento(s) futuro(s) vinculado(s) a este entrevistador. Reagende ou cancele-os antes de excluir.`,
+          code: 'USER_HAS_DEPENDENCIES',
+          agendamentosPendentes: agendamentosFuturos
+        });
+      }
     }
     
     await User.findByIdAndDelete(id);
