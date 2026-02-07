@@ -5,6 +5,7 @@ import express from 'express';
 import { createUser, getUsers, updateUser, deleteUser, getEntrevistadoresByCras } from '../controllers/userController.js';
 import { auth, authorize } from '../middlewares/auth.js';
 import { validateObjectId } from '../middlewares/validateObjectId.js';
+import { validate, createUserSchema, updateUserSchema } from '../validators/userValidator.js';
 
 const router = express.Router();
 
@@ -23,19 +24,19 @@ router.get('/entrevistadores/cras/:crasId', auth, validateObjectId('crasId'), au
 // Operações de criação, edição e exclusão são privilégios administrativos
 
 // POST /api/users - Criar novo usuário no sistema
-// Body: { name, email, matricula, password, role, cras? }
-// Cria usuários com validação de dados únicos (email, matrícula)
-router.post('/', auth, authorize(['admin']), createUser);
+// Body: { name, matricula, password, role, cras? }
+// Validação de dados via Joi middleware antes do controller
+router.post('/', auth, authorize(['admin']), validate(createUserSchema), createUser);
 
 // PUT /api/users/:id - Editar usuário existente
 // Permite alterar dados pessoais, papel e vinculação a CRAS
-// Body: { name?, email?, matricula?, password?, role?, cras? }
-// 🔒 SEGURANÇA: Validação de ObjectId no parâmetro
-router.put('/:id', auth, validateObjectId('id'), authorize(['admin']), updateUser);
+// Body: { name?, matricula?, password?, role?, cras?, agenda? }
+// 🔒 SEGURANÇA: Validação de ObjectId + Validação Joi dos dados
+router.put('/:id', auth, validateObjectId('id'), authorize(['admin']), validate(updateUserSchema), updateUser);
 
 // DELETE /api/users/:id - Excluir usuário do sistema
-// Remove usuário permanentemente - deve validar dependências
-// Verifica se não há agendamentos ou logs vinculados antes de excluir
+// Remove usuário permanentemente - valida dependências no service
+// Verifica se não há agendamentos vinculados antes de excluir
 router.delete('/:id', auth, validateObjectId('id'), authorize(['admin']), deleteUser);
 
 export default router;
