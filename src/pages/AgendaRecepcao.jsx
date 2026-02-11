@@ -8,7 +8,7 @@ import SeletorEntrevistador from '../components/AgendaRecepcao/SeletorEntrevista
 import TabelaHorarios from '../components/AgendaRecepcao/TabelaHorarios';
 import ModalAgendamento from '../components/AgendaRecepcao/ModalAgendamento';
 import ModalEdicao from '../components/AgendaRecepcao/ModalEdicao';
-import ModalConfirmacao from '../components/AgendaRecepcao/ModalConfirmacao';
+import { ConfirmDialog } from '../components/UI';
 import ModalObservacoes from '../components/AgendaRecepcao/ModalObservacoes';
 import { Box, Snackbar, Alert, CircularProgress } from '@mui/material';
 
@@ -238,18 +238,16 @@ export default function AgendaRecepcao() {
             setDadosEdicao={setDadosEdicao}
           />
 
-          <ModalConfirmacao
-            aberto={modalExclusaoAberto}
-            onFechar={() => setModalExclusaoAberto(false)}
-            onConfirmar={confirmarExclusao}
-            titulo="Excluir Agendamento"
-            mensagem={
-              <>
-                Tem certeza que deseja excluir o agendamento de <strong>{agendamentoParaExcluir?.pessoa}</strong> para o dia <strong>{dataSelecionada?.toLocaleDateString('pt-BR')}</strong>?
-              </>
+          <ConfirmDialog
+            open={modalExclusaoAberto}
+            onCancel={() => setModalExclusaoAberto(false)}
+            onConfirm={confirmarExclusao}
+            title="Excluir Agendamento"
+            message={
+              <>Tem certeza que deseja excluir o agendamento de <strong>{agendamentoParaExcluir?.pessoa}</strong> para o dia <strong>{dataSelecionada?.toLocaleDateString('pt-BR')}</strong>? Esta ação não pode ser desfeita.</>
             }
-            textoConfirmar="Excluir"
-            corConfirmar="error"
+            confirmText="Excluir"
+            severity="error"
           />
 
           <ModalObservacoes

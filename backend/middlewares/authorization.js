@@ -78,7 +78,7 @@ export function canAccessAppointment(action = 'read') {
       
       // Recepção: apenas agendamentos do próprio CRAS
       if (userRole === 'recepcao') {
-        const entrevistador = await User.findById(appointment.entrevistador);
+        const entrevistador = await User.findById(appointment.entrevistador).select('_id cras');
         
         if (!entrevistador || entrevistador.cras.toString() !== req.user.cras.toString()) {
           logger.warn(`Tentativa não autorizada de ${action} em agendamento de outro CRAS`, {

@@ -8,6 +8,7 @@
 import logger from '../utils/logger.js';
 import * as userService from '../services/userService.js';
 import { BusinessError } from '../services/userService.js';
+import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 
 /**
  * Handler centralizado de erros do controller.
@@ -15,13 +16,13 @@ import { BusinessError } from '../services/userService.js';
  */
 const handleError = (res, err, defaultMessage) => {
   if (err instanceof BusinessError) {
-    const response = { message: err.message };
-    if (err.code) response.code = err.code;
-    return res.status(err.statusCode).json(response);
+    const extras = {};
+    if (err.code) extras.code = err.code;
+    return apiError(res, err.message, err.statusCode, extras);
   }
 
   logger.error(`${defaultMessage}:`, err);
-  res.status(500).json({ message: defaultMessage });
+  apiError(res, defaultMessage, 500);
 };
 
 // POST /api/users — Criar novo usuário (admin)
@@ -29,7 +30,7 @@ export const createUser = async (req, res) => {
   try {
     // Body já validado e sanitizado pelo middleware Joi (validate)
     const user = await userService.createUser(req.body, req.user);
-    res.status(201).json(user);
+    apiSuccess(res, user, 201);
   } catch (err) {
     handleError(res, err, 'Erro ao criar usuário');
   }
@@ -39,7 +40,7 @@ export const createUser = async (req, res) => {
 export const getUsers = async (req, res) => {
   try {
     const users = await userService.getUsers(req.user.role);
-    res.json(users);
+    apiSuccess(res, users);
   } catch (err) {
     handleError(res, err, 'Erro ao buscar usuários');
   }
@@ -49,7 +50,7 @@ export const getUsers = async (req, res) => {
 export const getEntrevistadores = async (_req, res) => {
   try {
     const users = await userService.getEntrevistadores();
-    res.json(users);
+    apiSuccess(res, users);
   } catch (err) {
     handleError(res, err, 'Erro ao buscar entrevistadores');
   }
@@ -59,7 +60,7 @@ export const getEntrevistadores = async (_req, res) => {
 export const getEntrevistadoresByCras = async (req, res) => {
   try {
     const entrevistadores = await userService.getEntrevistadoresByCras(req.params.crasId);
-    res.json(entrevistadores);
+    apiSuccess(res, entrevistadores);
   } catch (err) {
     handleError(res, err, 'Erro ao buscar entrevistadores');
   }
@@ -70,7 +71,7 @@ export const updateUser = async (req, res) => {
   try {
     // Body já validado e sanitizado pelo middleware Joi (validate)
     const user = await userService.updateUser(req.params.id, req.body, req.user);
-    res.json(user);
+    apiSuccess(res, user);
   } catch (err) {
     handleError(res, err, 'Erro ao atualizar usuário');
   }
@@ -80,7 +81,7 @@ export const updateUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     const result = await userService.deleteUser(req.params.id, req.user);
-    res.json(result);
+    apiMessage(res, result.message);
   } catch (err) {
     handleError(res, err, 'Erro ao remover usuário');
   }

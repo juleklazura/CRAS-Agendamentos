@@ -5,6 +5,7 @@ import BlockedSlot from '../models/BlockedSlot.js';
 import Log from '../models/Log.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
+import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 
 // =============================================================================
 // 📋 GERENCIAMENTO DE UNIDADES CRAS
@@ -29,10 +30,10 @@ export const createCras = async (req, res) => {
     // Invalidar cache
     cache.invalidateCras();
     
-    res.status(201).json(cras);
+    apiSuccess(res, cras, 201);
   } catch (error) {
     logger.error('Erro ao criar CRAS:', error);
-    res.status(400).json({ message: 'Erro ao criar CRAS' });
+    apiError(res, 'Erro ao criar CRAS');
   }
 };
 
@@ -46,10 +47,10 @@ export const getCras = async (req, res) => {
     };
     
     const crasList = await cache.cached(cacheKey, fetchCras, 300);
-    res.json(crasList);
+    apiSuccess(res, crasList);
   } catch (error) {
     logger.error('Erro ao buscar CRAS:', error);
-    res.status(400).json({ message: 'Erro ao buscar CRAS' });
+    apiError(res, 'Erro ao buscar CRAS', 500);
   }
 };
 
@@ -66,13 +67,13 @@ export const getCrasById = async (req, res) => {
     const cras = await cache.cached(cacheKey, fetchCras, 300);
     
     if (!cras) {
-      return res.status(404).json({ message: 'CRAS não encontrado' });
+      return apiError(res, 'CRAS não encontrado', 404);
     }
     
-    res.json(cras);
+    apiSuccess(res, cras);
   } catch (error) {
     logger.error('Erro ao buscar CRAS:', error);
-    res.status(400).json({ message: 'Erro ao buscar CRAS' });
+    apiError(res, 'Erro ao buscar CRAS', 500);
   }
 };
 
@@ -89,7 +90,7 @@ export const updateCras = async (req, res) => {
     );
     
     if (!cras) {
-      return res.status(404).json({ message: 'CRAS não encontrado' });
+      return apiError(res, 'CRAS não encontrado', 404);
     }
     
     // Registrar log
@@ -103,10 +104,10 @@ export const updateCras = async (req, res) => {
     // Invalidar cache
     cache.invalidateCras();
     
-    res.json(cras);
+    apiSuccess(res, cras);
   } catch (error) {
     logger.error('Erro ao atualizar CRAS:', error);
-    res.status(400).json({ message: 'Erro ao atualizar CRAS' });
+    apiError(res, 'Erro ao atualizar CRAS');
   }
 };
 
@@ -118,7 +119,7 @@ export const deleteCras = async (req, res) => {
     // 🔒 SEGURANÇA: Verificar se o CRAS existe antes de tudo
     const cras = await Cras.findById(id);
     if (!cras) {
-      return res.status(404).json({ message: 'CRAS não encontrado' });
+      return apiError(res, 'CRAS não encontrado', 404);
     }
     
     // 🔒 VERIFICAÇÃO DE DEPENDÊNCIAS: Não permitir exclusão se houver dados vinculados
@@ -140,8 +141,7 @@ export const deleteCras = async (req, res) => {
     }
     
     if (dependencias.length > 0) {
-      return res.status(409).json({ 
-        message: `Não é possível excluir o CRAS "${cras.nome}". Existem: ${dependencias.join(', ')}. Remova as dependências antes de excluir.`,
+      return apiError(res, `Não é possível excluir o CRAS "${cras.nome}". Existem: ${dependencias.join(', ')}. Remova as dependências antes de excluir.`, 409, {
         code: 'CRAS_HAS_DEPENDENCIES',
         dependencias: {
           usuarios: usuariosVinculados,
@@ -163,9 +163,9 @@ export const deleteCras = async (req, res) => {
     // Invalidar cache
     cache.invalidateCras();
     
-    res.json({ message: 'CRAS removido com sucesso' });
+    apiMessage(res, 'CRAS removido com sucesso');
   } catch (error) {
     logger.error('Erro ao remover CRAS:', error);
-    res.status(400).json({ message: 'Erro ao remover CRAS' });
+    apiError(res, 'Erro ao remover CRAS');
   }
 };

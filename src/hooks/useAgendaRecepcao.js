@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { criarDataHorario, validarCPF, validarTelefone } from '../utils/agendamentoUtils';
+import { formatarDataLocal } from '../utils/formatters';
 
 export default function useAgendaRecepcao(usuario, mostrarMensagem) {
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
@@ -53,8 +54,7 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
   const buscarAgendamentos = useCallback(async () => {
     if (!entrevistadorSelecionado) return;
     try {
-      // Formatar data para ISO string (YYYY-MM-DD)
-      const dataFormatada = dataSelecionada.toISOString().split('T')[0];
+      const dataFormatada = formatarDataLocal(dataSelecionada);
       const resposta = await api.get(`/appointments?entrevistador=${entrevistadorSelecionado}&data=${dataFormatada}`);
       let data = resposta.data;
       if (data && typeof data === 'object' && Array.isArray(data.results)) {

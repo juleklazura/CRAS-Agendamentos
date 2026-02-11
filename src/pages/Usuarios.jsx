@@ -11,9 +11,10 @@ import Sidebar from '../components/Sidebar';  // Navegação lateral
 import { 
   Button, TextField, Select, MenuItem, InputLabel, FormControl, 
   Snackbar, Alert, Paper, Table, TableBody, TableCell, TableContainer, 
-  TableHead, TableRow, CircularProgress, Dialog, DialogTitle, DialogContent, 
-  DialogContentText, DialogActions, IconButton, Typography, Box, TablePagination 
+  TableHead, TableRow, CircularProgress, IconButton, Typography, Box, TablePagination 
 } from '@mui/material';
+
+import { ConfirmDialog } from '../components/UI';
 
 // Ícones para ações de usuários
 import DeleteIcon from '@mui/icons-material/Delete';  // Exclusão de usuário
@@ -256,14 +257,15 @@ export default function Usuarios() {
         >
           <Alert severity="success" onClose={() => setSuccess('')}>{success}</Alert>
         </Snackbar>
-        <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-          <DialogTitle>Confirmar remoção</DialogTitle>
-          <DialogContent><DialogContentText>Tem certeza que deseja remover este usuário?</DialogContentText></DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmDelete} color="error">Remover</Button>
-          </DialogActions>
-        </Dialog>
+        <ConfirmDialog
+          open={confirmOpen}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={confirmDelete}
+          title="Remover Usuário"
+          message="Tem certeza que deseja remover este usuário do sistema? Esta ação não pode ser desfeita."
+          confirmText="Remover"
+          severity="error"
+        />
         <TableContainer component={Paper} sx={{ mt: 2 }}>
           <Table>
             <TableHead>

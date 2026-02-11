@@ -279,7 +279,7 @@ export const deleteUser = async (id, actor) => {
       throw new BusinessError('Você não pode excluir a si mesmo', 400);
     }
 
-    const user = await User.findById(id).session(session);
+    const user = await User.findById(id).select('-password').session(session);
     if (!user) {
       throw new BusinessError('Usuário não encontrado', 404);
     }

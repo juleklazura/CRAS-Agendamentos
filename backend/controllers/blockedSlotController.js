@@ -1,5 +1,6 @@
 import logger from '../utils/logger.js';
 import { formatDateTime } from '../utils/timezone.js';
+import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 // Controller para gerenciamento de bloqueios de horário
 // Permite que APENAS ENTREVISTADORES bloqueiem horários específicos em suas próprias agendas
 import Log from '../models/Log.js';
@@ -20,7 +21,7 @@ export const createBlockedSlot = async (req, res) => {
     // Verifica se já existe bloqueio para o mesmo horário
     const exists = await BlockedSlot.findOne({ entrevistador, cras, data });
     if (exists) {
-      return res.status(400).json({ message: 'Horário já bloqueado' });
+      return apiError(res, 'Horário já bloqueado');
     }
     
     // Cria novo bloqueio
@@ -35,10 +36,10 @@ export const createBlockedSlot = async (req, res) => {
       details: `Bloqueou o horário ${formatDateTime(data)} - Motivo: ${motivo}` 
     });
     
-    res.status(201).json(blocked);
+    apiSuccess(res, blocked, 201);
   } catch (error) {
     logger.error('Erro ao bloquear horário:', error);
-    res.status(400).json({ message: 'Erro ao bloquear horário', error: error.message });
+    apiError(res, 'Erro ao bloquear horário');
   }
 };
 
@@ -60,13 +61,13 @@ export const getBlockedSlots = async (req, res) => {
       
       if (req.query.entrevistador) {
         // Validar que o entrevistador pertence ao CRAS da recepção
-        const entrevistadorDoc = await User.findById(req.query.entrevistador);
+        const entrevistadorDoc = await User.findById(req.query.entrevistador).select('_id cras');
         if (!entrevistadorDoc || entrevistadorDoc.cras.toString() !== req.user.cras.toString()) {
-          return res.status(403).json({ message: 'Você não tem permissão para ver bloqueios de outro CRAS' });
+          return apiError(res, 'Você não tem permissão para ver bloqueios de outro CRAS', 403);
         }
         entrevistador = req.query.entrevistador;
       } else {
-        return res.status(400).json({ message: 'Entrevistador não informado' });
+        return apiError(res, 'Entrevistador não informado');
       }
     } else if (req.user.role === 'admin') {
       // Admin pode consultar bloqueios de qualquer entrevistador/CRAS
@@ -74,7 +75,7 @@ export const getBlockedSlots = async (req, res) => {
       cras = req.query.cras;
       
       if (!entrevistador) {
-        return res.status(400).json({ message: 'Entrevistador não informado' });
+        return apiError(res, 'Entrevistador não informado');
       }
     }
     
@@ -85,10 +86,10 @@ export const getBlockedSlots = async (req, res) => {
     // Busca bloqueios conforme permissões
     const slots = await BlockedSlot.find(query);
     
-    res.json(slots);
+    apiSuccess(res, slots);
   } catch (error) {
     logger.error('Erro ao buscar bloqueios:', error);
-    res.status(500).json({ message: 'Erro ao buscar bloqueios' });
+    apiError(res, 'Erro ao buscar bloqueios', 500);
   }
 };
 
@@ -113,7 +114,7 @@ export const deleteBlockedSlot = async (req, res) => {
     
     if (!slot) {
       logger.warn('Bloqueio não encontrado', { id, userId: req.user.id });
-      return res.status(404).json({ message: 'Bloqueio não encontrado' });
+      return apiError(res, 'Bloqueio não encontrado', 404);
     }
     
     await BlockedSlot.deleteOne({ _id: id });
@@ -127,9 +128,9 @@ export const deleteBlockedSlot = async (req, res) => {
       details: `Desbloqueou o horário ${formatDateTime(slot.data)}` 
     });
     
-    res.json({ message: 'Bloqueio removido' });
+    apiMessage(res, 'Bloqueio removido');
   } catch (error) {
     logger.error('Erro ao remover bloqueio:', error);
-    res.status(400).json({ message: 'Erro ao remover bloqueio' });
+    apiError(res, 'Erro ao remover bloqueio');
   }
 };

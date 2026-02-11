@@ -8,6 +8,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import api from '../services/api';
+import { formatarDataLocal } from '../utils/formatters';
 import {
   formatarCPF,
   formatarTelefone,
@@ -195,7 +196,7 @@ export default function useAgenda() {
     }
     
     try {
-      const dataFormatada = data.toISOString().split('T')[0];
+      const dataFormatada = formatarDataLocal(data);
       const response = await api.get(
         `/appointments?entrevistador=${selectedEntrevistador}&data=${dataFormatada}`
       );

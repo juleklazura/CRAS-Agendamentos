@@ -5,6 +5,7 @@
 import Appointment from '../models/Appointment.js';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import mongoose from 'mongoose';
+import { apiSuccess, apiError } from '../utils/apiResponse.js';
 
 /**
  * Busca estatísticas agregadas para o dashboard
@@ -71,14 +72,11 @@ export const getDashboardStats = async (req, res) => {
     // Formatar resultados
     const formattedData = formatStatsResults(results, viewMode, currentMonth, currentYear);
     
-    res.json(formattedData);
+    apiSuccess(res, formattedData);
     
   } catch (error) {
     console.error('Erro ao buscar estatísticas:', error);
-    res.status(500).json({ 
-      message: 'Erro ao buscar estatísticas do dashboard',
-      error: error.message 
-    });
+    apiError(res, 'Erro ao buscar estatísticas do dashboard', 500);
   }
 };
 

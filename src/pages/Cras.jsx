@@ -16,11 +16,6 @@ import {
   TableHead, 
   TableRow, 
   CircularProgress, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogContentText, 
-  DialogActions, 
   IconButton, 
   Typography, 
   Box, 
@@ -28,6 +23,8 @@ import {
   Alert, 
   TablePagination 
 } from '@mui/material';
+
+import { ConfirmDialog } from '../components/UI';
 
 // Ícones para ações
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -183,14 +180,15 @@ export default function Cras() {
         >
           <Alert severity="success" onClose={() => setSuccess('')}>{success}</Alert>
         </Snackbar>
-        <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-          <DialogTitle>Confirmar remoção</DialogTitle>
-          <DialogContent><DialogContentText>Tem certeza que deseja remover este CRAS?</DialogContentText></DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmDelete} color="error">Remover</Button>
-          </DialogActions>
-        </Dialog>
+        <ConfirmDialog
+          open={confirmOpen}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={confirmDelete}
+          title="Remover CRAS"
+          message="Tem certeza que deseja remover esta unidade CRAS? Todos os dados vinculados a ela serão afetados. Esta ação não pode ser desfeita."
+          confirmText="Remover"
+          severity="error"
+        />
         <TableContainer component={Paper} sx={{ mt: 4 }}>
           <Table>
             <TableHead>

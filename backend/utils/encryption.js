@@ -2,19 +2,24 @@
 // 🔐 SERVIÇO DE CRIPTOGRAFIA DE DADOS SENSÍVEIS
 // ═══════════════════════════════════════════════════════════════════════════
 // Sistema para criptografar dados pessoais (CPF, telefone, nome) no banco
-// Usa AES-256-CBC com IV (Initialization Vector) único para cada valor
+// Usa AES-256-GCM com IV único + auth tag para cada valor
+// Retrocompatível com dados antigos em AES-256-CBC
 // ═══════════════════════════════════════════════════════════════════════════
 
 import crypto from 'crypto';
 
-// Algoritmo de criptografia: AES-256 em modo CBC
-// AES-256 = Advanced Encryption Standard com chave de 256 bits (muito seguro)
-// CBC = Cipher Block Chaining (cada bloco depende do anterior)
-const ALGORITHM = 'aes-256-cbc';
+// Algoritmo atual: AES-256-GCM (criptografia autenticada)
+// GCM = Galois/Counter Mode — inclui autenticação do ciphertext
+// Previne ataques de padding oracle e adulteração de dados
+const ALGORITHM_GCM = 'aes-256-gcm';
+const ALGORITHM_CBC = 'aes-256-cbc'; // legado — apenas para decriptação
 
-// Tamanho do IV (Initialization Vector) em bytes
-// IV garante que mesmos dados resultem em criptografias diferentes
-const IV_LENGTH = 16; // 128 bits
+// IV (Initialization Vector) em bytes
+const GCM_IV_LENGTH = 12;  // 96 bits — recomendado pela NIST para GCM
+const CBC_IV_LENGTH = 16;  // 128 bits — usado no formato antigo
+
+// Auth tag em bytes (GCM)
+const AUTH_TAG_LENGTH = 16; // 128 bits
 
 /**
  * Gera chave de criptografia de 32 bytes (256 bits) a partir de secret
@@ -77,37 +82,38 @@ class EncryptionService {
    * 3. Criptografa texto em hexadecimal
    * 4. Retorna formato "iv:encrypted" para armazenar IV junto
    * 
-   * FORMATO DE SAÍDA:
-   * "32_caracteres_hex:dados_criptografados_hex"
-   * Exemplo: "a1b2c3d4...f0:9e8d7c6b..."
+   * FORMATO DE SAÍDA (GCM):
+   * "24_chars_hex_IV:32_chars_hex_authTag:dados_criptografados_hex"
+   * Exemplo: "a1b2c3d4e5f6a1b2c3d4e5f6:9e8d7c6b5a4f3e2d1c0b9a8f:..."
    * 
-   * POR QUE IV JUNTO DOS DADOS?
-   * - IV não é secreto, pode ser público
-   * - Precisa do mesmo IV para descriptografar
-   * - Armazenar junto simplifica recuperação
+   * DIFERENÇA DO CBC:
+   * - CBC: "32_chars_IV:encrypted" (sem autenticação)
+   * - GCM: "24_chars_IV:32_chars_authTag:encrypted" (com autenticação)
+   * 
+   * POR QUE GCM?
+   * - Inclui autenticação do ciphertext (AEAD)
+   * - Previne ataques de padding oracle
+   * - Detecta adulteração dos dados
+   * - Performance melhor que CBC+HMAC
    * 
    * @param {string} text - Texto plano a ser criptografado
-   * @returns {string} - Texto criptografado no formato "iv:encrypted"
+   * @returns {string} - Texto criptografado no formato "iv:authTag:encrypted"
    * @throws {Error} - Se criptografia falhar
-   * 
-   * EXEMPLO:
-   * ```javascript
-   * EncryptionService.encrypt("123.456.789-00")
-   * // Retorna: "a1b2c3...f0:9e8d7c...3a"
-   * ```
    */
   static encrypt(text) {
     if (!text) return text;
     
     try {
-      const iv = crypto.randomBytes(IV_LENGTH);
+      const iv = crypto.randomBytes(GCM_IV_LENGTH);
       const key = getEncryptionKey();
-      const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+      const cipher = crypto.createCipheriv(ALGORITHM_GCM, key, iv);
       
       let encrypted = cipher.update(String(text), 'utf8', 'hex');
       encrypted += cipher.final('hex');
       
-      return `${iv.toString('hex')}:${encrypted}`;
+      const authTag = cipher.getAuthTag();
+      
+      return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
     } catch (error) {
       console.error('Erro ao criptografar:', error.message);
       throw new Error('Falha na criptografia');
@@ -117,43 +123,46 @@ class EncryptionService {
   /**
    * Descriptografa um texto criptografado
    * 
-   * FUNCIONAMENTO:
-   * 1. Separa IV e dados criptografados pelo ":"
-   * 2. Converte IV de hex para Buffer
-   * 3. Cria decipher AES-256-CBC com mesma chave e IV
-   * 4. Descriptografa e retorna texto original
+   * RETROCOMPATÍVEL:
+   * - Detecta formato GCM (3 partes: iv:authTag:encrypted) ou CBC (2 partes: iv:encrypted)
+   * - Dados antigos em CBC são descriptografados normalmente
+   * - Novos dados sempre usam GCM
    * 
-   * VALIDAÇÃO:
-   * - Se texto não tem ":", retorna texto original (não criptografado)
-   * - Se falhar, retorna texto original (fallback seguro)
-   * 
-   * IMPORTANTE:
-   * - DEVE usar mesmo IV usado na criptografia
-   * - DEVE usar mesma chave (do ENCRYPTION_KEY)
-   * - Ordem dos bytes importa!
-   * 
-   * @param {string} text - Texto criptografado "iv:encrypted"
+   * @param {string} text - Texto criptografado "iv:authTag:encrypted" (GCM) ou "iv:encrypted" (CBC)
    * @returns {string} - Texto descriptografado original
-   * 
-   * EXEMPLO:
-   * ```javascript
-   * EncryptionService.decrypt("a1b2...f0:9e8d...3a")
-   * // Retorna: "123.456.789-00"
-   * ```
    */
   static decrypt(text) {
     if (!text || !text.includes(':')) return text;
     
     try {
-      const [ivHex, encryptedHex] = text.split(':');
-      const iv = Buffer.from(ivHex, 'hex');
+      const parts = text.split(':');
       const key = getEncryptionKey();
-      const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
       
-      let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
+      if (parts.length === 3) {
+        // Formato GCM: iv:authTag:encrypted
+        const [ivHex, authTagHex, encryptedHex] = parts;
+        const iv = Buffer.from(ivHex, 'hex');
+        const authTag = Buffer.from(authTagHex, 'hex');
+        const decipher = crypto.createDecipheriv(ALGORITHM_GCM, key, iv);
+        decipher.setAuthTag(authTag);
+        
+        let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+      }
       
-      return decrypted;
+      if (parts.length === 2) {
+        // Formato CBC legado: iv:encrypted
+        const [ivHex, encryptedHex] = parts;
+        const iv = Buffer.from(ivHex, 'hex');
+        const decipher = crypto.createDecipheriv(ALGORITHM_CBC, key, iv);
+        
+        let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+      }
+      
+      return text; // Formato desconhecido — retorna original
     } catch (error) {
       console.error('Erro ao descriptografar:', error.message);
       return text; // Retorna o texto original se falhar
@@ -228,8 +237,10 @@ class EncryptionService {
    */
   static isEncrypted(text) {
     if (!text || typeof text !== 'string') return false;
-    // Formato esperado: 32 caracteres hex (IV) + ':' + dados hex
-    return /^[0-9a-f]{32}:[0-9a-f]+$/i.test(text);
+    // Formato GCM: 24 hex (IV 12 bytes) + ':' + 32 hex (authTag 16 bytes) + ':' + dados hex
+    // Formato CBC legado: 32 hex (IV 16 bytes) + ':' + dados hex
+    return /^[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/i.test(text)
+        || /^[0-9a-f]{32}:[0-9a-f]+$/i.test(text);
   }
 
   /**

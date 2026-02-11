@@ -1,4 +1,5 @@
 import logger from '../utils/logger.js';
+import { apiSuccess, apiError } from '../utils/apiResponse.js';
 // Controller para sistema de logs e auditoria
 // Gerencia registro e consulta de ações dos usuários no sistema
 import Log from '../models/Log.js';
@@ -13,9 +14,9 @@ export const createLog = async (req, res) => {
     const log = new Log({ user: req.user.id, cras, action, details });
     await log.save();
     
-    res.status(201).json(log);
+    apiSuccess(res, log, 201);
   } catch (_) {
-    res.status(400).json({ message: 'Erro ao criar log' });
+    apiError(res, 'Erro ao criar log');
   }
 };
 
@@ -39,11 +40,12 @@ export const getLogs = async (req, res) => {
     
     // Busca logs com dados populados e ordenação por data decrescente
     const logs = await Log.find(filter)
-      .populate('user cras')
+      .populate('user', '-password')
+      .populate('cras')
       .sort({ date: -1 }); // Mais recente primeiro
       
-    res.json(logs);
+    apiSuccess(res, logs);
   } catch (_) {
-    res.status(500).json({ message: 'Erro ao buscar logs' });
+    apiError(res, 'Erro ao buscar logs', 500);
   }
 };

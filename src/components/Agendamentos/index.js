@@ -12,5 +12,4 @@ export { default as AgendamentosPagination } from './AgendamentosPagination';
 export { default as AgendamentosNotifications } from './AgendamentosNotifications';
 
 // Modais
-export { default as ModalConfirmacao } from './ModalConfirmacao';
 export { default as ModalObservacoes } from './ModalObservacoes';

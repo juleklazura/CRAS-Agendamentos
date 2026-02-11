@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import api from '../services/api';
 import { formatarCPF, formatarTelefone, criarDataHorario } from '../utils/agendamentoUtils';
+import { formatarDataLocal } from '../utils/formatters';
 
 const INITIAL_FORM_STATE = {
   pessoa: '',
@@ -114,8 +115,7 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
     if (!usuarioId) return;
     
     try {
-      // Formatar data para ISO string (YYYY-MM-DD)
-      const dataFormatada = dataSelecionada.toISOString().split('T')[0];
+      const dataFormatada = formatarDataLocal(dataSelecionada);
       const { data } = await api.get(`/appointments?entrevistador=${usuarioId}&data=${dataFormatada}`);
       const agendamentos = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
       setAgendamentos(agendamentos);

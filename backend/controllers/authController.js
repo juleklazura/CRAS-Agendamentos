@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';  // Para comparação segura de senhas
 import jwt from 'jsonwebtoken';  // Para geração de tokens de autenticação
 import dotenv from 'dotenv';
 import logger from '../utils/logger.js';
+import { apiSuccess, apiError } from '../utils/apiResponse.js';
 
 dotenv.config();
 
@@ -52,19 +53,19 @@ export const login = async (req, res) => {
     // Busca usuário pela matrícula única
     const user = await User.findOne({ matricula });
     if (!user) {
-      return res.status(400).json({ message: 'Usuário não encontrado' });
+      return apiError(res, 'Usuário não encontrado');
     }
     
     // Compara senha fornecida com hash armazenado no banco
     const isMatch = await bcrypt.compare(senhaParaValidar, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Senha incorreta' });
+      return apiError(res, 'Senha incorreta');
     }
     
     // 🔒 SEGURANÇA: Valida que JWT_SECRET está configurado
     if (!process.env.JWT_SECRET) {
       logger.error('ERRO CRÍTICO: JWT_SECRET não está definida no arquivo .env');
-      return res.status(500).json({ message: 'Erro de configuração do servidor' });
+      return apiError(res, 'Erro de configuração do servidor', 500);
     }
     
     // Gera access token JWT com informações essenciais do usuário
@@ -100,7 +101,7 @@ export const login = async (req, res) => {
     res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
     
     // Retorna apenas dados do usuário (sem token)
-    res.json({ 
+    apiSuccess(res, { 
       user: { 
         id: user._id, 
         name: user.name, 
@@ -112,7 +113,7 @@ export const login = async (req, res) => {
     });
   } catch (err) {
     logger.error('Erro no login:', { error: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
-    res.status(500).json({ message: 'Erro no login' });
+    apiError(res, 'Erro no login', 500);
   }
 };
 
@@ -124,10 +125,10 @@ export const getCurrentUser = async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
+      return apiError(res, 'Usuário não encontrado', 404);
     }
     
-    res.json({
+    apiSuccess(res, {
       id: user._id,
       name: user.name,
       role: user.role,
@@ -137,7 +138,7 @@ export const getCurrentUser = async (req, res) => {
     });
   } catch (err) {
     logger.error('Erro ao buscar usuário:', { error: err.message });
-    res.status(500).json({ message: 'Erro ao buscar usuário' });
+    apiError(res, 'Erro ao buscar usuário', 500);
   }
 };
 
@@ -146,7 +147,7 @@ export const logout = async (req, res) => {
   try {
     // Registra logout no sistema de auditoria
     if (req.user?.id) {
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(req.user.id).select('-password');
       if (user) {
         await Log.create({
           user: user._id,
@@ -164,10 +165,10 @@ export const logout = async (req, res) => {
       path: '/api/auth/refresh' // Mesmo path usado na criação
     });
     
-    res.json({ message: 'Logout realizado com sucesso' });
+    apiSuccess(res, { message: 'Logout realizado com sucesso' });
   } catch (err) {
     logger.error('Erro no logout:', { error: err.message });
-    res.status(500).json({ message: 'Erro no logout' });
+    apiError(res, 'Erro no logout', 500);
   }
 };
 
@@ -178,7 +179,7 @@ export const refreshToken = async (req, res) => {
     const { refreshToken } = req.cookies;
     
     if (!refreshToken) {
-      return res.status(401).json({ message: 'Refresh token não fornecido' });
+      return apiError(res, 'Refresh token não fornecido', 401);
     }
     
     // Validar refresh token
@@ -187,26 +188,26 @@ export const refreshToken = async (req, res) => {
     
     if (!refreshSecret) {
       logger.error('ERRO CRÍTICO: JWT_SECRET não está definido');
-      return res.status(500).json({ message: 'Erro de configuração do servidor' });
+      return apiError(res, 'Erro de configuração do servidor', 500);
     }
     
     let decoded;
     try {
       decoded = jwt.verify(refreshToken, refreshSecret);
     } catch (err) {
-      return res.status(401).json({ message: 'Refresh token inválido ou expirado' });
+      return apiError(res, 'Refresh token inválido ou expirado', 401);
     }
     
     // Verificar que é um refresh token
     if (decoded.type !== 'refresh') {
-      return res.status(401).json({ message: 'Token inválido' });
+      return apiError(res, 'Token inválido', 401);
     }
     
     // Buscar usuário atualizado
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select('-password');
     
     if (!user) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
+      return apiError(res, 'Usuário não encontrado', 404);
     }
     
     // Gerar novo access token
@@ -230,7 +231,7 @@ export const refreshToken = async (req, res) => {
       details: `Token renovado para ${user.name} (${user.role})`
     });
     
-    res.json({ 
+    apiSuccess(res, { 
       message: 'Token renovado com sucesso',
       user: {
         id: user._id,
@@ -243,6 +244,6 @@ export const refreshToken = async (req, res) => {
     });
   } catch (err) {
     logger.error('Erro ao renovar token:', { error: err.message });
-    res.status(500).json({ message: 'Erro ao renovar token' });
+    apiError(res, 'Erro ao renovar token', 500);
   }
 };

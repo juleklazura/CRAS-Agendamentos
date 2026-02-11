@@ -97,3 +97,16 @@ export const truncateText = (text, maxLength = 100) => {
     ? text.substring(0, maxLength) + '...' 
     : text;
 };
+
+/**
+ * Formata uma data JavaScript para string YYYY-MM-DD usando timezone local.
+ * Evita o deslocamento que ocorre ao usar toISOString() (que converte para UTC).
+ * @param {Date} date - Objeto Date a ser formatado
+ * @returns {string} Data no formato YYYY-MM-DD
+ */
+export const formatarDataLocal = (date) => {
+  const ano = date.getFullYear();
+  const mes = String(date.getMonth() + 1).padStart(2, '0');
+  const dia = String(date.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+};

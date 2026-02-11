@@ -29,7 +29,7 @@ import AgendamentosFilters from '../components/Agendamentos/AgendamentosFilters'
 import AgendamentosTable from '../components/Agendamentos/AgendamentosTable';
 import AgendamentosPagination from '../components/Agendamentos/AgendamentosPagination';
 import AgendamentosNotifications from '../components/Agendamentos/AgendamentosNotifications';
-import ModalConfirmacao from '../components/Agendamentos/ModalConfirmacao';
+import { ConfirmDialog } from '../components/UI';
 import ModalObservacoes from '../components/Agendamentos/ModalObservacoes';
 
 import { sanitizeText } from '../utils/formatters';
@@ -200,10 +200,18 @@ export default function Agendamentos() {
         </Box>
 
         {/* Modais */}
-        <ModalConfirmacao
+        <ConfirmDialog
           open={confirmOpen}
-          onClose={() => setConfirmOpen(false)}
+          onCancel={() => setConfirmOpen(false)}
           onConfirm={confirmDelete}
+          title="Excluir Agendamento"
+          message={
+            deleteTarget?.agendamento?.pessoa
+              ? <>Tem certeza que deseja excluir o agendamento de <strong>{deleteTarget.agendamento.pessoa}</strong>? Esta ação não pode ser desfeita.</>
+              : 'Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.'
+          }
+          confirmText="Excluir"
+          severity="error"
           loading={deleting}
         />
 

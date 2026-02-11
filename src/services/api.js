@@ -42,9 +42,15 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor de resposta - logout automático em 401
+// Interceptor de resposta - unwrap de envelope padronizado + logout automático em 401
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Unwrap automático do envelope { success, data } da API padronizada
+    if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   (error) => {
     // 🔒 SEGURANÇA: Tratamento seguro de erros sem expor detalhes sensíveis
     

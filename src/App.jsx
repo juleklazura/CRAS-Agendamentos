@@ -49,6 +49,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { useApp } from './hooks/useApp';
 import { useMigrateSecurityLocalStorage } from './utils/securityMigration';
 import { NotificationSnackbar, GlobalLoader } from './components/Common';
+import ErrorBoundary from './components/ErrorBoundary';
 import Router from './router';
 import './App.css';
 
@@ -111,18 +112,20 @@ const AppContent = () => {
 // App principal com Provider
 function App() {
   return (
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
-      }}
-    >
-      <AppProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </AppProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
+        <AppProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </AppProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

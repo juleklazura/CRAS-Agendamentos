@@ -15,9 +15,9 @@ import {
   ModalAgendamento,
   ModalEdicao,
   ModalBloqueio,
-  ModalExclusao,
   ModalObservacoes
 } from '../components/MinhaAgenda';
+import { ConfirmDialog } from '../components/UI';
 
 const INITIAL_MESSAGE_STATE = { 
   visivel: false, 
@@ -157,11 +157,18 @@ export default function MinhaAgenda() {
           onConfirmar={criarBloqueio}
         />
 
-        <ModalExclusao 
+        <ConfirmDialog
           open={modals.exclusao}
-          onClose={() => updateModal('exclusao', false)}
-          agendamento={contexto.agendamentoParaExcluir}
-          onConfirmar={excluirAgendamento}
+          onCancel={() => updateModal('exclusao', false)}
+          onConfirm={excluirAgendamento}
+          title="Excluir Agendamento"
+          message={
+            contexto.agendamentoParaExcluir?.pessoa
+              ? <>Tem certeza que deseja excluir o agendamento de <strong>{contexto.agendamentoParaExcluir.pessoa}</strong>? Esta ação não pode ser desfeita.</>
+              : 'Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.'
+          }
+          confirmText="Excluir"
+          severity="error"
         />
 
         <ModalObservacoes 
