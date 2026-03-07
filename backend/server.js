@@ -107,8 +107,25 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
+async function bootstrapAdmin() {
+  const adminMatricula = process.env.ADMIN_MATRICULA || 'admin';
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) return;
+
+  const count = await prisma.user.count();
+  if (count > 0) return;
+
+  const bcrypt = (await import('bcryptjs')).default;
+  const hashedPassword = await bcrypt.hash(adminPassword, 12);
+  await prisma.user.create({
+    data: { name: 'Administrador', matricula: adminMatricula, password: hashedPassword, role: 'admin' },
+  });
+  logger.success(`Admin '${adminMatricula}' criado com sucesso`);
+}
+
 prisma.$connect()
-  .then(() => {
+  .then(async () => {
+    await bootstrapAdmin();
     app.listen(PORT, '0.0.0.0', () => {
       logger.success(`Servidor rodando na porta ${PORT}`);
       logger.info('PostgreSQL (Neon) conectado com sucesso');
