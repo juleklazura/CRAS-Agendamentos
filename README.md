@@ -107,7 +107,6 @@ NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ```
 
-> ⚠️ **Nunca commite o arquivo `.env`**. Ele está no `.gitignore`.
 
 ## 🗄️ Banco de Dados
 
