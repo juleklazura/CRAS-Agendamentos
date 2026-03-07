@@ -1,6 +1,6 @@
 # 📅 Sistema de Agendamentos CRAS
 
-Sistema completo de gerenciamento de agendamentos para Centros de Referência de Assistência Social (CRAS), desenvolvido com React + Node.js + MongoDB.
+Sistema completo de gerenciamento de agendamentos para Centros de Referência de Assistência Social (CRAS), desenvolvido com React + Node.js + PostgreSQL (Neon).
 
 ## 🚀 Funcionalidades
 
@@ -33,36 +33,48 @@ Sistema completo de gerenciamento de agendamentos para Centros de Referência de
 - ⚡ Lazy Loading (Code Splitting)
 
 **Backend:**
-- Node.js + Express
-- MongoDB + Mongoose
-- JWT Authentication
-- Bcrypt
-- CORS
+- Node.js 18+ + Express 5
+- PostgreSQL (Neon) + Prisma 5
+- JWT Authentication (httpOnly cookies)
+- Bcrypt (custo 12)
+- Criptografia AES-256-GCM (dados LGPD: CPF, nome, telefone)
+- Helmet + CORS + Rate Limiting
 
 ## 📦 Instalação
 
 ### Pré-requisitos
-- Node.js 16+
-- MongoDB
+- Node.js 18+
+- Conta gratuita no [Neon](https://neon.tech) (PostgreSQL serverless)
 - Git
 
 ### 1. Clone o repositório
 ```bash
 git clone https://github.com/juleklazura/CRAS-Agendamentos.git
-cd agendamentos
+cd CRAS-Agendamentos
 ```
 
 ### 2. Configurar Backend
 ```bash
 cd backend
 npm install
-# Configure as variáveis de ambiente (MongoDB, JWT_SECRET)
+
+# Copie o arquivo de exemplo e preencha com seus valores
+cp .env.example .env
+# Edite o .env com DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, etc.
+
+# Gerar o cliente Prisma e aplicar o schema no banco
+npx prisma generate
+npx prisma db push
+
+# Criar o usuário administrador inicial
+node scripts/createAdmin.js
+
 npm start
 ```
 
 ### 3. Configurar Frontend
 ```bash
-cd ../
+cd ..
 npm install
 npm run dev
 ```
@@ -70,11 +82,49 @@ npm run dev
 ## 🔧 Configuração
 
 ### Variáveis de Ambiente (Backend)
-Crie um arquivo `.env` no diretório `backend/`:
+
+Crie `backend/.env` a partir de `backend/.env.example`:
+
 ```env
-MONGODB_URI="****************"
-JWT_SECRET=seu_jwt_secret_aqui
+# PostgreSQL Neon (obtenha em https://console.neon.tech)
+DATABASE_URL=postgresql://usuario:senha@ep-xxx-pooler.neon.tech/cras?sslmode=require
+DATABASE_URL_UNPOOLED=postgresql://usuario:senha@ep-xxx.neon.tech/cras?sslmode=require
+
+# JWT — gerar com: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+JWT_SECRET=<string aleatória de 128 caracteres hex>
+JWT_REFRESH_SECRET=<string aleatória diferente de 128 caracteres hex>
+
+# Criptografia LGPD — gerar com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+ENCRYPTION_KEY=<string aleatória de 64 caracteres hex>
+
+# Admin inicial (alterar a senha após o primeiro login)
+ADMIN_MATRICULA=admin
+ADMIN_PASSWORD=<senha forte gerada manualmente>
+
+# Servidor
 PORT=5000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+```
+
+> ⚠️ **Nunca commite o arquivo `.env`**. Ele está no `.gitignore`.
+
+## 🗄️ Banco de Dados
+
+O projeto usa **PostgreSQL via [Neon](https://neon.tech)** (serverless, free tier disponível) gerenciado pelo **Prisma ORM**.
+
+Os campos pessoais sensíveis (CPF, nome, telefone) são armazenados **criptografados** com AES-256-GCM (conformidade LGPD).
+
+### Comandos úteis do Prisma
+```bash
+# Aplicar alterações do schema no banco
+npx prisma db push
+
+# Abrir Prisma Studio (visualizador de dados)
+npx prisma studio
+
+# Gerar cliente após alterar o schema
+npx prisma generate
 ```
 
 ## 🎯 Estrutura do Sistema
@@ -93,12 +143,14 @@ PORT=5000
 ## 🚦 Status de Desenvolvimento
 
 ### ✅ **Concluído:**
-- Sistema de autenticação
+- Sistema de autenticação com JWT httpOnly cookies
 - CRUD completo de agendamentos
 - Diferentes tipos de agenda por perfil
 - Edição de agendamentos (entrevistador + recepção)
-- Sistema de permissões
+- Sistema de permissões por role
+- Criptografia de dados pessoais (LGPD)
 - Interface responsiva e profissional
 - Paginação otimizada
-- Performance melhorada
-
+- Cache em memória
+- Logs de auditoria
+- Migração MongoDB → PostgreSQL (Prisma)
