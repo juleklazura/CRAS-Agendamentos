@@ -50,7 +50,7 @@ export default function SeletorEntrevistador({
                   label="Escolha o entrevistador"
                 >
                   {entrevistadores.map((entrevistador) => (
-                    <MenuItem key={entrevistador._id} value={entrevistador._id}>
+                    <MenuItem key={entrevistador.id} value={entrevistador.id}>
                       <Box display="flex" alignItems="center" gap={1}>
                         <PersonIcon fontSize="small" color="primary" />
                         {entrevistador.name}
@@ -60,7 +60,7 @@ export default function SeletorEntrevistador({
                 </Select>
                 {entrevistadorSelecionado && (
                   <FormHelperText>
-                    Visualizando agenda de: {entrevistadores.find(e => e._id === entrevistadorSelecionado)?.name}
+                    Visualizando agenda de: {entrevistadores.find(e => e.id === entrevistadorSelecionado)?.name}
                   </FormHelperText>
                 )}
               </FormControl>

@@ -53,7 +53,7 @@ const getEncryptionKey = () => {
  * Serviço de criptografia para proteção de dados pessoais (LGPD)
  * 
  * PROPÓSITO:
- * - Criptografar dados sensíveis antes de salvar no MongoDB
+ * - Criptografar dados sensíveis antes de salvar no banco
  * - Descriptografar dados ao recuperar do banco
  * - Criar hashes para buscas sem expor dados
  * 

@@ -1,21 +1,22 @@
 # Render Blueprint - Backend API
 # Deploy automático via GitHub
-# Última atualização: 2026-02-04 - Corrigir rootDir
 
 services:
   - type: web
     name: cras-agendamentos-api
     runtime: node
-    region: oregon  # Mais próximo do MongoDB Atlas gratuito
+    region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install && npx prisma generate
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
+      - key: DATABASE_URL
         sync: false  # Configure manualmente no painel do Render
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: JWT_REFRESH_SECRET

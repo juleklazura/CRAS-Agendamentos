@@ -56,14 +56,14 @@ const AgendaFilters = memo(({
                 <em>Selecione um entrevistador</em>
               </MenuItem>
               {entrevistadores.map((entrevistador) => (
-                <MenuItem key={entrevistador._id} value={entrevistador._id}>
+                <MenuItem key={entrevistador.id} value={entrevistador.id}>
                   {entrevistador.name}
                 </MenuItem>
               ))}
             </Select>
             {selectedEntrevistador && (
               <FormHelperText>
-                Visualizando agenda de: {entrevistadores.find(e => e._id === selectedEntrevistador)?.name}
+                Visualizando agenda de: {entrevistadores.find(e => e.id === selectedEntrevistador)?.name}
               </FormHelperText>
             )}
           </FormControl>

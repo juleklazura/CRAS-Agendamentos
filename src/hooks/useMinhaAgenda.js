@@ -182,7 +182,7 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
     
     return agendamentos.find(agendamento => {
       if (agendamento.entrevistador && usuarioId &&
-          String(agendamento.entrevistador._id || agendamento.entrevistador) !== String(usuarioId)) {
+          String(agendamento.entrevistador.id || agendamento.entrevistador) !== String(usuarioId)) {
         return false;
       }
       
@@ -269,10 +269,10 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
   }, [dadosAgendamento, dataSelecionada, contexto.horarioSelecionado, usuarioId, usuarioCras, validarFormulario, mostrarMensagem, updateModal, updateLoading, buscarAgendamentos]);
 
   const confirmarPresenca = useCallback(async (agendamento) => {
-    if (!agendamento?._id) return;
+    if (!agendamento?.id) return;
 
     try {
-      await api.patch(`/appointments/${agendamento._id}/confirm`, {});
+      await api.patch(`/appointments/${agendamento.id}/confirm`, {});
       mostrarMensagem('Presença confirmada com sucesso!');
       buscarAgendamentos();
       window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'confirm' } }));
@@ -283,10 +283,10 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
   }, [mostrarMensagem, buscarAgendamentos]);
 
   const removerConfirmacao = useCallback(async (agendamento) => {
-    if (!agendamento?._id) return;
+    if (!agendamento?.id) return;
 
     try {
-      await api.patch(`/appointments/${agendamento._id}/unconfirm`, {});
+      await api.patch(`/appointments/${agendamento.id}/unconfirm`, {});
       mostrarMensagem('Confirmação removida com sucesso!');
       buscarAgendamentos();
       window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'unconfirm' } }));
@@ -297,10 +297,10 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
   }, [mostrarMensagem, buscarAgendamentos]);
 
   const marcarAusente = useCallback(async (agendamento) => {
-    if (!agendamento?._id) return;
+    if (!agendamento?.id) return;
 
     try {
-      await api.patch(`/appointments/${agendamento._id}`, { status: 'ausente' });
+      await api.patch(`/appointments/${agendamento.id}`, { status: 'ausente' });
       mostrarMensagem('Marcado como ausente!');
       buscarAgendamentos();
     } catch (erro) {
@@ -314,7 +314,7 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
 
     updateLoading('deleting', true);
     try {
-      await api.delete(`/appointments/${contexto.agendamentoParaExcluir._id}`);
+      await api.delete(`/appointments/${contexto.agendamentoParaExcluir.id}`);
       mostrarMensagem(MESSAGES.SUCCESS.AGENDAMENTO_EXCLUIDO);
       updateModal('exclusao', false);
       buscarAgendamentos();
@@ -340,7 +340,7 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
         observacoes: dadosEdicao.observacoes
       };
 
-      await api.put(`/appointments/${contexto.agendamentoParaEditar._id}`, dadosParaEdicao);
+      await api.put(`/appointments/${contexto.agendamentoParaEditar.id}`, dadosParaEdicao);
       mostrarMensagem('Agendamento atualizado com sucesso');
       updateModal('edicao', false);
       buscarAgendamentos();
@@ -373,7 +373,7 @@ export default function useMinhaAgenda(usuarioId, usuarioCras) {
         return;
       }
 
-      await api.delete(`/blocked-slots/${bloqueio._id}`);
+      await api.delete(`/blocked-slots/${bloqueio.id}`);
       mostrarMensagem('Horário desbloqueado com sucesso!');
       buscarBloqueios();
     } catch (erro) {

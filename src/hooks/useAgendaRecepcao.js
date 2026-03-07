@@ -29,7 +29,7 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
       setEntrevistadores(response.data);
       
       if (response.data.length === 1) {
-        setEntrevistadorSelecionado(response.data[0]._id);
+        setEntrevistadorSelecionado(response.data[0].id);
       } else if (response.data.length === 0) {
         mostrarMensagem('Nenhum entrevistador encontrado para este CRAS. ID: ' + usuario.cras, 'error');
       }
@@ -143,7 +143,7 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
   // Confirmar presença
   const confirmarPresenca = async (agendamento) => {
     try {
-      await api.patch(`/appointments/${agendamento._id}/confirm`, {});
+      await api.patch(`/appointments/${agendamento.id}/confirm`, {});
       mostrarMensagem('Presença confirmada com sucesso!');
       await buscarAgendamentos();
       window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'confirm' } }));
@@ -155,12 +155,12 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
 
   // Remover confirmação
   const removerConfirmacao = async (agendamento) => {
-    if (!agendamento?._id) {
+    if (!agendamento?.id) {
       mostrarMensagem('Agendamento inválido', 'error');
       return;
     }
     try {
-      await api.patch(`/appointments/${agendamento._id}/unconfirm`, {});
+      await api.patch(`/appointments/${agendamento.id}/unconfirm`, {});
       mostrarMensagem('Confirmação removida com sucesso!');
       await buscarAgendamentos();
       window.dispatchEvent(new CustomEvent('appointmentChanged', { detail: { action: 'unconfirm' } }));
@@ -172,12 +172,12 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
 
   // Marcar como ausente
   const marcarAusente = async (agendamento) => {
-    if (!agendamento?._id) {
+    if (!agendamento?.id) {
       mostrarMensagem('Agendamento inválido', 'error');
       return;
     }
     try {
-      await api.patch(`/appointments/${agendamento._id}`, { status: 'ausente' });
+      await api.patch(`/appointments/${agendamento.id}`, { status: 'ausente' });
       mostrarMensagem('Marcado como ausente!');
       await buscarAgendamentos();
     } catch (erro) {
@@ -214,7 +214,7 @@ export default function useAgendaRecepcao(usuario, mostrarMensagem) {
     if (!dataHorario) return null;
     return agendamentos.find(agendamento => {
       if (agendamento.entrevistador && entrevistadorSelecionado &&
-          String(agendamento.entrevistador._id || agendamento.entrevistador) !== String(entrevistadorSelecionado)) {
+          String(agendamento.entrevistador.id || agendamento.entrevistador) !== String(entrevistadorSelecionado)) {
         return false;
       }
       const dataAgendamento = new Date(agendamento.data);

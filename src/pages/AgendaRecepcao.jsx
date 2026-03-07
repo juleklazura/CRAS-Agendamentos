@@ -123,7 +123,7 @@ export default function AgendaRecepcao() {
 
   const confirmarExclusao = async () => {
     if (!agendamentoParaExcluir) return;
-    const sucesso = await excluirAgendamento(agendamentoParaExcluir._id);
+    const sucesso = await excluirAgendamento(agendamentoParaExcluir.id);
     if (sucesso) {
       setModalExclusaoAberto(false);
       setAgendamentoParaExcluir(null);
@@ -163,11 +163,11 @@ export default function AgendaRecepcao() {
   };
 
   const handleEditarAgendamento = async () => {
-    if (!agendamentoParaEditar?._id) {
+    if (!agendamentoParaEditar?.id) {
       mostrarMensagem('Agendamento inválido para edição', 'error');
       return;
     }
-    const sucesso = await editarAgendamento(agendamentoParaEditar._id, dadosEdicao);
+    const sucesso = await editarAgendamento(agendamentoParaEditar.id, dadosEdicao);
     if (sucesso) {
       fecharModalEdicao();
     }

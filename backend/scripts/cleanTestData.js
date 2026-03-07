@@ -3,32 +3,31 @@
  * 🗑️  SCRIPT DE LIMPEZA DE DADOS DE TESTE
  * ============================================================================
  * 
- * Remove todos os agendamentos de teste criados pelo seedAppointments.js
+ * Remove todos os agendamentos de teste (marcados com [TESTE])
  * 
  * Executar: node backend/scripts/cleanTestData.js
  * ============================================================================
  */
 
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Appointment from '../models/Appointment.js';
+import { PrismaClient } from '@prisma/client';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGODB_URI;
+const prisma = new PrismaClient();
 
 async function cleanTestData() {
   try {
     console.log('\n🗑️  LIMPEZA DE DADOS DE TESTE\n');
     console.log('='.repeat(80));
 
-    console.log('\n🔌 Conectando ao MongoDB...');
-    await mongoose.connect(MONGO_URI);
+    console.log('\n🔌 Conectando ao PostgreSQL...');
+    await prisma.$connect();
     console.log('✅ Conectado com sucesso!\n');
 
     console.log('🔍 Buscando agendamentos de teste...');
-    const count = await Appointment.countDocuments({
-      observacoes: { $regex: /\[TESTE\]/ }
+    const count = await prisma.appointment.count({
+      where: { observacoes: { contains: '[TESTE]' } },
     });
 
     if (count === 0) {
@@ -39,20 +38,19 @@ async function cleanTestData() {
     console.log(`📊 ${count.toLocaleString('pt-BR')} agendamentos de teste encontrados\n`);
     console.log('⚠️  Removendo...');
 
-    const result = await Appointment.deleteMany({
-      observacoes: { $regex: /\[TESTE\]/ }
+    const result = await prisma.appointment.deleteMany({
+      where: { observacoes: { contains: '[TESTE]' } },
     });
 
     console.log('\n' + '='.repeat(80));
     console.log('✅ LIMPEZA CONCLUÍDA!\n');
-    console.log(`🗑️  ${result.deletedCount.toLocaleString('pt-BR')} agendamentos de teste removidos`);
+    console.log(`🗑️  ${result.count.toLocaleString('pt-BR')} agendamentos de teste removidos`);
     console.log('='.repeat(80) + '\n');
-
   } catch (error) {
     console.error('\n❌ Erro ao limpar dados:', error);
     process.exit(1);
   } finally {
-    await mongoose.connection.close();
+    await prisma.$disconnect();
     console.log('🔌 Conexão fechada.\n');
   }
 }

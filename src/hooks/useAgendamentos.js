@@ -136,12 +136,12 @@ export function useAgendamentos(user) {
     
     // Validação frontend (adicional à validação backend)
     if (user?.role === 'entrevistador') {
-      if (agendamento.entrevistador?._id !== user.id) {
+      if (agendamento.entrevistador?.id !== user.id) {
         setError(ERROR_MESSAGES.DELETE_PERMISSION);
         return false;
       }
     } else if (user?.role === 'recepcao') {
-      if (agendamento.cras?._id !== user.cras) {
+      if (agendamento.cras?.id !== user.cras) {
         setError(ERROR_MESSAGES.DELETE_CRAS_PERMISSION);
         return false;
       }

@@ -36,8 +36,8 @@ const registrarAuditoria = (auditLog) => {
 export const canDeleteAgendamento = (agendamento, user) => {
   if (!user || !agendamento) return false;
   return user.role === 'admin' || 
-         user._id === agendamento.createdBy?._id ||
-         user._id === agendamento.entrevistador?._id;
+         user.id === agendamento.createdBy?.id ||
+         user.id === agendamento.entrevistador?.id;
 };
 
 /**
@@ -52,7 +52,7 @@ export function useAgendamentoActions(user, agendamentos) {
       // Registra auditoria
       const auditLog = {
         acao: 'EXPORTACAO_AGENDAMENTOS',
-        usuario: user?._id,
+        usuario: user?.id,
         usuarioNome: user?.name,
         quantidadeRegistros: agendamentos.length,
         timestamp: new Date().toISOString()

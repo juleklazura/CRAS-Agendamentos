@@ -139,7 +139,12 @@ export default function Usuarios() {
     }
     try {
       if (editId) {
-        await api.put(`/users/${editId}`, form);
+        const payload = { ...form };
+        // Converter string vazia de cras para null (Joi não aceita "")
+        if (!payload.cras) payload.cras = null;
+        // Não enviar senha se não foi preenchida na edição
+        if (!payload.password) delete payload.password;
+        await api.put(`/users/${editId}`, payload);
         setSuccess('Usuário atualizado com sucesso!');
       } else {
         await api.post('/users', form);
@@ -154,8 +159,8 @@ export default function Usuarios() {
   }
 
   function handleEdit(u) {
-    setForm({ name: u.name, matricula: u.matricula, password: '', role: u.role, cras: u.cras?._id || '' });
-    setEditId(u._id);
+    setForm({ name: u.name, matricula: u.matricula, password: '', role: u.role, cras: u.cras?.id || '' });
+    setEditId(u.id);
     setError('');
     setSuccess('');
   }
@@ -229,7 +234,7 @@ export default function Usuarios() {
                 <InputLabel>CRAS</InputLabel>
                 <Select name="cras" value={form.cras} onChange={handleChange} required label="CRAS">
                   <MenuItem value="">Selecione o CRAS</MenuItem>
-                  {crasList.map(c => <MenuItem key={c._id} value={c._id}>{c.nome}</MenuItem>)}
+                  {crasList.map(c => <MenuItem key={c.id} value={c.id}>{c.nome}</MenuItem>)}
                 </Select>
               </FormControl>
             )}
@@ -279,15 +284,15 @@ export default function Usuarios() {
             </TableHead>
             <TableBody>
               {filteredUsuarios.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(u => (
-                <TableRow key={u._id} selected={editId === u._id}>
+                <TableRow key={u.id} selected={editId === u.id}>
                   <TableCell>{u.name}</TableCell>
                   <TableCell>{u.matricula}</TableCell>
                   <TableCell>{u.role}</TableCell>
                   <TableCell>{u.cras?.nome || '-'}</TableCell>
                   <TableCell>
                     <IconButton onClick={() => handleEdit(u)} color="primary"><EditIcon /></IconButton>
-                    {u._id !== currentUser?.id && (
-                      <IconButton onClick={() => handleDelete(u._id)} color="error"><DeleteIcon /></IconButton>
+                    {u.id !== currentUser?.id && (
+                      <IconButton onClick={() => handleDelete(u.id)} color="error"><DeleteIcon /></IconButton>
                     )}
                   </TableCell>
                 </TableRow>

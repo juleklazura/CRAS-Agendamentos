@@ -53,7 +53,7 @@ const DashboardFilters = ({
 
   const handleCrasChange = (e) => {
     const value = e.target.value;
-    if (value === 'todos' || crasList.some(c => c._id === value)) {
+    if (value === 'todos' || crasList.some(c => c.id === value)) {
       setSelectedCras(value);
       setSelectedEntrevistador('todos');
     }
@@ -61,7 +61,7 @@ const DashboardFilters = ({
 
   const handleEntrevistadorChange = (e) => {
     const value = e.target.value;
-    if (value === 'todos' || entrevistadoresList.some(ent => ent._id === value)) {
+    if (value === 'todos' || entrevistadoresList.some(ent => ent.id === value)) {
       setSelectedEntrevistador(value);
     }
   };
@@ -74,7 +74,7 @@ const DashboardFilters = ({
       if (ent.role !== 'entrevistador') return false;
       if (selectedCras === 'todos') return true;
       
-      const entCrasId = typeof ent.cras === 'object' && ent.cras?._id ? ent.cras._id : ent.cras;
+      const entCrasId = typeof ent.cras === 'object' && ent.cras?.id ? ent.cras.id : ent.cras;
       return entCrasId === selectedCras;
     });
   }, [entrevistadoresList, selectedCras, isAdmin]);
@@ -111,7 +111,7 @@ const DashboardFilters = ({
               >
                 <MenuItem value="todos">Todos os CRAS</MenuItem>
                 {crasList.map((cras) => (
-                  <MenuItem key={cras._id} value={cras._id}>
+                  <MenuItem key={cras.id} value={cras.id}>
                     {cras.nome}
                   </MenuItem>
                 ))}
@@ -133,7 +133,7 @@ const DashboardFilters = ({
               >
                 <MenuItem value="todos">Todos os Entrevistadores</MenuItem>
                 {filteredEntrevistadores.map((entrevistador) => (
-                  <MenuItem key={entrevistador._id} value={entrevistador._id}>
+                  <MenuItem key={entrevistador.id} value={entrevistador.id}>
                     {entrevistador.name}
                   </MenuItem>
                 ))}

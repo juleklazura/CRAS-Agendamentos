@@ -77,13 +77,16 @@ export const formatDateTime = (date) => {
 };
 
 /**
- * Valida se o ID é um ObjectId MongoDB válido
+ * Valida se o ID é um ID válido (CUID do Prisma)
  * @param {string} id - ID a ser validado
  * @returns {boolean} true se válido
  */
-export const isValidObjectId = (id) => {
-  return id && typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+export const isValidId = (id) => {
+  return id && typeof id === 'string' && id.length >= 1 && id.length <= 50 && /^[a-z0-9]+$/i.test(id);
 };
+
+// Alias para compatibilidade
+export const isValidObjectId = isValidId;
 
 /**
  * Trunca texto para exibição limitada

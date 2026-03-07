@@ -5,11 +5,8 @@
 // reutilização e testabilidade. O controller apenas orquestra
 // request/response; toda lógica de domínio fica aqui.
 
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import User from '../models/User.js';
-import Log from '../models/Log.js';
-import Appointment from '../models/Appointment.js';
+import prisma from '../utils/prisma.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
 import { getDefaultAgenda } from '../config/agendaDefaults.js';
@@ -36,71 +33,65 @@ export class BusinessError extends Error {
 
 /**
  * Cria um novo usuário no sistema.
- * 
- * @param {Object} data - Dados validados do usuário (name, password, role, matricula, cras?)
- * @param {Object} actor - Usuário que está realizando a ação (req.user)
- * @returns {Object} Usuário criado (sem senha), com CRAS populado
- * @throws {BusinessError} Se matrícula já existir ou regra de negócio violada
  */
 export const createUser = async (data, actor) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const { name, password, role, matricula, cras } = data;
+    const result = await prisma.$transaction(async (tx) => {
+      const { name, password, role, matricula, cras } = data;
 
-    // Verificar unicidade da matrícula
-    const existing = await User.findOne({ matricula }).session(session);
-    if (existing) {
-      throw new BusinessError('Já existe um usuário com esta matrícula', 409);
-    }
+      // Verificar unicidade da matrícula
+      const existing = await tx.user.findUnique({ where: { matricula } });
+      if (existing) {
+        throw new BusinessError('Já existe um usuário com esta matrícula', 409);
+      }
 
-    // Hash seguro da senha
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);
+      // Hash seguro da senha
+      const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);
 
-    // Montar dados do usuário
-    const userData = { name, password: hashedPassword, role, matricula };
-    if (role !== 'admin') {
-      userData.cras = cras;
-    }
-    if (role === 'entrevistador') {
-      userData.agenda = getDefaultAgenda();
-    }
+      // Montar dados do usuário
+      const userData = { name, password: hashedPassword, role, matricula };
+      if (role !== 'admin') {
+        userData.crasId = cras;
+      }
+      if (role === 'entrevistador') {
+        const defaults = getDefaultAgenda();
+        userData.horariosDisponiveis = defaults.horariosDisponiveis;
+        userData.diasAtendimento = defaults.diasAtendimento;
+      }
 
-    // Criar usuário dentro da transação
-    const [user] = await User.create([userData], { session });
+      // Criar usuário dentro da transação
+      const user = await tx.user.create({
+        data: userData,
+        omit: { password: true },
+        include: { cras: true },
+      });
 
-    // Registrar ação em log (mesma transação = atomicidade garantida)
-    await Log.create([{
-      user: actor.id,
-      cras: actor.cras,
-      action: 'criar_usuario',
-      details: `Usuário criado: ${name} (${role}) - Matrícula: ${matricula}`,
-    }], { session });
+      // Registrar ação em log (mesma transação = atomicidade garantida)
+      await tx.log.create({
+        data: {
+          userId: actor.id,
+          crasId: actor.cras || null,
+          action: 'criar_usuario',
+          details: `Usuário criado: ${name} (${role}) - Matrícula: ${matricula}`,
+        },
+      });
 
-    await session.commitTransaction();
+      return user;
+    });
 
     // Invalidar cache APÓS commit bem-sucedido
     cache.invalidateUsers();
 
-    // Retornar usuário sem senha, com CRAS populado
-    await user.populate('cras');
-    return user.toJSON();
+    return result;
   } catch (err) {
-    await session.abortTransaction();
-
-    // Tratar erro de duplicate key do MongoDB (matrícula única)
-    if (err.code === 11000) {
+    // Tratar erro de unique constraint do PostgreSQL (matrícula)
+    if (err.code === 'P2002') {
       throw new BusinessError('Já existe um usuário com esta matrícula', 409);
     }
-
-    // Re-lançar BusinessError sem empacotar
     if (err instanceof BusinessError) throw err;
 
     logger.error('Erro ao criar usuário (service):', err);
     throw err;
-  } finally {
-    session.endSession();
   }
 };
 
@@ -110,53 +101,47 @@ export const createUser = async (data, actor) => {
 
 /**
  * Lista usuários com controle de permissões baseado no role do solicitante.
- * Admin vê todos; outros roles veem apenas entrevistadores.
- *
- * @param {string} role - Role do usuário solicitante
- * @returns {Array} Lista de usuários (sem senha)
  */
 export const getUsers = async (role) => {
   const cacheKey = `users:all:role:${role}`;
 
-  const fetchUsers = async () => {
-    const query = role !== 'admin' ? { role: 'entrevistador' } : {};
-    return User.find(query).select('-password').populate('cras');
-  };
-
-  return cache.cached(cacheKey, fetchUsers);
+  return cache.cached(cacheKey, async () => {
+    const where = role !== 'admin' ? { role: 'entrevistador' } : {};
+    return prisma.user.findMany({
+      where,
+      omit: { password: true },
+      include: { cras: true },
+    });
+  });
 };
 
 /**
  * Lista todos os entrevistadores do sistema.
- *
- * @returns {Array} Lista de entrevistadores (sem senha)
  */
 export const getEntrevistadores = async () => {
   const cacheKey = 'users:entrevistadores';
 
-  const fetchEntrevistadores = async () => {
-    return User.find({ role: 'entrevistador' }).select('-password');
-  };
-
-  return cache.cached(cacheKey, fetchEntrevistadores);
+  return cache.cached(cacheKey, async () => {
+    return prisma.user.findMany({
+      where: { role: 'entrevistador' },
+      omit: { password: true },
+    });
+  });
 };
 
 /**
  * Lista entrevistadores de um CRAS específico.
- *
- * @param {string} crasId - ID do CRAS
- * @returns {Array} Entrevistadores do CRAS (sem senha)
  */
 export const getEntrevistadoresByCras = async (crasId) => {
   const cacheKey = `users:entrevistadores:cras:${crasId}`;
 
-  const fetchEntrevistadores = async () => {
-    return User.find({ role: 'entrevistador', cras: crasId })
-      .select('-password')
-      .populate('cras');
-  };
-
-  return cache.cached(cacheKey, fetchEntrevistadores);
+  return cache.cached(cacheKey, async () => {
+    return prisma.user.findMany({
+      where: { role: 'entrevistador', crasId },
+      omit: { password: true },
+      include: { cras: true },
+    });
+  });
 };
 
 // =============================================================================
@@ -165,95 +150,87 @@ export const getEntrevistadoresByCras = async (crasId) => {
 
 /**
  * Atualiza dados de um usuário existente.
- *
- * @param {string} id - ID do usuário a ser atualizado
- * @param {Object} data - Dados validados para atualização
- * @param {Object} actor - Usuário que está realizando a ação (req.user)
- * @returns {Object} Usuário atualizado (sem senha)
- * @throws {BusinessError} Se usuário não encontrado ou regra violada
  */
 export const updateUser = async (id, data, actor) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const { name, password, role, cras, matricula, agenda } = data;
+    const result = await prisma.$transaction(async (tx) => {
+      const { name, password, role, cras, matricula, agenda } = data;
 
-    // Impedir que admin altere o próprio role
-    if (role && actor.id === id && role !== actor.role) {
-      throw new BusinessError(
-        'Você não pode alterar seu próprio perfil de acesso',
-        403
-      );
-    }
-
-    // Se matrícula está sendo alterada, verificar unicidade
-    if (matricula) {
-      const existing = await User.findOne({ matricula, _id: { $ne: id } }).session(session);
-      if (existing) {
-        throw new BusinessError('Já existe um usuário com esta matrícula', 409);
+      // Impedir que admin altere o próprio role
+      if (role && actor.id === id && role !== actor.role) {
+        throw new BusinessError(
+          'Você não pode alterar seu próprio perfil de acesso',
+          403
+        );
       }
-    }
 
-    // Montar objeto de atualização
-    const update = { name, role, matricula };
+      // Se matrícula está sendo alterada, verificar unicidade
+      if (matricula) {
+        const existing = await tx.user.findFirst({
+          where: { matricula, id: { not: id } },
+        });
+        if (existing) {
+          throw new BusinessError('Já existe um usuário com esta matrícula', 409);
+        }
+      }
 
-    if (role === 'admin') {
-      update.cras = null;
-    } else {
-      update.cras = cras;
-    }
+      // Montar objeto de atualização
+      const update = {};
+      if (name !== undefined) update.name = name;
+      if (role !== undefined) update.role = role;
+      if (matricula !== undefined) update.matricula = matricula;
 
-    if (password) {
-      update.password = await bcrypt.hash(password, BCRYPT_COST);
-    }
+      if (role === 'admin') {
+        update.crasId = null;
+      } else if (cras !== undefined) {
+        update.crasId = cras;
+      }
 
-    if (role === 'entrevistador' && agenda) {
-      const defaults = getDefaultAgenda();
-      update.agenda = {
-        horariosDisponiveis: agenda.horariosDisponiveis || defaults.horariosDisponiveis,
-        diasAtendimento: agenda.diasAtendimento || defaults.diasAtendimento,
-      };
-    }
+      if (password) {
+        update.password = await bcrypt.hash(password, BCRYPT_COST);
+      }
 
-    // Remover campos undefined para não sobrescrever com null
-    Object.keys(update).forEach((key) => {
-      if (update[key] === undefined) delete update[key];
+      if (role === 'entrevistador' && agenda) {
+        const defaults = getDefaultAgenda();
+        update.horariosDisponiveis = agenda.horariosDisponiveis || defaults.horariosDisponiveis;
+        update.diasAtendimento = agenda.diasAtendimento || defaults.diasAtendimento;
+      }
+
+      const user = await tx.user.update({
+        where: { id },
+        data: update,
+        omit: { password: true },
+        include: { cras: true },
+      });
+
+      // Log de auditoria dentro da mesma transação
+      await tx.log.create({
+        data: {
+          userId: actor.id,
+          crasId: actor.cras || null,
+          action: 'editar_usuario',
+          details: `Usuário editado: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
+        },
+      });
+
+      return user;
     });
 
-    const user = await User.findByIdAndUpdate(id, update, { new: true, session })
-      .select('-password')
-      .populate('cras');
-
-    if (!user) {
-      throw new BusinessError('Usuário não encontrado', 404);
-    }
-
-    // Log de auditoria dentro da mesma transação
-    await Log.create([{
-      user: actor.id,
-      cras: actor.cras,
-      action: 'editar_usuario',
-      details: `Usuário editado: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
-    }], { session });
-
-    await session.commitTransaction();
-
     cache.invalidateUsers();
+    cache.invalidateUser(id);
 
-    return user;
+    return result;
   } catch (err) {
-    await session.abortTransaction();
-
-    if (err.code === 11000) {
+    if (err.code === 'P2002') {
       throw new BusinessError('Matrícula já em uso por outro usuário', 409);
+    }
+    if (err.code === 'P2025') {
+      throw new BusinessError('Usuário não encontrado', 404);
     }
     if (err instanceof BusinessError) throw err;
 
     logger.error('Erro ao atualizar usuário (service):', err);
     throw err;
-  } finally {
-    session.endSession();
   }
 };
 
@@ -263,78 +240,74 @@ export const updateUser = async (id, data, actor) => {
 
 /**
  * Remove um usuário do sistema com todas as verificações de segurança.
- *
- * @param {string} id - ID do usuário a ser excluído
- * @param {Object} actor - Usuário que está realizando a ação (req.user)
- * @returns {Object} Mensagem de sucesso
- * @throws {BusinessError} Se houver impedimentos para exclusão
  */
 export const deleteUser = async (id, actor) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    // Impedir auto-exclusão
-    if (id.toString() === actor.id.toString()) {
-      throw new BusinessError('Você não pode excluir a si mesmo', 400);
-    }
-
-    const user = await User.findById(id).select('-password').session(session);
-    if (!user) {
-      throw new BusinessError('Usuário não encontrado', 404);
-    }
-
-    // Impedir exclusão do último admin
-    if (user.role === 'admin') {
-      const adminCount = await User.countDocuments({ role: 'admin' }).session(session);
-      if (adminCount <= 1) {
-        throw new BusinessError(
-          'Não é possível excluir o último administrador do sistema',
-          400
-        );
+    await prisma.$transaction(async (tx) => {
+      // Impedir auto-exclusão
+      if (id === actor.id) {
+        throw new BusinessError('Você não pode excluir a si mesmo', 400);
       }
-    }
 
-    // Verificar dependências de entrevistador
-    if (user.role === 'entrevistador') {
-      const agendamentosFuturos = await Appointment.countDocuments({
-        entrevistador: id,
-        data: { $gte: new Date() },
-        status: 'agendado',
-      }).session(session);
-
-      if (agendamentosFuturos > 0) {
-        throw new BusinessError(
-          `Não é possível excluir: existem ${agendamentosFuturos} agendamento(s) futuro(s) vinculado(s) a este entrevistador. Reagende ou cancele-os antes de excluir.`,
-          409,
-          'USER_HAS_DEPENDENCIES'
-        );
+      const user = await tx.user.findUnique({
+        where: { id },
+        omit: { password: true },
+      });
+      if (!user) {
+        throw new BusinessError('Usuário não encontrado', 404);
       }
-    }
 
-    await User.findByIdAndDelete(id, { session });
+      // Impedir exclusão do último admin
+      if (user.role === 'admin') {
+        const adminCount = await tx.user.count({ where: { role: 'admin' } });
+        if (adminCount <= 1) {
+          throw new BusinessError(
+            'Não é possível excluir o último administrador do sistema',
+            400
+          );
+        }
+      }
 
-    // Log de auditoria atômico com a exclusão
-    await Log.create([{
-      user: actor.id,
-      cras: actor.cras,
-      action: 'excluir_usuario',
-      details: `Usuário excluído: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
-    }], { session });
+      // Verificar dependências de entrevistador
+      if (user.role === 'entrevistador') {
+        const agendamentosFuturos = await tx.appointment.count({
+          where: {
+            entrevistadorId: id,
+            data: { gte: new Date() },
+            status: 'agendado',
+          },
+        });
 
-    await session.commitTransaction();
+        if (agendamentosFuturos > 0) {
+          throw new BusinessError(
+            `Não é possível excluir: existem ${agendamentosFuturos} agendamento(s) futuro(s) vinculado(s) a este entrevistador. Reagende ou cancele-os antes de excluir.`,
+            409,
+            'USER_HAS_DEPENDENCIES'
+          );
+        }
+      }
+
+      await tx.user.delete({ where: { id } });
+
+      // Log de auditoria atômico com a exclusão
+      await tx.log.create({
+        data: {
+          userId: actor.id,
+          crasId: actor.cras || null,
+          action: 'excluir_usuario',
+          details: `Usuário excluído: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
+        },
+      });
+    });
 
     cache.invalidateUsers();
+    cache.invalidateUser(id);
 
     return { message: 'Usuário removido' };
   } catch (err) {
-    await session.abortTransaction();
-
     if (err instanceof BusinessError) throw err;
 
     logger.error('Erro ao remover usuário (service):', err);
     throw err;
-  } finally {
-    session.endSession();
   }
 };

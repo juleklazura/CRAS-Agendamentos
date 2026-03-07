@@ -219,10 +219,10 @@ export const useDashboardData = ({
         params.entrevistador = user.id;
       } else if (isAdmin) {
         if (selectedEntrevistador !== 'todos') {
-          const isValid = entrevistadoresList.some(e => e._id === selectedEntrevistador);
+          const isValid = entrevistadoresList.some(e => e.id === selectedEntrevistador);
           if (isValid) params.entrevistador = selectedEntrevistador;
         } else if (selectedCras !== 'todos') {
-          const isValid = crasList.some(c => c._id === selectedCras);
+          const isValid = crasList.some(c => c.id === selectedCras);
           if (isValid) params.cras = selectedCras;
         }
       }

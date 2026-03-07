@@ -4,7 +4,7 @@
 import express from 'express';
 import { createUser, getUsers, updateUser, deleteUser, getEntrevistadoresByCras } from '../controllers/userController.js';
 import { auth, authorize } from '../middlewares/auth.js';
-import { validateObjectId } from '../middlewares/validateObjectId.js';
+import { validateId } from '../middlewares/validateId.js';
 import { validate, createUserSchema, updateUserSchema } from '../validators/userValidator.js';
 
 const router = express.Router();
@@ -17,8 +17,8 @@ router.get('/', auth, getUsers);
 // GET /api/users/entrevistadores/cras/:crasId - Buscar entrevistadores por CRAS específico
 // Usado pela recepção para filtrar apenas entrevistadores do próprio CRAS
 // Facilita criação de agendamentos com escopo restrito
-// 🔒 SEGURANÇA: Validação de ObjectId no parâmetro
-router.get('/entrevistadores/cras/:crasId', auth, validateObjectId('crasId'), authorize(['recepcao', 'admin']), getEntrevistadoresByCras);
+// 🔒 SEGURANÇA: Validação de ID no parâmetro
+router.get('/entrevistadores/cras/:crasId', auth, validateId('crasId'), authorize(['recepcao', 'admin']), getEntrevistadoresByCras);
 
 // Rotas restritas apenas para administradores
 // Operações de criação, edição e exclusão são privilégios administrativos
@@ -31,12 +31,12 @@ router.post('/', auth, authorize(['admin']), validate(createUserSchema), createU
 // PUT /api/users/:id - Editar usuário existente
 // Permite alterar dados pessoais, papel e vinculação a CRAS
 // Body: { name?, matricula?, password?, role?, cras?, agenda? }
-// 🔒 SEGURANÇA: Validação de ObjectId + Validação Joi dos dados
-router.put('/:id', auth, validateObjectId('id'), authorize(['admin']), validate(updateUserSchema), updateUser);
+// 🔒 SEGURANÇA: Validação de ID + Validação Joi dos dados
+router.put('/:id', auth, validateId('id'), authorize(['admin']), validate(updateUserSchema), updateUser);
 
 // DELETE /api/users/:id - Excluir usuário do sistema
 // Remove usuário permanentemente - valida dependências no service
 // Verifica se não há agendamentos vinculados antes de excluir
-router.delete('/:id', auth, validateObjectId('id'), authorize(['admin']), deleteUser);
+router.delete('/:id', auth, validateId('id'), authorize(['admin']), deleteUser);
 
 export default router;

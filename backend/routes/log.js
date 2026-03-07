@@ -8,10 +8,8 @@ import { auth, authorize } from '../middlewares/auth.js';
 const router = express.Router();
 
 // POST /api/logs - Criar novo registro de log
-// Qualquer usuário autenticado pode criar logs de suas ações
-// Body: { action, details?, relatedData? }
-// Usado automaticamente pelos controllers para registrar operações
-router.post('/', auth, createLog);
+// Restrito a admin — os controllers internos usam prisma.log.create() diretamente
+router.post('/', auth, authorize(['admin']), createLog);
 
 // GET /api/logs - Consultar logs com filtros baseados no perfil do usuário
 // Entrevistadores veem apenas seus próprios logs

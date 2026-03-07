@@ -6,184 +6,176 @@
  * Cria agendamentos de teste para validar paginação e performance
  * 
  * Executar: node backend/scripts/seedAppointments.js
- * 
  * ⚠️ IMPORTANTE: Apenas para ambiente de desenvolvimento/teste
  * ============================================================================
  */
 
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Appointment from '../models/Appointment.js';
-import User from '../models/User.js';
-import Cras from '../models/Cras.js';
+import { PrismaClient } from '@prisma/client';
+import EncryptionService from '../utils/encryption.js';
+import { motivoToEnum } from '../constants/motivos.js';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGODB_URI;
+const prisma = new PrismaClient();
 
-// Nomes brasileiros para gerar dados realistas
+const QUANTIDADE = 10000;
+const BATCH_SIZE = 500;
+
+const HORARIOS = [
+  '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+];
+
+const STATUS = ['agendado', 'realizado', 'ausente'];
+
 const NOMES = [
-  'João Silva', 'Maria Santos', 'José Oliveira', 'Ana Costa', 'Carlos Souza',
-  'Mariana Lima', 'Pedro Alves', 'Juliana Ferreira', 'Lucas Rodrigues', 'Fernanda Martins',
-  'Rafael Pereira', 'Camila Ribeiro', 'Bruno Carvalho', 'Beatriz Almeida', 'Gabriel Dias',
-  'Larissa Nascimento', 'Thiago Barbosa', 'Bruna Cardoso', 'Felipe Teixeira', 'Amanda Rocha',
-  'Rodrigo Castro', 'Jéssica Freitas', 'Mateus Cavalcanti', 'Aline Monteiro', 'Diego Pinto'
+  'Ana Costa', 'Bruno Carvalho', 'Carlos Souza', 'Diego Pinto', 'Fernanda Martins',
+  'Gabriel Dias', 'Helena Silva', 'Igor Santos', 'Juliana Ferreira', 'Lucas Rodrigues',
+  'Mariana Lima', 'Pedro Alves', 'Rodrigo Castro', 'Thiago Barbosa', 'Amanda Rocha',
+  'Larissa Nascimento', 'Felipe Teixeira', 'Jéssica Freitas', 'Mateus Cavalcanti',
+  'Camila Ribeiro', 'Aline Monteiro', 'Bruna Cardoso', 'José Oliveira', 'Maria Santos',
 ];
 
 const MOTIVOS = [
   'Atualização Cadastral',
   'Inclusão',
   'Transferência de Município',
-  'Orientações Gerais'
+  'Orientações Gerais',
 ];
 
-const STATUS_LIST = ['agendado', 'realizado', 'ausente'];
-
-// Gerar CPF válido
 function gerarCPF() {
-  const n = () => Math.floor(Math.random() * 9);
-  const cpf = Array(9).fill(0).map(n);
-  
-  // Calcular dígitos verificadores
+  const cpf = [];
+  for (let i = 0; i < 9; i++) cpf.push(Math.floor(Math.random() * 10));
   let soma = cpf.reduce((acc, val, i) => acc + val * (10 - i), 0);
   cpf.push((soma * 10) % 11 % 10);
-  
   soma = cpf.reduce((acc, val, i) => acc + val * (11 - i), 0);
   cpf.push((soma * 10) % 11 % 10);
-  
   return cpf.join('');
 }
 
-// Gerar telefone brasileiro válido
 function gerarTelefone() {
-  const ddds = [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 24, 27, 28, 31, 32, 33, 34, 35, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 53, 54, 55, 61, 62, 63, 64, 65, 66, 67, 68, 69, 71, 73, 74, 75, 77, 79, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99];
+  const ddds = [11, 21, 31, 41, 51, 61, 71, 81, 91, 27, 48];
   const ddd = ddds[Math.floor(Math.random() * ddds.length)];
-  const numero = Math.floor(Math.random() * 100000000);
-  const numeroStr = numero.toString().padStart(8, '0');
-  return `(${ddd}) 9${numeroStr.substring(0, 4)}-${numeroStr.substring(4)}`;
+  const numero = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+  return `(${ddd}) 9${numero.substring(0, 4)}-${numero.substring(4)}`;
 }
 
-// Gerar data aleatória nos próximos 90 dias
-function gerarDataAleatoria() {
+function gerarDataHorario() {
   const hoje = new Date();
-  const diasAFrente = Math.floor(Math.random() * 90); // 0 a 89 dias
+  let diasAFrente = Math.floor(Math.random() * 90);
   const data = new Date(hoje);
   data.setDate(data.getDate() + diasAFrente);
-  return data.toISOString().split('T')[0];
+
+  while (data.getDay() === 0 || data.getDay() === 6) {
+    diasAFrente++;
+    data.setDate(hoje.getDate() + diasAFrente);
+  }
+
+  const horario = HORARIOS[Math.floor(Math.random() * HORARIOS.length)];
+  const [hora, minuto] = horario.split(':');
+  data.setHours(parseInt(hora, 10), parseInt(minuto, 10), 0, 0);
+  return data;
 }
 
-async function seedAppointments() {
+async function seed() {
   try {
     console.log('\n📋 SEED DE AGENDAMENTOS\n');
     console.log('='.repeat(80));
 
-    console.log('\n🔌 Conectando ao MongoDB...');
-    await mongoose.connect(MONGO_URI);
-    console.log('✅ Conectado com sucesso!\n');
+    await prisma.$connect();
+    console.log('✅ Conectado ao PostgreSQL\n');
 
-    // Buscar entrevistadores e CRAS existentes
-    console.log('🔍 Buscando entrevistadores e CRAS...');
-    const entrevistadores = await User.find({ role: 'entrevistador' }).select('_id cras');
-    const crasList = await Cras.find().select('_id');
+    const entrevistadores = await prisma.user.findMany({
+      where: { role: 'entrevistador' },
+      select: { id: true, crasId: true },
+    });
 
     if (entrevistadores.length === 0) {
       console.error('❌ Nenhum entrevistador encontrado! Crie usuários primeiro.');
       process.exit(1);
     }
 
-    if (crasList.length === 0) {
-      console.error('❌ Nenhum CRAS encontrado! Crie CRAS primeiro.');
-      process.exit(1);
-    }
+    console.log(`✓ ${entrevistadores.length} entrevistadores encontrados\n`);
 
-    console.log(`✓ ${entrevistadores.length} entrevistadores encontrados`);
-    console.log(`✓ ${crasList.length} CRAS encontrados\n`);
-
-    // Perguntar quantos agendamentos criar
-    const quantidade = 10000;
-    console.log(`📊 Criando ${quantidade.toLocaleString('pt-BR')} agendamentos de teste...\n`);
-
-    // Limpar agendamentos antigos de teste
-    const deleteResult = await Appointment.deleteMany({
-      observacoes: { $regex: /\[TESTE\]/ }
+    const deleteResult = await prisma.appointment.deleteMany({
+      where: { observacoes: { contains: '[TESTE]' } },
     });
-    console.log(`🗑️  ${deleteResult.deletedCount} agendamentos de teste anteriores removidos\n`);
+    console.log(`🗑️  ${deleteResult.count} agendamentos de teste anteriores removidos\n`);
 
-    // Criar agendamentos em lotes
-    const batchSize = 1000;
-    let totalCriados = 0;
+    console.log(`📝 Criando ${QUANTIDADE.toLocaleString('pt-BR')} agendamentos...\n`);
+
     const startTime = Date.now();
+    let totalCriados = 0;
 
-    for (let i = 0; i < quantidade; i += batchSize) {
+    for (let i = 0; i < QUANTIDADE; i += BATCH_SIZE) {
       const batch = [];
-      const loteSize = Math.min(batchSize, quantidade - i);
+      const loteSize = Math.min(BATCH_SIZE, QUANTIDADE - i);
 
       for (let j = 0; j < loteSize; j++) {
         const entrevistador = entrevistadores[Math.floor(Math.random() * entrevistadores.length)];
-        
+        const cpf = gerarCPF();
+        const pessoa = NOMES[Math.floor(Math.random() * NOMES.length)];
+        const telefone1 = gerarTelefone();
+        const telefone2 = Math.random() > 0.5 ? gerarTelefone() : null;
+        const motivo = MOTIVOS[Math.floor(Math.random() * MOTIVOS.length)];
+
         batch.push({
-          entrevistador: entrevistador._id,
-          cras: entrevistador.cras,
-          pessoa: NOMES[Math.floor(Math.random() * NOMES.length)],
-          cpf: gerarCPF(),
-          telefone1: gerarTelefone(),
-          telefone2: Math.random() > 0.5 ? gerarTelefone() : undefined,
-          motivo: MOTIVOS[Math.floor(Math.random() * MOTIVOS.length)],
-          data: gerarDataAleatoria(),
-          status: STATUS_LIST[Math.floor(Math.random() * STATUS_LIST.length)],
+          entrevistadorId: entrevistador.id,
+          crasId: entrevistador.crasId,
+          pessoa: EncryptionService.encrypt(pessoa),
+          cpf: EncryptionService.encrypt(cpf),
+          cpfHash: EncryptionService.hash(cpf),
+          telefone1: EncryptionService.encrypt(telefone1),
+          telefone2: telefone2 ? EncryptionService.encrypt(telefone2) : null,
+          motivo: motivoToEnum(motivo),
+          data: gerarDataHorario(),
+          status: STATUS[Math.floor(Math.random() * STATUS.length)],
           observacoes: `[TESTE] Agendamento de teste #${i + j + 1}`,
-          createdBy: entrevistador._id
+          createdById: entrevistador.id,
         });
       }
 
-      await Appointment.insertMany(batch, { lean: true });
-      totalCriados += batch.length;
+      const result = await prisma.appointment.createMany({ data: batch, skipDuplicates: true });
+      totalCriados += result.count;
 
-      const progresso = ((totalCriados / quantidade) * 100).toFixed(1);
+      const progresso = ((totalCriados / QUANTIDADE) * 100).toFixed(1);
       const barraLength = 50;
-      const filled = Math.floor((totalCriados / quantidade) * barraLength);
+      const filled = Math.floor((totalCriados / QUANTIDADE) * barraLength);
       const barra = '█'.repeat(filled) + '░'.repeat(barraLength - filled);
-      
-      process.stdout.write(`\r[${ barra}] ${progresso}% (${totalCriados.toLocaleString('pt-BR')}/${quantidade.toLocaleString('pt-BR')})`);
+      process.stdout.write(
+        `\r[${barra}] ${progresso}% (${totalCriados.toLocaleString('pt-BR')}/${QUANTIDADE.toLocaleString('pt-BR')})`
+      );
     }
 
     const endTime = Date.now();
-    const tempoDecorrido = ((endTime - startTime) / 1000).toFixed(2);
+    const tempo = ((endTime - startTime) / 1000).toFixed(2);
 
     console.log('\n\n' + '='.repeat(80));
     console.log('✅ SEED CONCLUÍDO!\n');
     console.log(`📊 Estatísticas:`);
-    console.log(`  • Total criado: ${totalCriados.toLocaleString('pt-BR')} agendamentos`);
-    console.log(`  • Tempo decorrido: ${tempoDecorrido}s`);
-    console.log(`  • Velocidade: ${(totalCriados / parseFloat(tempoDecorrido)).toFixed(0)} agendamentos/segundo\n`);
+    console.log(`  • Total: ${totalCriados.toLocaleString('pt-BR')} agendamentos`);
+    console.log(`  • Tempo: ${tempo}s`);
+    console.log(`  • Velocidade: ${(totalCriados / parseFloat(tempo)).toFixed(0)} agendamentos/s\n`);
 
-    // Contar por status
     console.log('📋 Distribuição por status:');
-    for (const status of STATUS_LIST) {
-      const count = await Appointment.countDocuments({ 
-        status, 
-        observacoes: { $regex: /\[TESTE\]/ } 
+    for (const status of STATUS) {
+      const count = await prisma.appointment.count({
+        where: { status, observacoes: { contains: '[TESTE]' } },
       });
       console.log(`  • ${status}: ${count.toLocaleString('pt-BR')}`);
     }
 
-    console.log('\n🧪 Para testar a paginação:');
-    console.log('  • GET /api/appointments?page=0&pageSize=10');
-    console.log('  • GET /api/appointments?page=0&pageSize=50');
-    console.log('  • GET /api/appointments?page=0&pageSize=100');
-    console.log('  • GET /api/appointments?page=50&pageSize=100');
-    
-    console.log('\n🗑️  Para remover dados de teste:');
+    console.log('\n🗑️  Limpar dados:');
     console.log('  • node backend/scripts/cleanTestData.js');
     console.log('='.repeat(80) + '\n');
-
   } catch (error) {
-    console.error('\n❌ Erro ao criar agendamentos:', error);
+    console.error('\n❌ Erro:', error.message);
     process.exit(1);
   } finally {
-    await mongoose.connection.close();
-    console.log('🔌 Conexão fechada.\n');
+    await prisma.$disconnect();
+    process.exit(0);
   }
 }
 
-seedAppointments();
+seed();

@@ -97,7 +97,7 @@ export default function Cras() {
 
   function handleEdit(c) {
     setForm({ nome: c.nome, endereco: c.endereco, telefone: c.telefone });
-    setEditId(c._id);
+    setEditId(c.id);
     setError('');
     setSuccess('');
   }
@@ -201,13 +201,13 @@ export default function Cras() {
             </TableHead>
             <TableBody>
               {filteredCras.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(c => (
-                <TableRow key={c._id} selected={editId === c._id}>
+                <TableRow key={c.id} selected={editId === c.id}>
                   <TableCell>{c.nome}</TableCell>
                   <TableCell>{c.endereco}</TableCell>
                   <TableCell>{c.telefone}</TableCell>
                   <TableCell>
                     <IconButton onClick={() => handleEdit(c)} color="primary"><EditIcon /></IconButton>
-                    <IconButton onClick={() => handleDelete(c._id)} color="error"><DeleteIcon /></IconButton>
+                    <IconButton onClick={() => handleDelete(c.id)} color="error"><DeleteIcon /></IconButton>
                   </TableCell>
                 </TableRow>
               ))}

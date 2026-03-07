@@ -182,7 +182,7 @@ export const endOfDay = (date) => {
 };
 
 /**
- * Converte data para ISO string (formato usado no MongoDB)
+ * Converte data para ISO string (formato usado no PostgreSQL)
  * @param {Date|string} date - Data a converter
  * @returns {string} String ISO 8601
  */

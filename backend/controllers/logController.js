@@ -1,19 +1,23 @@
+import prisma from '../utils/prisma.js';
 import logger from '../utils/logger.js';
 import { apiSuccess, apiError } from '../utils/apiResponse.js';
+
 // Controller para sistema de logs e auditoria
-// Gerencia registro e consulta de ações dos usuários no sistema
-import Log from '../models/Log.js';
 
 // Função para criar novo registro de log
-// Usada quando usuários realizam ações que precisam ser auditadas
 export const createLog = async (req, res) => {
   try {
     const { action, details, cras } = req.body;
-    
-    // Cria novo log associado ao usuário autenticado
-    const log = new Log({ user: req.user.id, cras, action, details });
-    await log.save();
-    
+
+    const log = await prisma.log.create({
+      data: {
+        userId: req.user.id,
+        crasId: cras || null,
+        action,
+        details,
+      },
+    });
+
     apiSuccess(res, log, 201);
   } catch (_) {
     apiError(res, 'Erro ao criar log');
@@ -21,29 +25,28 @@ export const createLog = async (req, res) => {
 };
 
 // Função para consultar logs com filtros por perfil de usuário
-// Entrevistadores veem apenas seus logs, recepção vê logs do CRAS, admin vê todos
 export const getLogs = async (req, res) => {
   try {
-    const filter = {};
-    
+    const where = {};
+
     // Aplica filtros baseados no perfil do usuário
     if (req.user.role === 'entrevistador') {
-      // Entrevistador vê apenas seus próprios logs
-      filter.user = req.user.id;
+      where.userId = req.user.id;
     } else if (req.user.role === 'recepcao') {
-      // Recepção vê logs do próprio CRAS
-      filter.cras = req.user.cras;
+      where.crasId = req.user.cras;
     } else if (req.query.cras) {
-      // Admin pode filtrar por CRAS específico
-      filter.cras = req.query.cras;
+      where.crasId = req.query.cras;
     }
-    
-    // Busca logs com dados populados e ordenação por data decrescente
-    const logs = await Log.find(filter)
-      .populate('user', '-password')
-      .populate('cras')
-      .sort({ date: -1 }); // Mais recente primeiro
-      
+
+    const logs = await prisma.log.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, role: true, matricula: true, crasId: true } },
+        cras: true,
+      },
+      orderBy: { date: 'desc' },
+    });
+
     apiSuccess(res, logs);
   } catch (_) {
     apiError(res, 'Erro ao buscar logs', 500);

@@ -1,33 +1,28 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PrismaClient } from '@prisma/client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Carrega variáveis de ambiente
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-// Importa o modelo
-import Appointment from '../models/Appointment.js';
+const prisma = new PrismaClient();
 
 async function clearAppointments() {
   try {
-    // Conecta ao MongoDB
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ Conectado ao MongoDB');
+    await prisma.$connect();
+    console.log('✅ Conectado ao PostgreSQL');
 
-    // Deleta todos os agendamentos
-    const result = await Appointment.deleteMany({});
-    
-    console.log(`\n🗑️  ${result.deletedCount} agendamentos deletados com sucesso!`);
-    console.log('✅ Banco de dados zerado');
+    const result = await prisma.appointment.deleteMany({});
 
+    console.log(`\n🗑️  ${result.count} agendamentos deletados com sucesso!`);
+    console.log('✅ Tabela zerada');
   } catch (error) {
     console.error('❌ Erro ao deletar agendamentos:', error);
   } finally {
-    await mongoose.connection.close();
+    await prisma.$disconnect();
     console.log('\n✅ Conexão fechada');
     process.exit(0);
   }

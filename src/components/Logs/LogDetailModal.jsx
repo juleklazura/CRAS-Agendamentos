@@ -127,7 +127,7 @@ const LogDetailModal = memo(({ open, onClose, log }) => {
             variant="body2" 
             sx={{ fontFamily: 'monospace', bgcolor: 'grey.100', p: 1, borderRadius: 1, mt: 0.5 }}
           >
-            {log._id}
+            {log.id}
           </Typography>
         </Box>
 
@@ -218,10 +218,10 @@ const LogDetailModal = memo(({ open, onClose, log }) => {
             <strong>Informações Técnicas:</strong>
           </Typography>
           <Typography variant="caption" display="block" sx={{ fontFamily: 'monospace' }}>
-            • ID do Usuário: {log.user?._id || 'N/A'}
+            • ID do Usuário: {log.user?.id || 'N/A'}
           </Typography>
           <Typography variant="caption" display="block" sx={{ fontFamily: 'monospace' }}>
-            • ID do CRAS: {log.cras?._id || 'N/A'}
+            • ID do CRAS: {log.cras?.id || 'N/A'}
           </Typography>
           <Typography variant="caption" display="block" sx={{ fontFamily: 'monospace' }}>
             • Timestamp Unix: {log.date ? new Date(log.date).getTime() : 'N/A'}

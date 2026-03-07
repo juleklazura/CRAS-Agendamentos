@@ -140,7 +140,7 @@ export default function AgendamentosTable({
           ) : (
             agendamentos.map((agendamento) => (
               <AgendamentoRow
-                key={agendamento._id}
+                key={agendamento.id}
                 agendamento={agendamento}
                 canDelete={canDeleteFn(agendamento, user)}
                 onDelete={onDelete}

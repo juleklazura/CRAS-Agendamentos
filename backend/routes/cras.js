@@ -4,7 +4,7 @@
 import express from 'express';
 import { createCras, getCras, getCrasById, updateCras, deleteCras } from '../controllers/crasController.js';
 import { auth, authorize } from '../middlewares/auth.js';
-import { validateObjectId } from '../middlewares/validateObjectId.js';
+import { validateId } from '../middlewares/validateId.js';
 
 const router = express.Router();
 
@@ -21,18 +21,18 @@ router.get('/', auth, getCras);
 // GET /api/cras/:id - Buscar unidade CRAS específica por ID
 // Retorna dados detalhados de uma unidade específica
 // Usado para edição e visualização de detalhes
-// 🔒 SEGURANÇA: Requer autenticação mas permite qualquer role, validação de ObjectId
-router.get('/:id', auth, validateObjectId('id'), getCrasById);
+// 🔒 SEGURANÇA: Requer autenticação mas permite qualquer role, validação de ID
+router.get('/:id', auth, validateId('id'), getCrasById);
 
 // PUT /api/cras/:id - Editar unidade CRAS existente (apenas admin)
 // Permite atualizar informações da unidade como nome, endereço, etc.
 // Body: { nome?, endereco?, telefone?, responsavel?, observacoes? }
-// 🔒 SEGURANÇA: Validação de ObjectId no parâmetro
-router.put('/:id', auth, validateObjectId('id'), authorize(['admin']), updateCras);
+// 🔒 SEGURANÇA: Validação de ID no parâmetro
+router.put('/:id', auth, validateId('id'), authorize(['admin']), updateCras);
 
 // DELETE /api/cras/:id - Excluir unidade CRAS (apenas admin)
 // Remove unidade do sistema - deve validar se não há dependências
 // Verifica se existem usuários ou agendamentos vinculados antes de excluir
-router.delete('/:id', auth, validateObjectId('id'), authorize(['admin']), deleteCras);
+router.delete('/:id', auth, validateId('id'), authorize(['admin']), deleteCras);
 
 export default router;

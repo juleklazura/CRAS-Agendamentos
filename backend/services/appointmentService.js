@@ -5,42 +5,44 @@
 // reutilização e testabilidade. O controller apenas orquestra
 // request/response; toda lógica de domínio fica aqui.
 
-import mongoose from 'mongoose';
-import Appointment from '../models/Appointment.js';
-import User from '../models/User.js';
-import Log from '../models/Log.js';
+import prisma from '../utils/prisma.js';
 import EncryptionService from '../utils/encryption.js';
 import { validarCPF, validarTelefone } from '../utils/validators.js';
 import { parseDate, isWeekend, formatDateTime, now } from '../utils/timezone.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
 import { BusinessError } from './userService.js';
-import {
-  APPOINTMENT_POPULATE,
-  APPOINTMENT_POPULATE_FULL,
-  APPOINTMENT_POPULATE_LIST,
-} from '../constants/populate.js';
+import { motivoToEnum, convertAppointmentMotivo } from '../constants/motivos.js';
+
+// =============================================================================
+// INCLUDE OBJECTS (Prisma equivalente ao populate)
+// =============================================================================
+
+const INCLUDE_DEFAULT = {
+  entrevistador: { select: { id: true, name: true, matricula: true } },
+  cras: { select: { id: true, nome: true, endereco: true, telefone: true } },
+  createdBy: { select: { id: true, name: true, matricula: true } },
+};
+
+const INCLUDE_FULL = {
+  ...INCLUDE_DEFAULT,
+  updatedBy: { select: { id: true, name: true, matricula: true } },
+};
+
+const INCLUDE_LIST = {
+  entrevistador: { select: { id: true, name: true, matricula: true } },
+  cras: { select: { id: true, nome: true } },
+};
 
 // =============================================================================
 // HELPERS INTERNOS
 // =============================================================================
 
-/** Campos permitidos para atualização (whitelist). */
-const ALLOWED_UPDATE_FIELDS = [
-  'entrevistador', 'cras', 'pessoa', 'cpf', 'telefone1', 'telefone2',
-  'motivo', 'data', 'status', 'observacoes',
-];
-
-/** Campos selecionados na listagem (evita carregar campos desnecessários). */
-const LIST_SELECT = 'entrevistador cras pessoa cpf telefone1 telefone2 motivo data status observacoes createdAt';
-
 /** Tamanhos de página permitidos. */
 const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
 
 /**
- * Descriptografa campos LGPD de um agendamento (objeto lean).
- * @param {Object} doc - Documento lean do Mongoose
- * @returns {Object} Documento com campos decriptados
+ * Descriptografa campos LGPD de um agendamento (objeto Prisma).
  */
 const decryptFields = (doc) => {
   const fieldsToDecrypt = ['pessoa', 'cpf', 'telefone1', 'telefone2'];
@@ -54,18 +56,27 @@ const decryptFields = (doc) => {
 };
 
 /**
+ * Processa um agendamento para retorno ao frontend:
+ * descriptografa campos LGPD e converte enum de motivo → label.
+ */
+const processAppointment = (doc) => {
+  if (!doc) return doc;
+  return convertAppointmentMotivo(decryptFields(doc));
+};
+
+/**
+ * Criptografa campos sensíveis para persistência.
+ */
+const encryptField = (value) => (value ? EncryptionService.encrypt(value) : value);
+
+/**
  * Verifica se o usuário tem permissão para operar no agendamento.
- *
- * @param {Object} appointment - Agendamento do banco (com entrevistador como ObjectId)
- * @param {Object} actor - Usuário logado { id, role, cras }
- * @param {string} action - Descrição da ação (para mensagens de erro)
- * @throws {BusinessError} Se não autorizado (403)
  */
 const checkOwnership = async (appointment, actor, action) => {
-  if (actor.role === 'admin') return; // Admin acessa tudo
+  if (actor.role === 'admin') return;
 
   if (actor.role === 'entrevistador') {
-    if (appointment.entrevistador.toString() !== actor.id) {
+    if (appointment.entrevistadorId !== actor.id) {
       throw new BusinessError(
         `Você não tem permissão para ${action} este agendamento`,
         403,
@@ -76,8 +87,11 @@ const checkOwnership = async (appointment, actor, action) => {
   }
 
   if (actor.role === 'recepcao') {
-    const entrevistador = await User.findById(appointment.entrevistador).select('_id cras');
-    if (!entrevistador || entrevistador.cras.toString() !== actor.cras?.toString()) {
+    const entrevistador = await prisma.user.findUnique({
+      where: { id: appointment.entrevistadorId },
+      select: { id: true, crasId: true },
+    });
+    if (!entrevistador || entrevistador.crasId !== actor.cras) {
       throw new BusinessError(
         `Você não tem permissão para ${action} agendamentos de outro CRAS`,
         403,
@@ -89,20 +103,12 @@ const checkOwnership = async (appointment, actor, action) => {
 
 /**
  * Busca um agendamento por ID e lança 404 se não encontrado.
- *
- * @param {string} id - ID do agendamento
- * @param {Array} [populateSpec] - Populate opcional
- * @returns {Object} Agendamento encontrado
- * @throws {BusinessError} Se não encontrado (404)
  */
-const findOrFail = async (id, populateSpec = null) => {
-  let query = Appointment.findById(id);
-  if (populateSpec) {
-    for (const p of populateSpec) {
-      query = query.populate(p.path, p.select);
-    }
-  }
-  const appointment = await query;
+const findOrFail = async (id, include = null) => {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id },
+    ...(include && { include }),
+  });
   if (!appointment) {
     throw new BusinessError('Agendamento não encontrado', 404, 'NOT_FOUND');
   }
@@ -115,20 +121,16 @@ const findOrFail = async (id, populateSpec = null) => {
 
 /**
  * Cria um novo agendamento com validações rigorosas.
- *
- * @param {Object} data - Campos do body validados
- * @param {Object} actor - Usuário logado { id, cras }
- * @returns {Object} Agendamento criado e populado (JSON)
- * @throws {BusinessError} Se validação falhar ou slot ocupado
  */
 export const createAppointment = async (data, actor) => {
-  const { entrevistador, cras, pessoa, cpf, telefone1, telefone2, motivo, data: dataAgendamento, status, observacoes } = data;
+  const {
+    entrevistador, cras, pessoa, cpf, telefone1, telefone2,
+    motivo, data: dataAgendamento, status, observacoes,
+  } = data;
 
   // --- Validações de obrigatoriedade ---
   if (!entrevistador) throw new BusinessError('Entrevistador é obrigatório');
-  if (!mongoose.Types.ObjectId.isValid(entrevistador)) throw new BusinessError('ID do entrevistador é inválido');
   if (!cras) throw new BusinessError('CRAS é obrigatório');
-  if (!mongoose.Types.ObjectId.isValid(cras)) throw new BusinessError('ID do CRAS é inválido');
   if (!pessoa) throw new BusinessError('Nome da pessoa é obrigatório');
   if (!cpf) throw new BusinessError('CPF é obrigatório');
   if (!validarCPF(cpf)) throw new BusinessError('CPF inválido. Verifique os dígitos e tente novamente.');
@@ -143,45 +145,56 @@ export const createAppointment = async (data, actor) => {
     throw new BusinessError('Não é permitido agendar para sábado ou domingo.');
   }
 
-  // --- Persistência com proteção contra race condition ---
-  let appointment;
-  try {
-    appointment = new Appointment({
-      entrevistador, cras, pessoa, cpf, telefone1, telefone2,
-      motivo, data: dataAgendamento, status, observacoes,
-      createdBy: actor.id,
-    });
-    await appointment.save();
-  } catch (dbError) {
-    if (dbError.code === 11000 || dbError.name === 'MongoServerError') {
-      const dataFormatada = formatDateTime(dataAgendamento);
-      throw new BusinessError(
-        `Este horário (${dataFormatada}) já está ocupado para este entrevistador. Por favor, escolha outro horário.`,
-        409,
-        'SLOT_TAKEN'
-      );
-    }
-    throw dbError;
+  // --- Verificar slot disponível (proteção contra race condition) ---
+  const existingSlot = await prisma.appointment.findFirst({
+    where: {
+      entrevistadorId: entrevistador,
+      data: new Date(dataAgendamento),
+      status: 'agendado',
+    },
+  });
+  if (existingSlot) {
+    const dataFormatada = formatDateTime(dataAgendamento);
+    throw new BusinessError(
+      `Este horário (${dataFormatada}) já está ocupado para este entrevistador. Por favor, escolha outro horário.`,
+      409,
+      'SLOT_TAKEN'
+    );
   }
 
-  // --- Populate para retorno ---
-  const populated = await Appointment.findById(appointment._id)
-    .populate(APPOINTMENT_POPULATE[0].path, APPOINTMENT_POPULATE[0].select)
-    .populate(APPOINTMENT_POPULATE[1].path, APPOINTMENT_POPULATE[1].select)
-    .populate(APPOINTMENT_POPULATE[2].path, APPOINTMENT_POPULATE[2].select);
+  // --- Persistência com campos criptografados ---
+  const appointment = await prisma.appointment.create({
+    data: {
+      entrevistadorId: entrevistador,
+      crasId: cras,
+      pessoa: encryptField(pessoa),
+      cpf: encryptField(cpf),
+      cpfHash: EncryptionService.hash(cpf),
+      telefone1: encryptField(telefone1),
+      telefone2: encryptField(telefone2),
+      motivo: motivoToEnum(motivo),
+      data: new Date(dataAgendamento),
+      status: status || 'agendado',
+      observacoes,
+      createdById: actor.id,
+    },
+    include: INCLUDE_DEFAULT,
+  });
 
   // --- Log de auditoria ---
-  await Log.create({
-    user: actor.id,
-    cras,
-    action: 'criar_agendamento',
-    details: `Agendamento criado para ${pessoa} em ${formatDateTime(dataAgendamento)} - Motivo: ${motivo}`,
+  await prisma.log.create({
+    data: {
+      userId: actor.id,
+      crasId: cras,
+      action: 'criar_agendamento',
+      details: `Agendamento #${appointment.id} criado para ${formatDateTime(dataAgendamento)} - Motivo: ${motivo}`,
+    },
   });
 
   // --- Invalidar cache ---
   cache.invalidateAppointments(cras, entrevistador);
 
-  return populated.toJSON();
+  return processAppointment(appointment);
 };
 
 // =============================================================================
@@ -191,29 +204,25 @@ export const createAppointment = async (data, actor) => {
 /**
  * Lista agendamentos com filtro por role, busca em campos criptografados,
  * paginação e ordenação.
- *
- * @param {Object} queryParams - Query string da requisição
- * @param {Object} actor - Usuário logado { id, role, cras }
- * @returns {Object} { results, total, page, pageSize, totalPages, hasNextPage, hasPrevPage }
  */
 export const getAppointments = async (queryParams, actor) => {
-  const filter = {};
+  const where = {};
 
   // --- Filtros de segurança por role ---
   if (actor.role === 'entrevistador') {
-    filter.entrevistador = actor.id;
+    where.entrevistadorId = actor.id;
   } else if (actor.role === 'recepcao') {
     const ids = await _getEntrevistadorIdsByCras(actor.cras);
     if (ids.length === 0) return _emptyPage();
-    filter.entrevistador = { $in: ids };
+    where.entrevistadorId = { in: ids };
   } else if (actor.role === 'admin') {
     if (queryParams.cras) {
       const ids = await _getEntrevistadorIdsByCras(queryParams.cras);
       if (ids.length === 0) return _emptyPage();
-      filter.entrevistador = { $in: ids };
+      where.entrevistadorId = { in: ids };
     }
     if (queryParams.entrevistador) {
-      filter.entrevistador = queryParams.entrevistador;
+      where.entrevistadorId = queryParams.entrevistador;
     }
   }
 
@@ -221,9 +230,9 @@ export const getAppointments = async (queryParams, actor) => {
   if (queryParams.data) {
     try {
       const [ano, mes, dia] = queryParams.data.split('-').map(Number);
-      filter.data = {
-        $gte: new Date(ano, mes - 1, dia, 0, 0, 0, 0),
-        $lte: new Date(ano, mes - 1, dia, 23, 59, 59, 999),
+      where.data = {
+        gte: new Date(ano, mes - 1, dia, 0, 0, 0, 0),
+        lte: new Date(ano, mes - 1, dia, 23, 59, 59, 999),
       };
     } catch {
       logger.warn('Data inválida fornecida no filtro:', queryParams.data);
@@ -239,7 +248,7 @@ export const getAppointments = async (queryParams, actor) => {
   }
 
   // --- Ordenação ---
-  const sort = _buildSort(queryParams.sortBy, queryParams.order);
+  const orderBy = _buildOrderBy(queryParams.sortBy, queryParams.order);
 
   // --- Paginação ---
   const page = Math.max(0, parseInt(queryParams.page) || 0);
@@ -252,39 +261,44 @@ export const getAppointments = async (queryParams, actor) => {
   const skip = page * pageSize;
 
   // --- Query principal ---
-  let query = Appointment.find(filter)
-    .select(LIST_SELECT)
-    .populate(APPOINTMENT_POPULATE_LIST[0].path, APPOINTMENT_POPULATE_LIST[0].select)
-    .populate(APPOINTMENT_POPULATE_LIST[1].path, APPOINTMENT_POPULATE_LIST[1].select)
-    .sort(sort);
-
-  if (!searchTerm) query = query.skip(skip).limit(pageSize);
-  query = query.lean();
-
-  let results = await query.exec();
-
-  // --- Decriptação em batch ---
-  results = results.map(decryptFields);
-
-  // --- Busca em memória (campos criptografados já decriptados) ---
   if (searchTerm) {
+    // Busca textual: precisa descriptografar todos para filtrar em memória
+    let results = await prisma.appointment.findMany({
+      where,
+      include: INCLUDE_LIST,
+      orderBy,
+    });
+
+    results = results.map(processAppointment);
     results = _filterBySearch(results, searchTerm);
-  }
 
-  // --- Total ---
-  const total = searchTerm
-    ? results.length
-    : await Appointment.countDocuments(filter);
-
-  // --- Paginação em memória (quando há busca) ---
-  if (searchTerm) {
+    const total = results.length;
     results = results.slice(skip, skip + pageSize);
+
+    return {
+      results,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+      hasNextPage: (page + 1) * pageSize < total,
+      hasPrevPage: page > 0,
+    };
   }
 
-  // --- Ordenação de campos populados (limitação do MongoDB) ---
-  if (queryParams.sortBy && ['cras', 'entrevistador'].includes(queryParams.sortBy)) {
-    results = _sortByPopulatedField(results, queryParams.sortBy, queryParams.order);
-  }
+  // Sem busca: paginação no banco
+  const [rawResults, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: INCLUDE_LIST,
+      orderBy,
+      skip,
+      take: pageSize,
+    }),
+    prisma.appointment.count({ where }),
+  ]);
+
+  const results = rawResults.map(processAppointment);
 
   return {
     results,
@@ -303,41 +317,51 @@ export const getAppointments = async (queryParams, actor) => {
 
 /**
  * Atualiza campos de um agendamento existente.
- *
- * @param {string} id - ID do agendamento
- * @param {Object} body - Campos a atualizar (filtrados por whitelist)
- * @param {Object} actor - Usuário logado
- * @returns {Object} Agendamento atualizado, populado (JSON)
- * @throws {BusinessError} Se não encontrado ou não autorizado
  */
 export const updateAppointment = async (id, body, actor) => {
   const existing = await findOrFail(id);
   await checkOwnership(existing, actor, 'editar');
 
-  // Whitelist de campos
-  const update = {};
-  for (const field of ALLOWED_UPDATE_FIELDS) {
-    if (body[field] !== undefined) update[field] = body[field];
+  // Whitelist e mapeamento de campos
+  const data = {};
+  if (body.entrevistador !== undefined) data.entrevistadorId = body.entrevistador;
+  if (body.cras !== undefined) data.crasId = body.cras;
+  if (body.pessoa !== undefined) data.pessoa = encryptField(body.pessoa);
+  if (body.cpf !== undefined) {
+    data.cpf = encryptField(body.cpf);
+    data.cpfHash = EncryptionService.hash(body.cpf);
   }
-  update.updatedBy = actor.id;
-  update.updatedAt = now();
+  if (body.telefone1 !== undefined) data.telefone1 = encryptField(body.telefone1);
+  if (body.telefone2 !== undefined) data.telefone2 = body.telefone2 ? encryptField(body.telefone2) : null;
+  if (body.motivo !== undefined) data.motivo = motivoToEnum(body.motivo);
+  if (body.data !== undefined) data.data = new Date(body.data);
+  if (body.status !== undefined) data.status = body.status;
+  if (body.observacoes !== undefined) data.observacoes = body.observacoes;
 
-  await Appointment.findByIdAndUpdate(id, update, { new: true });
+  data.updatedById = actor.id;
+  data.updatedAt = now();
 
-  // Populate completo para retorno
-  const updated = await findOrFail(id, APPOINTMENT_POPULATE_FULL);
-
-  // Log de auditoria
-  await Log.create({
-    user: actor.id,
-    cras: updated.cras._id,
-    action: 'editar_agendamento',
-    details: `Agendamento editado para ${updated.pessoa} em ${formatDateTime(updated.data)}`,
+  const updated = await prisma.appointment.update({
+    where: { id },
+    data,
+    include: INCLUDE_FULL,
   });
 
-  cache.invalidateAppointments(updated.cras._id, updated.entrevistador._id);
+  const result = processAppointment(updated);
 
-  return updated.toJSON();
+  // Log de auditoria
+  await prisma.log.create({
+    data: {
+      userId: actor.id,
+      crasId: updated.crasId,
+      action: 'editar_agendamento',
+      details: `Agendamento #${updated.id} editado em ${formatDateTime(updated.data)}`,
+    },
+  });
+
+  cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
+
+  return result;
 };
 
 // =============================================================================
@@ -346,27 +370,23 @@ export const updateAppointment = async (id, body, actor) => {
 
 /**
  * Remove um agendamento e registra log de auditoria.
- *
- * @param {string} id - ID do agendamento
- * @param {Object} actor - Usuário logado
- * @throws {BusinessError} Se não encontrado ou não autorizado
  */
 export const deleteAppointment = async (id, actor) => {
-  const appointment = await findOrFail(id, [{ path: 'cras', select: 'nome' }]);
+  const appointment = await findOrFail(id, { cras: { select: { id: true, nome: true } } });
   await checkOwnership(appointment, actor, 'excluir');
 
-  const appointmentData = appointment.toJSON();
+  await prisma.appointment.delete({ where: { id } });
 
-  await Appointment.findByIdAndDelete(id);
-
-  await Log.create({
-    user: actor.id,
-    cras: appointmentData.cras._id,
-    action: 'excluir_agendamento',
-    details: `Agendamento excluído de ${appointmentData.pessoa} em ${formatDateTime(appointmentData.data)}`,
+  await prisma.log.create({
+    data: {
+      userId: actor.id,
+      crasId: appointment.crasId,
+      action: 'excluir_agendamento',
+      details: `Agendamento #${id} excluído (data: ${formatDateTime(appointment.data)})`,
+    },
   });
 
-  cache.invalidateAppointments(appointmentData.cras._id, appointment.entrevistador);
+  cache.invalidateAppointments(appointment.crasId, appointment.entrevistadorId);
 };
 
 // =============================================================================
@@ -375,60 +395,54 @@ export const deleteAppointment = async (id, actor) => {
 
 /**
  * Confirma presença — muda status para 'realizado'.
- *
- * @param {string} id - ID do agendamento
- * @param {Object} actor - Usuário logado
- * @returns {Object} Agendamento atualizado (JSON)
- * @throws {BusinessError} Se não encontrado ou não autorizado
  */
 export const confirmPresence = async (id, actor) => {
   const existing = await findOrFail(id);
   await checkOwnership(existing, actor, 'confirmar presença em');
 
-  await Appointment.findByIdAndUpdate(id, {
-    status: 'realizado',
-    updatedBy: actor.id,
-    updatedAt: now(),
+  const updated = await prisma.appointment.update({
+    where: { id },
+    data: { status: 'realizado', updatedById: actor.id, updatedAt: now() },
+    include: INCLUDE_FULL,
   });
 
-  const updated = await findOrFail(id, APPOINTMENT_POPULATE_FULL);
-  cache.invalidateAppointments(updated.cras._id, updated.entrevistador._id);
+  cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
-  return updated.toJSON();
+  return processAppointment(updated);
 };
 
 /**
  * Remove confirmação de presença — volta status para 'agendado'.
- *
- * @param {string} id - ID do agendamento
- * @param {Object} actor - Usuário logado
- * @returns {Object} Agendamento atualizado (JSON)
- * @throws {BusinessError} Se não encontrado ou não autorizado
  */
 export const removePresenceConfirmation = async (id, actor) => {
   const existing = await findOrFail(id);
   await checkOwnership(existing, actor, 'remover confirmação de');
 
-  await Appointment.findByIdAndUpdate(id, {
-    status: 'agendado',
-    updatedBy: actor.id,
-    updatedAt: now(),
+  const updated = await prisma.appointment.update({
+    where: { id },
+    data: { status: 'agendado', updatedById: actor.id, updatedAt: now() },
+    include: INCLUDE_FULL,
   });
 
-  const updated = await findOrFail(id, APPOINTMENT_POPULATE_FULL);
-  cache.invalidateAppointments(updated.cras._id, updated.entrevistador._id);
+  cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
-  return updated.toJSON();
+  return processAppointment(updated);
 };
 
 // =============================================================================
 // FUNÇÕES AUXILIARES PRIVADAS
 // =============================================================================
 
-/** Busca IDs de entrevistadores de um CRAS. */
+/** Busca IDs de entrevistadores de um CRAS (com cache de 5 minutos). */
 const _getEntrevistadorIdsByCras = async (crasId) => {
-  const users = await User.find({ cras: crasId, role: 'entrevistador' }).select('_id');
-  return users.map((u) => u._id);
+  const cacheKey = `entrevistadores:ids:cras:${crasId}`;
+  return cache.cached(cacheKey, async () => {
+    const users = await prisma.user.findMany({
+      where: { crasId, role: 'entrevistador' },
+      select: { id: true },
+    });
+    return users.map((u) => u.id);
+  }, 300);
 };
 
 /** Retorna objeto vazio de paginação. */
@@ -437,12 +451,15 @@ const _emptyPage = () => ({
   totalPages: 0, hasNextPage: false, hasPrevPage: false,
 });
 
-/** Constrói objeto de sort a partir dos query params. */
-const _buildSort = (sortBy, order) => {
-  if (!sortBy) return { data: 1 };
-  let field = sortBy;
-  if (['cras', 'entrevistador', 'createdBy'].includes(field)) field += '.name';
-  return { [field]: order === 'desc' ? -1 : 1 };
+/** Constrói orderBy para Prisma a partir dos query params. */
+const _buildOrderBy = (sortBy, order) => {
+  const dir = order === 'desc' ? 'desc' : 'asc';
+  if (!sortBy) return { data: 'asc' };
+
+  if (sortBy === 'cras') return { cras: { nome: dir } };
+  if (sortBy === 'entrevistador') return { entrevistador: { name: dir } };
+
+  return { [sortBy]: dir };
 };
 
 /**
@@ -467,17 +484,5 @@ const _filterBySearch = (results, searchTerm) => {
       tel2.includes(searchTerm) ||
       (termSemMascara && tel2.replace(/\D/g, '').includes(termSemMascara))
     );
-  });
-};
-
-/** Ordena resultados por campo populado (ex: cras.nome, entrevistador.name). */
-const _sortByPopulatedField = (results, field, order) => {
-  const dir = order === 'desc' ? -1 : 1;
-  return [...results].sort((a, b) => {
-    const aName = (a[field]?.name || a[field]?.nome || '').toLowerCase();
-    const bName = (b[field]?.name || b[field]?.nome || '').toLowerCase();
-    if (aName < bName) return -1 * dir;
-    if (aName > bName) return 1 * dir;
-    return 0;
   });
 };

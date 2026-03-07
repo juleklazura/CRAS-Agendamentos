@@ -4,7 +4,7 @@
  * ============================================================================
  * 
  * Implementa cache em memória usando Node-Cache para reduzir drasticamente
- * o número de queries ao MongoDB.
+ * o número de queries ao banco.
  * 
  * ⚡ IMPACTO ESPERADO: Redução de 80% das queries ao banco
  * 
@@ -425,6 +425,8 @@ export const invalidateAppointments = (crasId, entrevistadorId = null) => {
   // Invalidar TODOS os caches de appointments para garantir consistência
   // Isso é necessário porque o admin pode ver dados de qualquer CRAS
   delPattern('appointments:');
+  // Invalidar cache de estatísticas do dashboard (afetado por qualquer mudança de agendamento)
+  delPattern('stats:');
   
   if (process.env.NODE_ENV === 'development') {
     logger.debug('🔄 Cache de appointments invalidado (todos)', { crasId, entrevistadorId });
@@ -453,6 +455,22 @@ export const invalidateCras = () => {
   }
 };
 
+/**
+ * Invalidar cache de autenticação de um usuário específico.
+ * Deve ser chamado sempre que role, cras ou matrícula forem alterados,
+ * ou quando o usuário for excluído — garante que mudanças entrem em
+ * vigor imediatamente sem esperar o TTL expirar.
+ *
+ * @param {string} userId - ID do usuário
+ */
+export const invalidateUser = (userId) => {
+  del(`user:auth:${userId}`);
+  
+  if (process.env.NODE_ENV === 'development') {
+    logger.debug('🔄 Cache de usuário invalidado', { userId });
+  }
+};
+
 // ============================================================================
 // EXPORTAÇÃO PADRÃO
 // ============================================================================
@@ -471,5 +489,6 @@ export default {
   generateAppointmentKey,
   invalidateAppointments,
   invalidateUsers,
-  invalidateCras
+  invalidateCras,
+  invalidateUser
 };

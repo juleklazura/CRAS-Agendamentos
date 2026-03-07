@@ -169,11 +169,10 @@ export default function useAgenda() {
   const fetchEntrevistadores = useCallback(async () => {
     try {
       setLoading(true);
-      const userId = user?._id || user?.id;
+      const userId = user?.id;
       
       if (isEntrevistador && userId) {
-        const userNormalizado = { ...user, _id: userId };
-        setEntrevistadores([userNormalizado]);
+        setEntrevistadores([{ ...user }]);
         setSelectedEntrevistador(userId);
         return;
       }
@@ -230,7 +229,7 @@ export default function useAgenda() {
 
   // ===== VALORES COMPUTADOS =====
   const entrevistadorSelecionado = useMemo(() => 
-    entrevistadores.find(e => e._id === selectedEntrevistador), 
+    entrevistadores.find(e => e.id === selectedEntrevistador), 
     [entrevistadores, selectedEntrevistador]
   );
 
@@ -260,7 +259,7 @@ export default function useAgenda() {
     }
 
     // Pega o CRAS do entrevistador selecionado (não do usuário logado)
-    const crasId = entrevistadorSelecionado?.cras?._id || entrevistadorSelecionado?.cras;
+    const crasId = entrevistadorSelecionado?.cras?.id || entrevistadorSelecionado?.cras;
     if (!crasId) {
       setError('⚠️ O entrevistador selecionado não possui CRAS vinculado');
       return;
@@ -308,7 +307,7 @@ export default function useAgenda() {
 
     setLoading(true);
     try {
-      await api.put(`/appointments/${agendamentoParaEditar._id}`, {
+      await api.put(`/appointments/${agendamentoParaEditar.id}`, {
         pessoa: dadosEdicao.pessoa,
         cpf: dadosEdicao.cpf.replace(/\D/g, ''),
         telefone1: dadosEdicao.telefone1,
@@ -330,8 +329,8 @@ export default function useAgenda() {
 
   // ===== VALORES COMPUTADOS (continuação) =====
   const horariosAgenda = useMemo(() => 
-    entrevistadorSelecionado?.agenda?.horariosDisponiveis || horariosDisponiveis,
-    [entrevistadorSelecionado?.agenda?.horariosDisponiveis]
+    entrevistadorSelecionado?.horariosDisponiveis || horariosDisponiveis,
+    [entrevistadorSelecionado?.horariosDisponiveis]
   );
 
   const agendamentosArray = useMemo(() => {

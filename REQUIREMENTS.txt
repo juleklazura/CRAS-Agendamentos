@@ -20,7 +20,7 @@ SISTEMA DE AGENDAMENTOS CRAS - REQUISITOS E DEPENDÊNCIAS
 
 ✅ Node.js: v18.x ou superior (recomendado: v20.x LTS)
 ✅ npm: v9.x ou superior
-✅ MongoDB: v6.x ou superior
+✅ PostgreSQL: Neon (cloud) ou v15.x+ (local)
 ✅ Sistema Operacional: Linux (Ubuntu/Debian), macOS, ou Windows com WSL2
 ✅ Memória RAM: Mínimo 2GB (recomendado: 4GB+)
 ✅ Espaço em Disco: Mínimo 1GB livre
@@ -81,7 +81,7 @@ Type Definitions:
 Framework e Core:
 -----------------
 express                    ^5.1.0       - Framework web Node.js
-mongoose                   ^8.15.1      - ODM MongoDB
+@prisma/client             ^5.22.0      - ORM PostgreSQL
 dotenv                     ^16.5.0      - Carregador .env
 
 Autenticação e Segurança:
@@ -91,7 +91,6 @@ bcryptjs                   ^3.0.2       - Hash de senhas
 cookie-parser              ^1.4.7       - Parser de cookies
 helmet                     ^8.1.0       - Security headers HTTP
 cors                       ^2.8.5       - CORS middleware
-express-mongo-sanitize     ^2.2.0       - Sanitização MongoDB
 express-rate-limit         ^8.2.1       - Rate limiting
 
 Validação e Logging:
@@ -99,47 +98,51 @@ Validação e Logging:
 joi                        ^18.0.2      - Validação de schemas
 winston                    ^3.18.3      - Sistema de logs
 
+Dev Dependencies (Backend):
+---------------------------
+prisma                     ^5.22.0      - Prisma CLI (migrações e generate)
+
 
 =============================================================================
-5. BANCO DE DADOS - MongoDB Atlas (Cloud)
+5. BANCO DE DADOS - PostgreSQL Neon (Cloud)
 =============================================================================
 
-☁️ Este sistema utiliza EXCLUSIVAMENTE MongoDB Atlas (cloud)
-📌 Crie sua conta gratuita em: https://cloud.mongodb.com
+☁️ Este sistema utiliza PostgreSQL via Neon (cloud)
+📌 Crie sua conta gratuita em: https://console.neon.tech
 
-Plano Gratuito (M0 Free Tier):
+Plano Gratuito (Free Tier):
 ------------------------------
 ✅ 512 MB de armazenamento
-✅ Shared RAM e vCPU
-✅ Até 500 conexões simultâneas
-✅ Backups automáticos
+✅ PgBouncer (connection pooling) integrado
+✅ Até 100 conexões simultâneas (pooled)
+✅ Backups automáticos (point-in-time recovery)
 ✅ Sem custo para sempre
 
-Collections Principais:
+Tabelas Principais:
 -----------------------
-✅ users           - Usuários do sistema (admin, coordenador, técnico, recepcionista)
+✅ users           - Usuários do sistema (admin, entrevistador, recepcao)
 ✅ cras            - Centros de Referência (unidades)
 ✅ appointments    - Agendamentos (com dados criptografados)
-✅ blockedslots    - Bloqueios de horários
+✅ blocked_slots   - Bloqueios de horários
 ✅ logs            - Logs de auditoria do sistema
 
-Configuração MongoDB Atlas:
+Configuração Neon:
 ---------------------------
-1. Acesse https://cloud.mongodb.com
-2. Crie um cluster M0 (Free)
-3. Em "Database Access": crie usuário com senha forte
-4. Em "Network Access": adicione IP 0.0.0.0/0 (permite qualquer IP)
-5. Em "Connect": copie a connection string
-6. Substitua <password> pela senha criada
+1. Acesse https://console.neon.tech
+2. Crie um projeto gratuito
+3. Copie as connection strings (pooled e unpooled)
+4. Configure no .env do backend
+5. Execute: npx prisma db push
+6. Execute: node scripts/createAdmin.js
 
-Índices Criados:
+Índices (gerenciados pelo Prisma):
 ----------------
-✅ users.cpf (unique)
-✅ users.cras (referência)
+✅ users.matricula (unique)
+✅ users.cras_id (referência)
 ✅ cras.nome (unique)
-✅ appointments.date + time + cras
-✅ appointments.userCpf
-✅ blockedslots.date + startTime
+✅ appointments.data + entrevistador_id + status
+✅ appointments.cpf_hash
+✅ blocked_slots.data + entrevistador_id (unique)
 
 
 =============================================================================
@@ -151,12 +154,14 @@ Configuração MongoDB Atlas:
 Backend (.env obrigatório):
 ---------------------------
 
-# MongoDB Atlas Configuration (OBRIGATÓRIO)
-MONGODB_URI=mongodb+srv://[user]:[password]@[cluster].mongodb.net/[database]?retryWrites=true&w=majority
-   Exemplo: mongodb+srv://cras_admin:SenhaForte123@cluster0.abc123.mongodb.net/agendamentos?retryWrites=true&w=majority
+# PostgreSQL Neon Configuration (OBRIGATÓRIO)
+DATABASE_URL=postgresql://[user]:[password]@[endpoint].neon.tech/[database]?sslmode=require
+   Exemplo: postgresql://cras_admin:SenhaForte123@ep-cool-fire-123456.us-east-2.aws.neon.tech/cras?sslmode=require
    
-   📌 Obtenha sua URI em: https://cloud.mongodb.com > Connect > Drivers
-   ⚠️ Substitua <password> pela senha do usuário criado no Atlas
+   📌 Obtenha sua URI em: https://console.neon.tech > Connection Details
+
+DATABASE_URL_UNPOOLED=postgresql://[user]:[password]@[endpoint].neon.tech/[database]?sslmode=require
+   📌 Connection string direta (sem pooling), usada para migrações Prisma
 
 # JWT Configuration (gerar com: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
 JWT_SECRET=[128 caracteres hexadecimais]
@@ -200,8 +205,8 @@ VITE_API_BASE_URL=https://cras-agendamentos.onrender.com/api
 ✅ Rate limiting (20 requests/15min por IP)
 ✅ Helmet.js (security headers HTTP)
 ✅ CORS restrito ao FRONTEND_URL
-✅ Sanitização de queries MongoDB
-✅ Criptografia AES-256-CBC para dados sensíveis (CPF, nomes, telefones)
+✅ Sanitização de queries SQL via Prisma (prepared statements)
+✅ Criptografia AES-256-GCM para dados sensíveis (CPF, nomes, telefones)
 ✅ Hash bcrypt para senhas (salt rounds: 10)
 ✅ Validação Joi em todas as rotas
 ✅ Logs de auditoria com Winston
@@ -229,18 +234,19 @@ Instalação Local:
    $ git clone [repo-url]
    $ cd CRAS-Agendamentos
 
-2. Configurar MongoDB Atlas (Gratuito):
-   a) Acesse https://cloud.mongodb.com e crie uma conta
-   b) Crie um cluster M0 (Free Tier)
-   c) Em "Database Access": crie um usuário com senha
-   d) Em "Network Access": adicione 0.0.0.0/0 (acesso de qualquer IP)
-   e) Em "Connect" > "Drivers": copie a connection string
+2. Configurar PostgreSQL Neon (Gratuito):
+   a) Acesse https://console.neon.tech e crie uma conta
+   b) Crie um projeto (Free Tier)
+   c) Copie as connection strings (pooled e unpooled)
 
 3. Configurar Backend:
    $ cd backend
    $ npm install
    $ cp .env.example .env
-   $ nano .env  # Configurar MONGODB_URI com a string do Atlas
+   $ nano .env  # Configurar DATABASE_URL e DATABASE_URL_UNPOOLED
+   $ npx prisma generate
+   $ npx prisma db push
+   $ node scripts/createAdmin.js
    $ node server.js
 
 4. Configurar Frontend:
@@ -258,7 +264,7 @@ Deploy em Produção:
 
 1. Variáveis de Ambiente:
    ⚠️ Gerar novos secrets FORTES para JWT_SECRET e JWT_REFRESH_SECRET
-   ⚠️ Configurar MongoDB com TLS/SSL
+   ⚠️ Configurar PostgreSQL com SSL
    ⚠️ NODE_ENV=production
    ⚠️ Configurar FRONTEND_URL com domínio real
 
@@ -301,8 +307,8 @@ SEGURANÇA - CHECKLIST PRÉ-DEPLOY
 ✅ .env.backup* adicionado ao .gitignore
 ✅ headers.txt deletado (contém tokens reais)
 ✅ JWT_SECRET e JWT_REFRESH_SECRET gerados com 128+ caracteres
-✅ MongoDB com autenticação habilitada
-✅ MONGO_URI com senha forte (mínimo 20 caracteres)
+✅ PostgreSQL com SSL habilitado (sslmode=require)
+✅ DATABASE_URL com senha forte (mínimo 20 caracteres)
 ✅ NODE_ENV=production configurado
 ✅ FRONTEND_URL configurado com domínio real (sem http://localhost)
 ✅ Rate limiting configurado e testado
@@ -311,7 +317,7 @@ SEGURANÇA - CHECKLIST PRÉ-DEPLOY
 ✅ Logs configurados (Winston) para arquivo + console
 ✅ Backup da ENCRYPTION_KEY em local seguro (cofre, vault)
 ✅ Firewall configurado (apenas portas 80, 443, 22 abertas)
-✅ MongoDB binding apenas localhost ou rede privada
+✅ PostgreSQL usando conexão SSL
 ✅ SSL/TLS configurado (Let's Encrypt)
 ✅ Testes de penetração realizados
 ✅ Processo de rotação de secrets documentado
@@ -332,17 +338,17 @@ $ npm outdated
 $ npm update
 $ npm install <package>@latest
 
-Backup MongoDB Atlas:
+Backup PostgreSQL Neon:
 ---------------------
-# Via mongodump (instale mongodb-database-tools)
-$ mongodump --uri="mongodb+srv://user:pass@cluster.mongodb.net/agendamentos" --out=/backup/
+# Via pg_dump
+$ pg_dump "postgresql://user:pass@endpoint.neon.tech/cras?sslmode=require" > backup.sql
 
-# Ou use o backup automático do Atlas (gratuito no M0):
-# Atlas > Database > Backups > Take Snapshot Now
+# Ou use o backup automático do Neon (point-in-time recovery):
+# Neon Console > Branches > Restore
 
-Restore MongoDB Atlas:
+Restore PostgreSQL Neon:
 ----------------------
-$ mongorestore --uri="mongodb+srv://user:pass@cluster.mongodb.net" --db=agendamentos /backup/agendamentos/
+$ psql "postgresql://user:pass@endpoint.neon.tech/cras?sslmode=require" < backup.sql
 
 
 =============================================================================

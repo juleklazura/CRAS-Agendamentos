@@ -76,7 +76,3 @@ export const validateQueryIds = (paramNames = []) => {
     next();
   };
 };
-
-// Aliases para compatibilidade com rotas existentes
-export const validateObjectId = validateId;
-export const validateQueryObjectIds = validateQueryIds;

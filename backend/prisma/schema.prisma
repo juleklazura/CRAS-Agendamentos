@@ -1,0 +1,172 @@
+// =============================================================================
+// 🗄️ SCHEMA PRISMA — POSTGRESQL (NEON)
+// =============================================================================
+// Schema do sistema CRAS Agendamentos para PostgreSQL via Prisma
+// Migrado de MongoDB Atlas para PostgreSQL no Neon
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["omitApi"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  admin
+  entrevistador
+  recepcao
+}
+
+enum StatusAgendamento {
+  agendado
+  realizado
+  ausente
+}
+
+enum MotivoAgendamento {
+  atualizacao_cadastral
+  inclusao
+  transferencia_municipio
+  orientacoes_gerais
+}
+
+// ─── Cras ─────────────────────────────────────────────────────────────────────
+
+model Cras {
+  id       String  @id @default(cuid())
+  nome     String
+  endereco String
+  telefone String?
+
+  users        User[]
+  appointments Appointment[]
+  blockedSlots BlockedSlot[]
+  logs         Log[]
+
+  @@index([nome])
+  @@map("cras")
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  password  String
+  role      Role
+  matricula String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Null para admin, obrigatório para entrevistador/recepcao (validado na app)
+  crasId String? @map("cras_id")
+  cras   Cras?   @relation(fields: [crasId], references: [id])
+
+  // Configurações de agenda (apenas entrevistador usa)
+  horariosDisponiveis String[] @default(["08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"])
+  diasAtendimento     Int[]    @default([1, 2, 3, 4, 5])
+
+  // Relações
+  appointments        Appointment[] @relation("EntrevistadorAppointments")
+  appointmentsCreated Appointment[] @relation("CreatedByAppointments")
+  appointmentsUpdated Appointment[] @relation("UpdatedByAppointments")
+  blockedSlots        BlockedSlot[]
+  logs                Log[]
+
+  @@index([role])
+  @@index([crasId])
+  @@index([crasId, role])
+  @@map("users")
+}
+
+// ─── Appointment ──────────────────────────────────────────────────────────────
+
+model Appointment {
+  id String @id @default(cuid())
+
+  entrevistadorId String @map("entrevistador_id")
+  entrevistador   User   @relation("EntrevistadorAppointments", fields: [entrevistadorId], references: [id])
+
+  crasId String @map("cras_id")
+  cras   Cras   @relation(fields: [crasId], references: [id])
+
+  // Dados LGPD — armazenados criptografados (igual ao MongoDB)
+  pessoa    String
+  cpf       String
+  cpfHash   String  @map("cpf_hash")
+  telefone1 String
+  telefone2 String?
+
+  motivo      MotivoAgendamento
+  data        DateTime
+  status      StatusAgendamento @default(agendado)
+  observacoes String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  createdById String? @map("created_by_id")
+  createdBy   User?   @relation("CreatedByAppointments", fields: [createdById], references: [id])
+  updatedById String? @map("updated_by_id")
+  updatedBy   User?   @relation("UpdatedByAppointments", fields: [updatedById], references: [id])
+
+  @@index([entrevistadorId, data])
+  @@index([entrevistadorId, data, status])
+  @@index([crasId, data])
+  @@index([cpfHash])
+  @@index([status])
+  @@index([data])
+  @@index([motivo])
+  @@map("appointments")
+}
+
+// ─── BlockedSlot ──────────────────────────────────────────────────────────────
+
+model BlockedSlot {
+  id String @id @default(cuid())
+
+  entrevistadorId String @map("entrevistador_id")
+  entrevistador   User   @relation(fields: [entrevistadorId], references: [id])
+
+  crasId String @map("cras_id")
+  cras   Cras   @relation(fields: [crasId], references: [id])
+
+  data      DateTime
+  motivo    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([data])
+  @@index([entrevistadorId])
+  @@index([crasId])
+  @@index([entrevistadorId, data])
+  @@index([crasId, data])
+  @@map("blocked_slots")
+}
+
+// ─── Log ──────────────────────────────────────────────────────────────────────
+
+model Log {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  crasId String? @map("cras_id")
+  cras   Cras?   @relation(fields: [crasId], references: [id])
+
+  action  String
+  details String
+  date    DateTime @default(now())
+
+  @@index([userId])
+  @@index([crasId])
+  @@index([action])
+  @@index([userId, date(sort: Desc)])
+  @@index([crasId, date(sort: Desc)])
+  @@map("logs")
+}

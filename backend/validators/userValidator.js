@@ -35,11 +35,9 @@ const matriculaRule = Joi.string().trim().min(1).max(50).messages({
   'string.max': 'Matrícula deve ter no máximo 50 caracteres',
 });
 
-const crasRule = Joi.string().pattern(/^[0-9a-fA-F]{24}$/).messages({
-  'string.pattern.base': 'CRAS deve ser um ObjectId válido',
+const crasRule = Joi.string().trim().min(1).max(50).messages({
+  'string.base': 'CRAS deve ser um ID válido',
 });
-
-// =============================================================================
 // Schema para CRIAÇÃO de usuário
 // =============================================================================
 export const createUserSchema = Joi.object({
@@ -47,9 +45,11 @@ export const createUserSchema = Joi.object({
   password: passwordRule.required(),
   role: roleRule.required(),
   matricula: matriculaRule.required(),
-  cras: crasRule.optional().allow(null),
+  cras: crasRule.optional().allow(null, ''),
 })
   .custom((value, helpers) => {
+    // Normalizar string vazia para null
+    if (value.cras === '') value.cras = null;
     const { role, cras } = value;
 
     // Admin NÃO deve ter CRAS
@@ -80,7 +80,7 @@ export const updateUserSchema = Joi.object({
   password: passwordRule.optional(),
   role: roleRule.optional(),
   matricula: matriculaRule.optional(),
-  cras: crasRule.optional().allow(null),
+  cras: crasRule.optional().allow(null, ''),
   agenda: Joi.object({
     horariosDisponiveis: Joi.array().items(
       Joi.string().pattern(/^\d{2}:\d{2}$/).messages({
@@ -96,6 +96,8 @@ export const updateUserSchema = Joi.object({
   }).optional(),
 })
   .custom((value, helpers) => {
+    // Normalizar string vazia para null
+    if (value.cras === '') value.cras = null;
     const { role, cras } = value;
 
     if (role === 'admin' && cras) {

@@ -71,7 +71,7 @@ const LogsTable = memo(({
             </TableRow>
           ) : (
             logs.map(log => (
-              <TableRow key={log._id} hover>
+              <TableRow key={log.id} hover>
                 <TableCell>{log.user?.name || '-'}</TableCell>
                 <TableCell>{log.cras?.nome || '-'}</TableCell>
                 <TableCell>{log.action}</TableCell>

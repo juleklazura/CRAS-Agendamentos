@@ -3,11 +3,11 @@
 
 import dotenv from 'dotenv';
 import express from 'express';
-import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import logger from './utils/logger.js';
+import prisma from './utils/prisma.js';
 
 // 🔒 SEGURANÇA: Validar configurações de segurança antes de iniciar
 import './utils/validateSecrets.js';
@@ -68,20 +68,26 @@ app.use('/api/blocked-slots', blockedSlotRoutes);
 app.use('/api/stats', statsRoutes);
 
 // Health Check
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+  let dbStatus = 'disconnected';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = 'connected';
+  } catch { /* mantém disconnected */ }
+
   const healthCheck = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    database: dbStatus,
   };
-  
+
   if (process.env.NODE_ENV !== 'production') {
     healthCheck.uptime = process.uptime();
     healthCheck.environment = process.env.NODE_ENV || 'development';
     healthCheck.version = '1.0.0';
   }
-  
-  const statusCode = healthCheck.mongodb === 'connected' ? 200 : 503;
+
+  const statusCode = dbStatus === 'connected' ? 200 : 503;
   res.status(statusCode).json(healthCheck);
 });
 
@@ -89,52 +95,30 @@ app.get('/', (req, res) => res.send('API de Agendamento CRAS rodando!'));
 
 const PORT = process.env.PORT || 5000;
 
-// Obter URI de conexão MongoDB Atlas
-const mongoUri = process.env.MONGODB_URI;
+// Validar que DATABASE_URL está configurada
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!mongoUri) {
-  logger.error('❌ ERRO CRÍTICO: Variável MONGODB_URI não encontrada!');
+if (!databaseUrl) {
+  logger.error('❌ ERRO CRÍTICO: Variável DATABASE_URL não encontrada!');
   logger.error('Configure no arquivo .env:');
-  logger.error('  MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/database?retryWrites=true&w=majority');
+  logger.error('  DATABASE_URL=postgresql://user:pass@ep-xxx-pooler.neon.tech/cras?sslmode=require');
   logger.error('');
-  logger.error('📌 Obtenha sua URI em: https://cloud.mongodb.com');
+  logger.error('📌 Crie um projeto gratuito em: https://neon.tech');
   process.exit(1);
 }
 
-// Validar formato MongoDB Atlas (mongodb+srv://)
-if (!mongoUri.startsWith('mongodb+srv://')) {
-  logger.error('❌ ERRO: Este sistema requer MongoDB Atlas!');
-  logger.error('  A URI deve começar com: mongodb+srv://');
-  logger.error('  Formato: mongodb+srv://user:pass@cluster.mongodb.net/database?retryWrites=true&w=majority');
-  logger.error('');
-  logger.error('📌 Crie um cluster gratuito em: https://cloud.mongodb.com');
-  process.exit(1);
-}
-
-// Configuração otimizada para MongoDB Atlas (Free Tier M0)
-const mongooseOptions = {
-  retryWrites: true,
-  w: 'majority',
-  maxPoolSize: 10,      // Atlas M0 suporta até 500 conexões
-  minPoolSize: 2,
-  serverSelectionTimeoutMS: 10000,  // Aumentado para cold starts
-  socketTimeoutMS: 45000,
-  heartbeatFrequencyMS: 30000,      // Manter conexão ativa
-  maxIdleTimeMS: 60000              // Tempo máximo de conexão ociosa
-};
-
-mongoose.connect(mongoUri, mongooseOptions)
-.then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
-    logger.success(`Servidor rodando na porta ${PORT}`);
-    logger.info('MongoDB conectado com sucesso');
-    logger.info(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+prisma.$connect()
+  .then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      logger.success(`Servidor rodando na porta ${PORT}`);
+      logger.info('PostgreSQL (Neon) conectado com sucesso');
+      logger.info(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+    });
+  })
+  .catch((err) => {
+    logger.error('Erro ao conectar ao PostgreSQL', err);
+    process.exit(1);
   });
-})
-.catch((err) => {
-  logger.error('Erro ao conectar ao MongoDB', err);
-  process.exit(1);
-});
 
 // ========================================
 // 🔒 MIDDLEWARE DE ERRO GLOBAL
@@ -200,8 +184,8 @@ const gracefulShutdown = async (signal) => {
   logger.info(`${signal} recebido, encerrando servidor gracefully...`);
   
   try {
-    await mongoose.connection.close();
-    logger.info('MongoDB desconectado com sucesso');
+    await prisma.$disconnect();
+    logger.info('PostgreSQL desconectado com sucesso');
     process.exit(0);
   } catch (err) {
     logger.error('Erro ao encerrar servidor', err);

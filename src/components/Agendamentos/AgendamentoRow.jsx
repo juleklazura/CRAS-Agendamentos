@@ -70,7 +70,7 @@ const AgendamentoRow = memo(({
       <TableCell align="center">
         {canDelete ? (
           <IconButton
-            onClick={() => onDelete(agendamento._id, agendamento)}
+            onClick={() => onDelete(agendamento.id, agendamento)}
             color="error"
             size="small"
             aria-label={`Excluir agendamento de ${agendamento.pessoa}`}
@@ -90,7 +90,7 @@ const AgendamentoRow = memo(({
 }, (prevProps, nextProps) => {
   // Comparação customizada para otimizar re-renders
   return (
-    prevProps.agendamento._id === nextProps.agendamento._id &&
+    prevProps.agendamento.id === nextProps.agendamento.id &&
     prevProps.canDelete === nextProps.canDelete &&
     prevProps.deleting === nextProps.deleting
   );
