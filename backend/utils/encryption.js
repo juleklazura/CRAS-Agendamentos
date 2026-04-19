@@ -157,10 +157,14 @@ class EncryptionService {
         return decrypted;
       }
       
-      return text; // Formato desconhecido — retorna original
+      // Formato desconhecido — dado não foi criptografado por este sistema
+      return null;
     } catch (error) {
-      console.error('Erro ao descriptografar:', error.message);
-      return text; // Retorna o texto original se falhar
+      // 🔒 SEGURANÇA: Nunca vazar o ciphertext em caso de falha.
+      // Causas possíveis: chave de criptografia alterada, dado corrompido,
+      // auth tag inválida (adulteração detectada pelo GCM).
+      // Lançar erro para que o chamador trate adequadamente.
+      throw new Error(`Falha na descriptografia: ${error.message}`);
     }
   }
 

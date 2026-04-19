@@ -63,6 +63,12 @@ model User {
   matricula String   @unique
   createdAt DateTime @default(now()) @map("created_at")
 
+  // Soft delete LGPD: em vez de excluir, desativa o usuário.
+  // Preserva referências históricas em logs e agendamentos (FK não fica null).
+  // Auth middleware rejeita tokens de usuários com ativo = false imediatamente
+  // (o cache de autenticação é invalidado em invalidateUser ao desativar).
+  ativo     Boolean  @default(true)
+
   // Null para admin, obrigatório para entrevistador/recepcao (validado na app)
   crasId String? @map("cras_id")
   cras   Cras?   @relation(fields: [crasId], references: [id])

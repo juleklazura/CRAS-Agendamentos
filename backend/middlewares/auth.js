@@ -2,7 +2,7 @@
 // Protege rotas que requerem usuário logado e controla permissões por role
 import jwt from 'jsonwebtoken';
 import prisma from '../utils/prisma.js';
-import logger from '../utils/logger.js';
+import logger, { pseudonymizeIp } from '../utils/logger.js';
 import cache from '../utils/cache.js';
 import { getAllowedOrigins } from '../config/cors.js';
 
@@ -30,7 +30,7 @@ export async function auth(req, res, next) {
       if (!isAllowedOrigin) {
         logger.warn('🔒 Tentativa de acesso de origem não autorizada', {
           origin,
-          ip: req.ip,
+          ip: pseudonymizeIp(req.ip),
           path: req.path,
           method: req.method
         });
@@ -48,7 +48,7 @@ export async function auth(req, res, next) {
       if (!isApiTool) {
         logger.warn('⚠️  Requisição sem origin em desenvolvimento', {
           userAgent,
-          ip: req.ip,
+          ip: pseudonymizeIp(req.ip),
           path: req.path
         });
       }
@@ -61,7 +61,7 @@ export async function auth(req, res, next) {
     
     if (!token) {
       logger.debug('Token não encontrado no cookie', {
-        ip: req.ip,
+        ip: pseudonymizeIp(req.ip),
         path: req.path
       });
       return res.status(401).json({ 
@@ -90,7 +90,7 @@ export async function auth(req, res, next) {
       }
       if (jwtError.name === 'JsonWebTokenError') {
         logger.warn('🔒 Token JWT inválido detectado', {
-          ip: req.ip,
+          ip: pseudonymizeIp(req.ip),
           path: req.path
         });
         return res.status(401).json({ 
@@ -99,6 +99,19 @@ export async function auth(req, res, next) {
         });
       }
       throw jwtError;
+    }
+
+    // 🔒 BLACKLIST: Rejeita tokens revogados (ex: após logout ou rotação)
+    if (decoded.jti && cache.isTokenBlacklisted(decoded.jti)) {
+      logger.warn('🔒 Token revogado utilizado', {
+        userId: decoded.id,
+        ip: pseudonymizeIp(req.ip),
+        path: req.path,
+      });
+      return res.status(401).json({
+        message: 'Sessão encerrada. Faça login novamente',
+        code: 'TOKEN_REVOKED',
+      });
     }
     
     // ========================================
@@ -109,7 +122,7 @@ export async function auth(req, res, next) {
       authCacheKey,
       () => prisma.user.findUnique({
         where: { id: decoded.id },
-        select: { id: true, role: true, crasId: true, name: true, matricula: true },
+        select: { id: true, role: true, crasId: true, name: true, matricula: true, ativo: true },
       }),
       AUTH_CACHE_TTL
     );
@@ -117,12 +130,27 @@ export async function auth(req, res, next) {
     if (!userExists) {
       logger.warn('🔒 Token válido mas usuário não existe mais no sistema', {
         userId: decoded.id,
-        ip: req.ip,
+        ip: pseudonymizeIp(req.ip),
         path: req.path
       });
       return res.status(401).json({ 
         message: 'Usuário não encontrado. Faça login novamente',
         code: 'USER_NOT_FOUND'
+      });
+    }
+
+    // 🔒 LGPD/SEGURANÇA: Rejeita usuários desativados imediatamente
+    // O cache é invalidado em `invalidateUser` ao desativar, garantindo
+    // que o bloqueio entre em vigor sem aguardar o TTL expirar.
+    if (!userExists.ativo) {
+      logger.warn('🔒 Token válido mas usuário está desativado', {
+        userId: decoded.id,
+        ip: pseudonymizeIp(req.ip),
+        path: req.path
+      });
+      return res.status(401).json({
+        message: 'Conta desativada. Entre em contato com o administrador.',
+        code: 'USER_INACTIVE'
       });
     }
     
@@ -141,7 +169,7 @@ export async function auth(req, res, next) {
     logger.error('Erro no middleware de autenticação:', {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      ip: req.ip,
+      ip: pseudonymizeIp(req.ip),
       path: req.path
     });
     return res.status(500).json({ 

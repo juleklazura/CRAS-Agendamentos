@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import logger from './utils/logger.js';
+import logger, { pseudonymizeIp } from './utils/logger.js';
 import prisma from './utils/prisma.js';
 
 // 🔒 SEGURANÇA: Validar configurações de segurança antes de iniciar
@@ -161,7 +161,7 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     url: req.originalUrl,
     method: req.method,
-    ip: req.ip,
+    ip: pseudonymizeIp(req.ip),
     userId: req.user?.id || req.userId || 'não autenticado',
     userAgent: req.headers['user-agent']
   });

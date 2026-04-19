@@ -1,9 +1,11 @@
 // Controller de autenticação
 // Gerencia login, validação de credenciais e geração de tokens JWT
+import { randomUUID } from 'crypto';
 import prisma from '../utils/prisma.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
+import cache from '../utils/cache.js';
 import { apiSuccess, apiError } from '../utils/apiResponse.js';
 
 // =============================================================================
@@ -66,6 +68,12 @@ export const login = async (req, res) => {
     if (!isMatch) {
       return apiError(res, 'Credenciais inválidas', 401);
     }
+
+    // 🔒 SEGURANÇA: Rejeita usuários desativados com mensagem genérica.
+    // Não revelar que a conta existe mas está inativa (evita enumeração).
+    if (!user.ativo) {
+      return apiError(res, 'Credenciais inválidas', 401);
+    }
     
     // 🔒 SEGURANÇA: Valida que JWT_SECRET está configurado
     if (!process.env.JWT_SECRET) {
@@ -81,14 +89,16 @@ export const login = async (req, res) => {
       role: user.role, 
       cras: user.crasId,
       agenda,
-      type: 'access'
+      type: 'access',
+      jti: randomUUID(),
     }, process.env.JWT_SECRET, { expiresIn: '8h' });
     
     // Gera refresh token JWT (sem informações sensíveis, apenas ID)
     const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
     const refreshToken = jwt.sign({
       id: user.id,
-      type: 'refresh'
+      type: 'refresh',
+      jti: randomUUID(),
     }, refreshSecret, { expiresIn: '7d' });
     
     // Registra login no sistema de auditoria
@@ -151,6 +161,38 @@ export const getCurrentUser = async (req, res) => {
 // Endpoint de logout - limpa o cookie de autenticação
 export const logout = async (req, res) => {
   try {
+    // 🔒 SEGURANÇA: Revoga os tokens na blacklist antes de limpar os cookies.
+    // Garante que tokens capturados (ex: logs, proxies) não possam ser reutilizados
+    // mesmo que ainda sejam criptograficamente válidos (OWASP A07).
+    const now = Math.floor(Date.now() / 1000);
+
+    const rawAccessToken = req.cookies?.token;
+    if (rawAccessToken) {
+      try {
+        const decoded = jwt.decode(rawAccessToken);
+        if (decoded?.jti && decoded?.exp) {
+          const remaining = decoded.exp - now;
+          if (remaining > 0) cache.blacklistToken(decoded.jti, remaining);
+        }
+      } catch (_) { /* token malformado — ignora */ }
+    }
+
+    const rawRefreshToken = req.cookies?.refreshToken;
+    if (rawRefreshToken) {
+      try {
+        const decoded = jwt.decode(rawRefreshToken);
+        if (decoded?.jti && decoded?.exp) {
+          const remaining = decoded.exp - now;
+          if (remaining > 0) cache.blacklistToken(decoded.jti, remaining);
+        }
+      } catch (_) { /* token malformado — ignora */ }
+    }
+
+    // Invalida cache de autenticação do usuário imediatamente
+    if (req.user?.id) {
+      cache.invalidateUser(req.user.id);
+    }
+
     // Registra logout no sistema de auditoria
     if (req.user?.id) {
       const user = await prisma.user.findUnique({
@@ -207,6 +249,18 @@ export const refreshToken = async (req, res) => {
     if (decoded.type !== 'refresh') {
       return apiError(res, 'Token inválido', 401);
     }
+
+    // 🔒 SEGURANÇA: Verifica se o refresh token foi revogado (blacklist)
+    if (decoded.jti && cache.isTokenBlacklisted(decoded.jti)) {
+      return apiError(res, 'Token revogado. Faça login novamente', 401);
+    }
+
+    // 🔒 SEGURANÇA: Rotação de refresh token — revoga o token usado
+    // para impedir reutilização caso seja capturado (OWASP A07).
+    if (decoded.jti && decoded.exp) {
+      const remaining = decoded.exp - Math.floor(Date.now() / 1000);
+      if (remaining > 0) cache.blacklistToken(decoded.jti, remaining);
+    }
     
     // Buscar usuário atualizado
     const user = await prisma.user.findUnique({
@@ -218,15 +272,21 @@ export const refreshToken = async (req, res) => {
       return apiError(res, 'Usuário não encontrado', 404);
     }
 
+    // 🔒 SEGURANÇA: Rejeita renovação de token para usuários desativados.
+    if (!user.ativo) {
+      return apiError(res, 'Sessão encerrada. Entre em contato com o administrador.', 401);
+    }
+
     const agenda = buildAgenda(user);
     
-    // Gerar novo access token
+    // Gerar novo access token com jti único
     const newAccessToken = jwt.sign({
       id: user.id,
       role: user.role,
       cras: user.crasId,
       agenda,
-      type: 'access'
+      type: 'access',
+      jti: randomUUID(),
     }, process.env.JWT_SECRET, { expiresIn: '8h' });
     
     res.cookie('token', newAccessToken, ACCESS_TOKEN_COOKIE_OPTIONS);

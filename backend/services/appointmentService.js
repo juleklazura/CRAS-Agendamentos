@@ -49,7 +49,7 @@ const STATUS_ALLOWED = ['agendado', 'realizado', 'ausente'];
  * Descriptografa campos LGPD de um agendamento (objeto Prisma).
  */
 const decryptFields = (doc) => {
-  const fieldsToDecrypt = ['pessoa', 'cpf', 'telefone1', 'telefone2'];
+  const fieldsToDecrypt = ['pessoa', 'cpf', 'telefone1', 'telefone2', 'observacoes'];
   const decrypted = { ...doc };
   for (const field of fieldsToDecrypt) {
     if (decrypted[field] && EncryptionService.isEncrypted(decrypted[field])) {
@@ -60,15 +60,42 @@ const decryptFields = (doc) => {
 };
 
 /**
+ * Mascara CPF conforme LGPD — princípio da minimização de dados (Art. 6º, III).
+ * Expõe apenas os dígitos centrais: ***.XXX.XXX-**
+ * Suporta CPF com ou sem formatação ("12345678900" ou "123.456.789-00").
+ */
+const maskCpf = (cpf) => {
+  if (!cpf) return cpf;
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return '***.***.***-**';
+  return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
+};
+
+/**
+ * Verifica se o actor tem acesso ao CPF completo.
+ * Apenas 'admin' e 'entrevistador' (responsável pelo agendamento) podem ver o CPF inteiro.
+ * Recepção recebe CPF mascarado.
+ */
+const canSeeCpf = (actor) => actor && actor.role !== 'recepcao';
+
+/**
  * Processa um agendamento para retorno ao frontend:
- * descriptografa campos LGPD e converte enum de motivo → label.
+ * descriptografa campos LGPD, converte enum de motivo → label e
+ * aplica mascaramento de CPF conforme o papel do actor (LGPD).
+ *
+ * @param {object} doc   - Registro bruto do Prisma.
+ * @param {object} actor - Usuário autenticado (id, role). Obrigatório para controle de CPF.
  */
 const INTERNAL_FIELDS = ['cpfHash', 'createdById', 'updatedById'];
 
-const processAppointment = (doc) => {
+const processAppointment = (doc, actor) => {
   if (!doc) return doc;
   const processed = convertAppointmentMotivo(decryptFields(doc));
   for (const field of INTERNAL_FIELDS) delete processed[field];
+  // LGPD — minimização de dados: recepção não tem necessidade legítima do CPF completo
+  if (!canSeeCpf(actor)) {
+    processed.cpf = maskCpf(processed.cpf);
+  }
   return processed;
 };
 
@@ -195,7 +222,7 @@ export const createAppointment = async (data, actor) => {
         motivo: motivoToEnum(motivo),
         data: new Date(dataAgendamento),
         status: status || 'agendado',
-        observacoes,
+        observacoes: encryptField(observacoes),
         createdById: actor.id,
       },
       include: INCLUDE_DEFAULT,
@@ -225,7 +252,7 @@ export const createAppointment = async (data, actor) => {
   // --- Invalidar cache ---
   cache.invalidateAppointments(cras, entrevistador);
 
-  return processAppointment(appointment);
+  return processAppointment(appointment, actor);
 };
 
 // =============================================================================
@@ -305,7 +332,7 @@ export const getAppointments = async (queryParams, actor) => {
       take: SEARCH_MAX_ROWS,
     });
 
-    results = results.map(processAppointment);
+    results = results.map((doc) => processAppointment(doc, actor));
     results = _filterBySearch(results, searchTerm);
 
     const total = results.length;
@@ -334,7 +361,7 @@ export const getAppointments = async (queryParams, actor) => {
 
   const hasNextPage = rawResults.length > pageSize;
   const sliced = hasNextPage ? rawResults.slice(0, pageSize) : rawResults;
-  const results = sliced.map(processAppointment);
+  const results = sliced.map((doc) => processAppointment(doc, actor));
 
   // Count só é necessário quando há mais registros além desta página.
   // Na primeira página sem próxima, o total é o próprio tamanho do resultado.
@@ -383,7 +410,7 @@ export const updateAppointment = async (id, body, actor) => {
     }
     data.status = body.status;
   }
-  if (body.observacoes !== undefined) data.observacoes = body.observacoes;
+  if (body.observacoes !== undefined) data.observacoes = encryptField(body.observacoes);
 
   data.updatedById = actor.id;
   data.updatedAt = now();
@@ -394,7 +421,7 @@ export const updateAppointment = async (id, body, actor) => {
     include: INCLUDE_FULL,
   });
 
-  const result = processAppointment(updated);
+  const result = processAppointment(updated, actor);
 
   // Log de auditoria
   await prisma.log.create({
@@ -464,7 +491,7 @@ export const confirmPresence = async (id, actor) => {
 
   cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
-  return processAppointment(updated);
+  return processAppointment(updated, actor);
 };
 
 /**
@@ -491,7 +518,7 @@ export const removePresenceConfirmation = async (id, actor) => {
 
   cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
-  return processAppointment(updated);
+  return processAppointment(updated, actor);
 };
 
 // =============================================================================
@@ -547,7 +574,7 @@ export const getAppointmentsByCpf = async (cpf, actor) => {
   // --- Log de auditoria obrigatório (LGPD — rastreabilidade) ---
   await _logCpfSearch(actor, appointments.length);
 
-  return appointments.map(processAppointment);
+  return appointments.map((doc) => processAppointment(doc, actor));
 };
 
 /** Registra auditoria de consulta por CPF sem armazenar o CPF em si. */

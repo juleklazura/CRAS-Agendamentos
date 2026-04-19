@@ -456,6 +456,31 @@ export const invalidateCras = () => {
 };
 
 /**
+ * Adiciona um token JWT à blacklist até a sua expiração natural.
+ * Usado no logout e na rotação de refresh tokens para impedir
+ * reutilização de tokens capturados (OWASP A07).
+ *
+ * @param {string} jti - JWT ID (claim `jti`) do token a revogar
+ * @param {number} ttlSeconds - Segundos restantes até o token expirar
+ * @returns {boolean} true se adicionado com sucesso
+ */
+export const blacklistToken = (jti, ttlSeconds) => {
+  if (!jti || ttlSeconds <= 0) return false;
+  return set(`blacklist:${jti}`, true, ttlSeconds);
+};
+
+/**
+ * Verifica se um token JWT está na blacklist (foi revogado).
+ *
+ * @param {string} jti - JWT ID (claim `jti`) do token
+ * @returns {boolean} true se o token foi revogado
+ */
+export const isTokenBlacklisted = (jti) => {
+  if (!jti) return false;
+  return has(`blacklist:${jti}`);
+};
+
+/**
  * Invalidar cache de autenticação de um usuário específico.
  * Deve ser chamado sempre que role, cras ou matrícula forem alterados,
  * ou quando o usuário for excluído — garante que mudanças entrem em
@@ -490,5 +515,8 @@ export default {
   invalidateAppointments,
   invalidateUsers,
   invalidateCras,
-  invalidateUser
+  invalidateUser,
+  // Blacklist de tokens (OWASP A07)
+  blacklistToken,
+  isTokenBlacklisted,
 };

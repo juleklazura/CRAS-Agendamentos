@@ -1,7 +1,7 @@
 // Configurações de Rate Limiting específicas para diferentes endpoints
 // Protege contra ataques de força bruta e abuso de API
 import rateLimit from 'express-rate-limit';
-import logger from '../utils/logger.js';
+import logger, { pseudonymizeIp } from '../utils/logger.js';
 
 /**
  * Rate Limiter para tentativas de login
@@ -20,7 +20,7 @@ export const loginLimiter = rateLimit({
   // Mensagem personalizada quando o limite é atingido
   handler: (req, res) => {
     logger.warn('🚨 Rate limit excedido - LOGIN', { 
-      ip: req.ip, 
+      ip: pseudonymizeIp(req.ip), 
       userAgent: req.get('user-agent')
     });
     res.status(429).json({
@@ -69,7 +69,7 @@ export const deleteLimiter = rateLimit({
   handler: (req, res) => {
     logger.warn('🔒 Rate limit de exclusões atingido', {
       userId: req.user?.id,
-      ip: req.ip,
+      ip: pseudonymizeIp(req.ip),
       userAgent: req.headers['user-agent']
     });
     res.status(429).json({
@@ -118,7 +118,7 @@ export const createAppointmentLimiter = rateLimit({
   handler: (req, res) => {
     logger.warn('🔒 Rate limit de agendamentos atingido', {
       userId: req.user?.id || req.userId,
-      ip: req.ip,
+      ip: pseudonymizeIp(req.ip),
       userAgent: req.headers['user-agent']
     });
     res.status(429).json({
@@ -145,7 +145,7 @@ export const cpfSearchLimiter = rateLimit({
   handler: (req, res) => {
     logger.warn('🔒 Rate limit de consulta por CPF atingido', {
       userId: req.user?.id,
-      ip: req.ip,
+      ip: pseudonymizeIp(req.ip),
       userAgent: req.headers['user-agent'],
     });
     res.status(429).json({

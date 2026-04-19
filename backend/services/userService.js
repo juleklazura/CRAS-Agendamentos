@@ -95,7 +95,7 @@ export const getUsers = async (role) => {
   const cacheKey = `users:all:role:${role}`;
 
   return cache.cached(cacheKey, async () => {
-    const where = role !== 'admin' ? { role: 'entrevistador' } : {};
+    const where = role !== 'admin' ? { role: 'entrevistador', ativo: true } : { ativo: true };
     return prisma.user.findMany({
       where,
       omit: { password: true },
@@ -112,7 +112,7 @@ export const getEntrevistadores = async () => {
 
   return cache.cached(cacheKey, async () => {
     return prisma.user.findMany({
-      where: { role: 'entrevistador' },
+      where: { role: 'entrevistador', ativo: true },
       omit: { password: true },
     });
   });
@@ -126,7 +126,7 @@ export const getEntrevistadoresByCras = async (crasId) => {
 
   return cache.cached(cacheKey, async () => {
     return prisma.user.findMany({
-      where: { role: 'entrevistador', crasId },
+      where: { role: 'entrevistador', crasId, ativo: true },
       omit: { password: true },
       include: { cras: true },
     });
@@ -248,7 +248,7 @@ export const deleteUser = async (id, actor) => {
 
       // Impedir exclusão do último admin
       if (user.role === 'admin') {
-        const adminCount = await tx.user.count({ where: { role: 'admin' } });
+        const adminCount = await tx.user.count({ where: { role: 'admin', ativo: true } });
         if (adminCount <= 1) {
           throw new BusinessError(
             'Não é possível excluir o último administrador do sistema',
@@ -276,19 +276,22 @@ export const deleteUser = async (id, actor) => {
         }
       }
 
-      await tx.user.delete({ where: { id } });
+      await tx.user.update({ where: { id }, data: { ativo: false } });
 
-      // Log de auditoria atômico com a exclusão
+      // Log de auditoria atômico com a desativação
       await tx.log.create({
         data: {
           userId: actor.id,
           crasId: actor.cras || null,
-          action: 'excluir_usuario',
-          details: `Usuário excluído: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
+          action: 'desativar_usuario',
+          details: `Usuário desativado: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
         },
       });
     });
 
+    // Invalidar cache de listação E de autenticação do usuário desativado.
+    // invalidateUser remove `user:auth:${id}`, garantindo que o middleware
+    // de auth rejeite o próximo request sem aguardar o TTL de 5 min.
     cache.invalidateUsers();
     cache.invalidateUser(id);
 

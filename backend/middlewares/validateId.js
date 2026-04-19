@@ -4,7 +4,7 @@
 // Valida se parâmetros de ID são strings válidas (CUIDs do Prisma)
 // Previne crashes e comportamento inesperado com IDs malformados
 
-import logger from '../utils/logger.js';
+import logger, { pseudonymizeIp } from '../utils/logger.js';
 
 const ID_PATTERN = /^[a-z0-9]+$/i;
 
@@ -31,7 +31,7 @@ export const validateId = (paramName = 'id') => {
       logger.warn('🔒 ID inválido recebido', {
         paramName,
         value: String(id).substring(0, 50),
-        ip: req.ip,
+        ip: pseudonymizeIp(req.ip),
         path: req.path,
         method: req.method
       });
@@ -61,7 +61,7 @@ export const validateQueryIds = (paramNames = []) => {
         logger.warn('🔒 ID inválido em query', {
           paramName,
           value: String(value).substring(0, 50),
-          ip: req.ip,
+          ip: pseudonymizeIp(req.ip),
           path: req.path,
           method: req.method
         });

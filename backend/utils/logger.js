@@ -130,4 +130,39 @@ const logger = {
   }
 };
 
+/**
+ * Pseudonimiza um endereço IP para conformidade com a LGPD (Art. 5º, I).
+ * IP é dado pessoal — não deve ser armazenado em texto puro nos logs.
+ *
+ * - IPv4: mascara o último octeto       → "192.168.1.x"
+ * - IPv6 mapeado para IPv4:             → "::ffff:192.168.1.x"
+ * - IPv6 puro: mantém 4 primeiros grupos → "2001:db8:85a3:0::x"
+ * - Desconhecido/null:                  → "[IP desconhecido]"
+ *
+ * @param {string|undefined} ip - Endereço IP bruto do request
+ * @returns {string} IP pseudonimizado
+ */
+export const pseudonymizeIp = (ip) => {
+  if (!ip) return '[IP desconhecido]';
+
+  // IPv4 puro (ex: "192.168.1.100")
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+    return ip.replace(/\.\d+$/, '.x');
+  }
+
+  // IPv6 mapeado para IPv4 (ex: "::ffff:192.168.1.100")
+  const ipv4Mapped = ip.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d+$/i);
+  if (ipv4Mapped) {
+    return `::ffff:${ipv4Mapped[1]}.x`;
+  }
+
+  // IPv6 puro: mantém apenas os 4 primeiros grupos
+  const parts = ip.split(':');
+  if (parts.length >= 2) {
+    return parts.slice(0, 4).join(':') + '::x';
+  }
+
+  return '[IP desconhecido]';
+};
+
 export default logger;
