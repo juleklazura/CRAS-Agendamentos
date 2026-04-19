@@ -7,25 +7,22 @@ import { useCallback } from 'react';
 import { exportToCSV } from '../utils/csvExport';
 import { STATUS_OPTIONS } from '../constants/agendamentos';
 import { sanitizeText, maskCPF, maskPhone, truncateText } from '../utils/formatters';
+import api from '../services/api';
 
 /**
- * Registra auditoria localmente
- * Mantém últimas 100 auditorias no localStorage
+ * Registra auditoria de exportação no backend (LGPD — rastreabilidade server-side).
+ * Falhas silenciosas: a exportação não deve ser bloqueada por falha de log.
  */
-const registrarAuditoria = (auditLog) => {
+const registrarAuditoria = async (user, quantidade) => {
   try {
-    const auditorias = JSON.parse(localStorage.getItem('auditorias') || '[]');
-    auditorias.push(auditLog);
-    
-    // Mantém apenas últimas 100 auditorias
-    const ultimasAuditorias = auditorias.slice(-100);
-    localStorage.setItem('auditorias', JSON.stringify(ultimasAuditorias));
-    
-    if (import.meta.env.DEV) {
-      console.info('📋 Auditoria registrada:', auditLog);
-    }
+    await api.post('/logs', {
+      action: 'exportar_agendamentos',
+      details: `Exportação de ${quantidade} agendamento(s) para CSV por ${user?.name} (${user?.role})`,
+    });
   } catch (error) {
-    console.error('Erro ao registrar auditoria:', error);
+    if (import.meta.env.DEV) {
+      console.warn('Falha ao registrar auditoria de exportação:', error);
+    }
   }
 };
 
@@ -49,16 +46,8 @@ export function useAgendamentoActions(user, agendamentos) {
    */
   const handleExport = useCallback(async () => {
     try {
-      // Registra auditoria
-      const auditLog = {
-        acao: 'EXPORTACAO_AGENDAMENTOS',
-        usuario: user?.id,
-        usuarioNome: user?.name,
-        quantidadeRegistros: agendamentos.length,
-        timestamp: new Date().toISOString()
-      };
-      
-      registrarAuditoria(auditLog);
+      // Registra auditoria server-side (LGPD)
+      await registrarAuditoria(user, agendamentos.length);
       
       // Prepara dados com mascaramento LGPD
       const data = agendamentos.map(a => ({

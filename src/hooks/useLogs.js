@@ -20,8 +20,9 @@ export default function useLogs() {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/logs');
-      const logsOrdenados = res.data.sort((a, b) => {
+      const res = await api.get('/logs', { params: { pageSize: 200 } });
+      const data = Array.isArray(res.data) ? res.data : res.data.results || [];
+      const logsOrdenados = data.sort((a, b) => {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
       setLogs(logsOrdenados);

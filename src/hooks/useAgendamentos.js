@@ -65,6 +65,10 @@ export function useAgendamentos(user) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
+
+    setLoading(true);
+
+    let aborted = false;
     
     try {
       let url = '/appointments';
@@ -89,8 +93,6 @@ export function useAgendamentos(user) {
       if (params.length > 0) {
         url += '?' + params.join('&');
       }
-
-      setLoading(true);
       
       const res = await api.get(url, {
         signal: abortControllerRef.current.signal
@@ -104,6 +106,7 @@ export function useAgendamentos(user) {
       setTotal(data.total || 0);
     } catch (err) {
       if (err.name === 'AbortError' || err.name === 'CanceledError') {
+        aborted = true;
         return;
       }
       
@@ -117,7 +120,7 @@ export function useAgendamentos(user) {
       setAgendamentos([]);
       setTotal(0);
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && !aborted) {
         setLoading(false);
       }
     }

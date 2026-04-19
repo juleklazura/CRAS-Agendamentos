@@ -17,7 +17,7 @@ const isValidAppointment = (apt) => {
   if (!apt || typeof apt !== 'object') return false;
   if (!apt.data || typeof apt.data !== 'string') return false;
   if (!apt.status || typeof apt.status !== 'string') return false;
-  const validStatuses = ['realizado', 'ausente', 'agendado', 'cancelado'];
+  const validStatuses = ['agendado', 'realizado', 'ausente'];
   return validStatuses.includes(apt.status);
 };
 

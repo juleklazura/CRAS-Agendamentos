@@ -8,11 +8,11 @@ import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
 
 const STATUS_CONFIG = {
-  'livre': { color: '#4caf50', label: 'Disponível' },
-  'agendado': { color: '#2196f3', label: 'Agendado' },
-  'realizado': { color: '#4caf50', label: 'Realizado' },
-  'bloqueado': { color: '#ff9800', label: 'Bloqueado' },
-  'cancelado': { color: '#f44336', label: 'Cancelado' }
+  'livre':     { color: '#4caf50', label: 'Disponível' },
+  'agendado':  { color: '#2196f3', label: 'Agendado'   },
+  'realizado': { color: '#9c27b0', label: 'Realizado'  },
+  'ausente':   { color: '#ff9800', label: 'Ausente'    },
+  'bloqueado': { color: '#f44336', label: 'Bloqueado'  },
 };
 
 const StatusIndicator = memo(({ 

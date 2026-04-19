@@ -115,7 +115,7 @@ model Appointment {
   updatedById String? @map("updated_by_id")
   updatedBy   User?   @relation("UpdatedByAppointments", fields: [updatedById], references: [id])
 
-  @@index([entrevistadorId, data])
+  @@unique([entrevistadorId, data])
   @@index([entrevistadorId, data, status])
   @@index([crasId, data])
   @@index([cpfHash])

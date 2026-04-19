@@ -17,7 +17,7 @@
  * - Fácil adicionar novos recursos
  */
 import { useRef, useState, useCallback } from 'react';
-import { CircularProgress, Box } from '@mui/material';
+import { Box } from '@mui/material';
 
 import { useAuth } from '../hooks/useAuth';
 import { useAgendamentos } from '../hooks/useAgendamentos';
@@ -156,47 +156,41 @@ export default function Agendamentos() {
 
         {/* Conteúdo Principal */}
         <Box sx={{ width: '100%' }}>
-          {loading ? (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress aria-label="Carregando agendamentos" />
-            </Box>
-          ) : (
-            <>
-              {/* Filtros e Exportação */}
-              <AgendamentosFilters
-                search={search}
-                onSearchChange={setSearch}
-                onExport={handleExportClick}
-                searchInputRef={searchInputRef}
-                disabled={loading}
-              />
+          <>
+            {/* Filtros e Exportação */}
+            <AgendamentosFilters
+              search={search}
+              onSearchChange={setSearch}
+              onExport={handleExportClick}
+              searchInputRef={searchInputRef}
+              disabled={loading}
+            />
 
-              {/* Tabela de Dados */}
-              <AgendamentosTable
-                agendamentos={paginatedAgendamentos}
-                loading={loading}
-                search={search}
-                rowsPerPage={rowsPerPage}
-                orderBy={orderBy}
-                order={order}
-                onSort={handleSort}
-                canDeleteFn={canDeleteAgendamento}
-                onDelete={handleDelete}
-                onViewObservacoes={abrirModalObservacoes}
-                deleting={deleting}
-                user={user}
-              />
-              
-              {/* Paginação */}
-              <AgendamentosPagination
-                total={total}
-                page={page}
-                rowsPerPage={rowsPerPage}
-                onPageChange={handlePageChange}
-                onRowsPerPageChange={handleRowsPerPageChange}
-              />
-            </>
-          )}
+            {/* Tabela de Dados */}
+            <AgendamentosTable
+              agendamentos={paginatedAgendamentos}
+              loading={loading}
+              search={search}
+              rowsPerPage={rowsPerPage}
+              orderBy={orderBy}
+              order={order}
+              onSort={handleSort}
+              canDeleteFn={canDeleteAgendamento}
+              onDelete={handleDelete}
+              onViewObservacoes={abrirModalObservacoes}
+              deleting={deleting}
+              user={user}
+            />
+            
+            {/* Paginação */}
+            <AgendamentosPagination
+              total={total}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={handlePageChange}
+              onRowsPerPageChange={handleRowsPerPageChange}
+            />
+          </>
         </Box>
 
         {/* Modais */}

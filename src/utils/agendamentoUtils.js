@@ -276,22 +276,18 @@ export const mensagens = {
  * 📊 Status dos agendamentos com descrições humanizadas
  */
 export const statusAgendamento = {
-  agendado: 'Agendado',
-  confirmado: 'Confirmado',
-  cancelado: 'Cancelado',
+  agendado:  'Agendado',
   realizado: 'Realizado',
-  faltou: 'Não Compareceu'
+  ausente:   'Ausente',
 };
 
 /**
  * 🎨 Cores dos status para interface visual
  */
 export const coresStatus = {
-  agendado: '#2196F3',    // Azul - Agendado
-  confirmado: '#4CAF50',  // Verde - Confirmado
-  cancelado: '#F44336',   // Vermelho - Cancelado
-  realizado: '#9C27B0',   // Roxo - Realizado
-  faltou: '#FF9800'       // Laranja - Faltou
+  agendado:  '#2196F3',  // Azul   - Agendado
+  realizado: '#9C27B0',  // Roxo   - Realizado
+  ausente:   '#FF9800',  // Laranja - Ausente
 };
 
 /**
@@ -373,10 +369,9 @@ export const calcularEstatisticas = (agendamentos) => {
   if (!agendamentos?.length) {
     return {
       total: 0,
-      confirmados: 0,
       pendentes: 0,
-      cancelados: 0,
-      realizados: 0
+      realizados: 0,
+      ausentes: 0,
     };
   }
   
@@ -384,17 +379,14 @@ export const calcularEstatisticas = (agendamentos) => {
     acc.total++;
     
     switch (agendamento.status) {
-      case 'confirmado':
-        acc.confirmados++;
-        break;
       case 'agendado':
         acc.pendentes++;
         break;
-      case 'cancelado':
-        acc.cancelados++;
-        break;
       case 'realizado':
         acc.realizados++;
+        break;
+      case 'ausente':
+        acc.ausentes++;
         break;
       default:
         acc.pendentes++;
@@ -403,10 +395,9 @@ export const calcularEstatisticas = (agendamentos) => {
     return acc;
   }, {
     total: 0,
-    confirmados: 0,
     pendentes: 0,
-    cancelados: 0,
-    realizados: 0
+    realizados: 0,
+    ausentes: 0,
   });
   
   return stats;

@@ -10,22 +10,11 @@ import prisma from '../utils/prisma.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
 import { getDefaultAgenda } from '../config/agendaDefaults.js';
+import { BusinessError } from '../utils/errors.js';
+export { BusinessError } from '../utils/errors.js'; // re-export para compatibilidade
 
 // Custo do bcrypt para hash de senhas (12 = ~250ms, bom equilíbrio segurança/performance)
 const BCRYPT_COST = 12;
-
-/**
- * Erro personalizado para regras de negócio.
- * Carrega statusCode para o controller retornar o HTTP status correto.
- */
-export class BusinessError extends Error {
-  constructor(message, statusCode = 400, code = null) {
-    super(message);
-    this.name = 'BusinessError';
-    this.statusCode = statusCode;
-    this.code = code;
-  }
-}
 
 // =============================================================================
 // CRIAÇÃO DE USUÁRIO

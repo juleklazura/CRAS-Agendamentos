@@ -11,7 +11,7 @@ const router = express.Router();
 // POST /api/blocked-slots - Criar novo bloqueio de horário
 // APENAS entrevistadores podem bloquear seus próprios horários
 // Body: { data, motivo, observacoes? }
-router.post('/', auth, authorize(['entrevistador', 'admin']), createBlockedSlot);
+router.post('/', auth, authorize(['entrevistador']), createBlockedSlot);
 
 // GET /api/blocked-slots - Listar bloqueios conforme permissões do usuário
 // Admin vê todos, entrevistador vê apenas os seus, recepção vê os do CRAS (somente leitura)
@@ -21,7 +21,6 @@ router.get('/', auth, validateQueryIds(['entrevistador', 'cras']), authorize(['e
 
 // DELETE /api/blocked-slots/:id - Remover bloqueio de horário
 // APENAS entrevistadores podem desbloquear seus próprios horários
-// Admin também pode remover qualquer bloqueio
-router.delete('/:id', auth, validateId('id'), authorize(['entrevistador', 'admin']), deleteBlockedSlot);
+router.delete('/:id', auth, validateId('id'), authorize(['entrevistador']), deleteBlockedSlot);
 
 export default router;

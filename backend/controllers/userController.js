@@ -5,25 +5,8 @@
 // Toda lógica de negócio fica em services/userService.js.
 // Validação de dados fica em validators/userValidator.js.
 
-import logger from '../utils/logger.js';
 import * as userService from '../services/userService.js';
-import { BusinessError } from '../services/userService.js';
-import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
-
-/**
- * Handler centralizado de erros do controller.
- * Diferencia erros de negócio (BusinessError) de erros inesperados.
- */
-const handleError = (res, err, defaultMessage) => {
-  if (err instanceof BusinessError) {
-    const extras = {};
-    if (err.code) extras.code = err.code;
-    return apiError(res, err.message, err.statusCode, extras);
-  }
-
-  logger.error(`${defaultMessage}:`, err);
-  apiError(res, defaultMessage, 500);
-};
+import { apiSuccess, apiMessage, handleControllerError } from '../utils/apiResponse.js';
 
 // POST /api/users — Criar novo usuário (admin)
 export const createUser = async (req, res) => {
@@ -32,7 +15,7 @@ export const createUser = async (req, res) => {
     const user = await userService.createUser(req.body, req.user);
     apiSuccess(res, user, 201);
   } catch (err) {
-    handleError(res, err, 'Erro ao criar usuário');
+    handleControllerError(res, err, 'Erro ao criar usuário');
   }
 };
 
@@ -42,7 +25,7 @@ export const getUsers = async (req, res) => {
     const users = await userService.getUsers(req.user.role);
     apiSuccess(res, users);
   } catch (err) {
-    handleError(res, err, 'Erro ao buscar usuários');
+    handleControllerError(res, err, 'Erro ao buscar usuários');
   }
 };
 
@@ -52,7 +35,7 @@ export const getEntrevistadores = async (_req, res) => {
     const users = await userService.getEntrevistadores();
     apiSuccess(res, users);
   } catch (err) {
-    handleError(res, err, 'Erro ao buscar entrevistadores');
+    handleControllerError(res, err, 'Erro ao buscar entrevistadores');
   }
 };
 
@@ -62,7 +45,7 @@ export const getEntrevistadoresByCras = async (req, res) => {
     const entrevistadores = await userService.getEntrevistadoresByCras(req.params.crasId);
     apiSuccess(res, entrevistadores);
   } catch (err) {
-    handleError(res, err, 'Erro ao buscar entrevistadores');
+    handleControllerError(res, err, 'Erro ao buscar entrevistadores');
   }
 };
 
@@ -73,7 +56,7 @@ export const updateUser = async (req, res) => {
     const user = await userService.updateUser(req.params.id, req.body, req.user);
     apiSuccess(res, user);
   } catch (err) {
-    handleError(res, err, 'Erro ao atualizar usuário');
+    handleControllerError(res, err, 'Erro ao atualizar usuário');
   }
 };
 
@@ -83,6 +66,6 @@ export const deleteUser = async (req, res) => {
     const result = await userService.deleteUser(req.params.id, req.user);
     apiMessage(res, result.message);
   } catch (err) {
-    handleError(res, err, 'Erro ao remover usuário');
+    handleControllerError(res, err, 'Erro ao remover usuário');
   }
 };

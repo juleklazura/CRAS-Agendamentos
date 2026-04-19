@@ -25,7 +25,9 @@
     "prisma:studio": "npx prisma studio",
     "prisma:push": "npx prisma db push",
     "db:seed": "node scripts/seedAppointments.js",
-    "db:admin": "node scripts/createAdmin.js"
+    "db:admin": "node scripts/createAdmin.js",
+    "db:purge": "node scripts/purgeOldAppointments.js",
+    "db:purge:dry": "node scripts/purgeOldAppointments.js --dry-run"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -41,12 +43,10 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
-    "express-validator": "^7.3.1",
     "helmet": "^8.1.0",
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.2",
-    "node-cache": "^5.1.2",
-    "winston": "^3.18.3"
+    "node-cache": "^5.1.2"
   },
   "devDependencies": {
     "prisma": "^5.22.0"

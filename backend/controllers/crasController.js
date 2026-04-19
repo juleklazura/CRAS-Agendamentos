@@ -4,7 +4,7 @@ import logger from '../utils/logger.js';
 import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 
 // =============================================================================
-// 📋 GERENCIAMENTO DE UNIDADES CRAS
+//  GERENCIAMENTO DE UNIDADES CRAS
 // =============================================================================
 
 // Criar novo CRAS (apenas admin)

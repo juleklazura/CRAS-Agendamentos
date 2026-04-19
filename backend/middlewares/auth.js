@@ -4,35 +4,12 @@ import jwt from 'jsonwebtoken';
 import prisma from '../utils/prisma.js';
 import logger from '../utils/logger.js';
 import cache from '../utils/cache.js';
+import { getAllowedOrigins } from '../config/cors.js';
 
-// TTL do cache de autenticação: 60 segundos.
-const AUTH_CACHE_TTL = 60;
-
-// ========================================
-// 🔒 CONFIGURAÇÃO DE ORIGENS PERMITIDAS
-// ========================================
-const getAllowedOrigins = () => {
-  const origins = [
-    process.env.FRONTEND_URL,
-    'https://cras-agendamentos.vercel.app',
-  ];
-  
-  if (process.env.NODE_ENV === 'development') {
-    origins.push(
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:5174'
-    );
-  }
-  
-  return origins.filter(Boolean);
-};
-
-const isVercelDomain = (origin) => {
-  if (!origin) return false;
-  return /^https:\/\/.*\.vercel\.app$/.test(origin);
-};
+// TTL do cache de autenticação: 300 segundos (5 min).
+// Reduz queries ao Neon em sessões normais de uso.
+// Tradeoff: usuário desativado pode ter acesso por até 5 min após desativação.
+const AUTH_CACHE_TTL = 300;
 
 // ========================================
 // MIDDLEWARE PRINCIPAL DE AUTENTICAÇÃO
@@ -50,7 +27,7 @@ export async function auth(req, res, next) {
         origin.startsWith(allowed)
       );
       
-      if (!isAllowedOrigin && !isVercelDomain(origin)) {
+      if (!isAllowedOrigin) {
         logger.warn('🔒 Tentativa de acesso de origem não autorizada', {
           origin,
           ip: req.ip,

@@ -26,7 +26,7 @@ export const getAllowedOrigins = () => {
     ] : [])
   ].filter(Boolean);
 
-  logger.info('🔐 CORS - Origens permitidas:', allowedOrigins);
+  logger.debug('CORS - Origens permitidas:', allowedOrigins);
   return allowedOrigins;
 };
 
@@ -46,13 +46,6 @@ export const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // Permitir qualquer subdomínio do Vercel
-      const isVercelDomain = origin.match(/https:\/\/.*\.vercel\.app$/);
-      if (isVercelDomain) {
-        logger.info('✅ CORS permitido para Vercel:', origin);
-        return callback(null, true);
-      }
-      
       logger.warn('❌ CORS bloqueado:', origin);
       callback(new Error('Origem não permitida pelo CORS'));
     }

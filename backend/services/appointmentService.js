@@ -6,12 +6,13 @@
 // request/response; toda lógica de domínio fica aqui.
 
 import prisma from '../utils/prisma.js';
+import { Prisma } from '@prisma/client';
 import EncryptionService from '../utils/encryption.js';
 import { validarCPF, validarTelefone } from '../utils/validators.js';
 import { parseDate, isWeekend, formatDateTime, now } from '../utils/timezone.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
-import { BusinessError } from './userService.js';
+import { BusinessError } from '../utils/errors.js';
 import { motivoToEnum, convertAppointmentMotivo } from '../constants/motivos.js';
 
 // =============================================================================
@@ -41,6 +42,9 @@ const INCLUDE_LIST = {
 /** Tamanhos de página permitidos. */
 const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
 
+/** Status permitidos para agendamentos. */
+const STATUS_ALLOWED = ['agendado', 'realizado', 'ausente'];
+
 /**
  * Descriptografa campos LGPD de um agendamento (objeto Prisma).
  */
@@ -59,15 +63,25 @@ const decryptFields = (doc) => {
  * Processa um agendamento para retorno ao frontend:
  * descriptografa campos LGPD e converte enum de motivo → label.
  */
+const INTERNAL_FIELDS = ['cpfHash', 'createdById', 'updatedById'];
+
 const processAppointment = (doc) => {
   if (!doc) return doc;
-  return convertAppointmentMotivo(decryptFields(doc));
+  const processed = convertAppointmentMotivo(decryptFields(doc));
+  for (const field of INTERNAL_FIELDS) delete processed[field];
+  return processed;
 };
 
 /**
  * Criptografa campos sensíveis para persistência.
  */
 const encryptField = (value) => (value ? EncryptionService.encrypt(value) : value);
+
+/**
+ * Gera o hash do CPF sempre a partir de dígitos normalizados.
+ * Garante consistência independente do formato recebido ("123.456.789-00" ou "12345678900").
+ */
+const hashCpf = (cpf) => EncryptionService.hash(cpf.replace(/\D/g, ''));
 
 /**
  * Verifica se o usuário tem permissão para operar no agendamento.
@@ -140,17 +154,21 @@ export const createAppointment = async (data, actor) => {
   if (!motivo) throw new BusinessError('Motivo é obrigatório');
   if (!dataAgendamento) throw new BusinessError('Data é obrigatória');
 
+  // --- Validação de status ---
+  if (status && !STATUS_ALLOWED.includes(status)) {
+    throw new BusinessError(`Status inválido. Valores permitidos: ${STATUS_ALLOWED.join(', ')}`, 400, 'INVALID_STATUS');
+  }
+
   // --- Regra de negócio: sem fins de semana ---
   if (isWeekend(parseDate(dataAgendamento))) {
     throw new BusinessError('Não é permitido agendar para sábado ou domingo.');
   }
 
-  // --- Verificar slot disponível (proteção contra race condition) ---
+  // --- Verificar slot disponível (check rápido antes do insert) ---
   const existingSlot = await prisma.appointment.findFirst({
     where: {
       entrevistadorId: entrevistador,
       data: new Date(dataAgendamento),
-      status: 'agendado',
     },
   });
   if (existingSlot) {
@@ -163,23 +181,36 @@ export const createAppointment = async (data, actor) => {
   }
 
   // --- Persistência com campos criptografados ---
-  const appointment = await prisma.appointment.create({
-    data: {
-      entrevistadorId: entrevistador,
-      crasId: cras,
-      pessoa: encryptField(pessoa),
-      cpf: encryptField(cpf),
-      cpfHash: EncryptionService.hash(cpf),
-      telefone1: encryptField(telefone1),
-      telefone2: encryptField(telefone2),
-      motivo: motivoToEnum(motivo),
-      data: new Date(dataAgendamento),
-      status: status || 'agendado',
-      observacoes,
-      createdById: actor.id,
-    },
-    include: INCLUDE_DEFAULT,
-  });
+  let appointment;
+  try {
+    appointment = await prisma.appointment.create({
+      data: {
+        entrevistadorId: entrevistador,
+        crasId: cras,
+        pessoa: encryptField(pessoa),
+        cpf: encryptField(cpf),
+        cpfHash: hashCpf(cpf),
+        telefone1: encryptField(telefone1),
+        telefone2: encryptField(telefone2),
+        motivo: motivoToEnum(motivo),
+        data: new Date(dataAgendamento),
+        status: status || 'agendado',
+        observacoes,
+        createdById: actor.id,
+      },
+      include: INCLUDE_DEFAULT,
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const dataFormatada = formatDateTime(dataAgendamento);
+      throw new BusinessError(
+        `Este horário (${dataFormatada}) já está ocupado para este entrevistador. Por favor, escolha outro horário.`,
+        409,
+        'SLOT_TAKEN'
+      );
+    }
+    throw error;
+  }
 
   // --- Log de auditoria ---
   await prisma.log.create({
@@ -262,11 +293,16 @@ export const getAppointments = async (queryParams, actor) => {
 
   // --- Query principal ---
   if (searchTerm) {
-    // Busca textual: precisa descriptografar todos para filtrar em memória
+    // Busca textual: precisa descriptografar em memória para filtrar.
+    // Limite de 7200 registros para evitar OOM — equivale a ~5 anos de agenda
+    // diária cheia (8h × 6 slots × 250 dias úteis). Suficiente para o volume
+    // real do sistema sem risco de esgotamento de memória.
+    const SEARCH_MAX_ROWS = 7200;
     let results = await prisma.appointment.findMany({
       where,
       include: INCLUDE_LIST,
       orderBy,
+      take: SEARCH_MAX_ROWS,
     });
 
     results = results.map(processAppointment);
@@ -286,19 +322,25 @@ export const getAppointments = async (queryParams, actor) => {
     };
   }
 
-  // Sem busca: paginação no banco
-  const [rawResults, total] = await Promise.all([
-    prisma.appointment.findMany({
-      where,
-      include: INCLUDE_LIST,
-      orderBy,
-      skip,
-      take: pageSize,
-    }),
-    prisma.appointment.count({ where }),
-  ]);
+  // Sem busca: paginação no banco.
+  // Busca pageSize+1 para detectar próxima página sem query de count separada.
+  const rawResults = await prisma.appointment.findMany({
+    where,
+    include: INCLUDE_LIST,
+    orderBy,
+    skip,
+    take: pageSize + 1,
+  });
 
-  const results = rawResults.map(processAppointment);
+  const hasNextPage = rawResults.length > pageSize;
+  const sliced = hasNextPage ? rawResults.slice(0, pageSize) : rawResults;
+  const results = sliced.map(processAppointment);
+
+  // Count só é necessário quando há mais registros além desta página.
+  // Na primeira página sem próxima, o total é o próprio tamanho do resultado.
+  const total = (!hasNextPage && page === 0)
+    ? results.length
+    : await prisma.appointment.count({ where });
 
   return {
     results,
@@ -306,7 +348,7 @@ export const getAppointments = async (queryParams, actor) => {
     page,
     pageSize,
     totalPages: Math.ceil(total / pageSize),
-    hasNextPage: (page + 1) * pageSize < total,
+    hasNextPage,
     hasPrevPage: page > 0,
   };
 };
@@ -329,13 +371,18 @@ export const updateAppointment = async (id, body, actor) => {
   if (body.pessoa !== undefined) data.pessoa = encryptField(body.pessoa);
   if (body.cpf !== undefined) {
     data.cpf = encryptField(body.cpf);
-    data.cpfHash = EncryptionService.hash(body.cpf);
+    data.cpfHash = hashCpf(body.cpf);
   }
   if (body.telefone1 !== undefined) data.telefone1 = encryptField(body.telefone1);
   if (body.telefone2 !== undefined) data.telefone2 = body.telefone2 ? encryptField(body.telefone2) : null;
   if (body.motivo !== undefined) data.motivo = motivoToEnum(body.motivo);
   if (body.data !== undefined) data.data = new Date(body.data);
-  if (body.status !== undefined) data.status = body.status;
+  if (body.status !== undefined) {
+    if (!STATUS_ALLOWED.includes(body.status)) {
+      throw new BusinessError(`Status inválido. Valores permitidos: ${STATUS_ALLOWED.join(', ')}`, 400, 'INVALID_STATUS');
+    }
+    data.status = body.status;
+  }
   if (body.observacoes !== undefined) data.observacoes = body.observacoes;
 
   data.updatedById = actor.id;
@@ -406,6 +453,15 @@ export const confirmPresence = async (id, actor) => {
     include: INCLUDE_FULL,
   });
 
+  await prisma.log.create({
+    data: {
+      userId: actor.id,
+      crasId: updated.crasId,
+      action: 'confirmar_presenca',
+      details: `Presença confirmada no agendamento #${id} (data: ${formatDateTime(updated.data)})`,
+    },
+  });
+
   cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
   return processAppointment(updated);
@@ -424,9 +480,86 @@ export const removePresenceConfirmation = async (id, actor) => {
     include: INCLUDE_FULL,
   });
 
+  await prisma.log.create({
+    data: {
+      userId: actor.id,
+      crasId: updated.crasId,
+      action: 'remover_confirmacao_presenca',
+      details: `Confirmação de presença removida do agendamento #${id} (data: ${formatDateTime(updated.data)})`,
+    },
+  });
+
   cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
   return processAppointment(updated);
+};
+
+// =============================================================================
+// BUSCA POR CPF (LGPD)
+// =============================================================================
+
+/**
+ * Busca agendamentos pelo CPF do titular, respeitando as diretrizes da LGPD:
+ *
+ *  - Finalidade limitada: acesso restrito a papéis autorizados.
+ *  - Minimização de dados: usa apenas o hash do CPF para a query, sem
+ *    descriptografar registros em massa.
+ *  - Controle de acesso: entrevistador vê apenas os seus; recepção, apenas
+ *    os do seu CRAS; admin vê todos.
+ *  - Rastreabilidade: toda consulta gera um log de auditoria imutável.
+ *  - Proteção contra enumeração: rate limiter aplicado na camada de rota.
+ *
+ * @param {string} cpf   - CPF digitado pelo operador (com ou sem máscara).
+ * @param {object} actor - Usuário autenticado (id, role, cras).
+ */
+export const getAppointmentsByCpf = async (cpf, actor) => {
+  // --- Validação de entrada ---
+  if (!cpf || typeof cpf !== 'string') {
+    throw new BusinessError('CPF é obrigatório', 400, 'MISSING_CPF');
+  }
+  if (!validarCPF(cpf)) {
+    throw new BusinessError('CPF inválido. Verifique os dígitos e tente novamente.', 400, 'INVALID_CPF');
+  }
+
+  // --- Normalização: dígitos apenas, garantindo hash único e consistente ---
+  const where = { cpfHash: hashCpf(cpf) };
+
+  if (actor.role === 'entrevistador') {
+    where.entrevistadorId = actor.id;
+  } else if (actor.role === 'recepcao') {
+    const ids = await _getEntrevistadorIdsByCras(actor.cras);
+    if (ids.length === 0) {
+      await _logCpfSearch(actor, 0);
+      return [];
+    }
+    where.entrevistadorId = { in: ids };
+  }
+  // admin: sem filtro adicional
+
+  // --- Query usando índice cpfHash (nunca percorre a tabela inteira) ---
+  const appointments = await prisma.appointment.findMany({
+    where,
+    include: INCLUDE_LIST,
+    orderBy: { data: 'desc' },
+    take: 50, // teto de registros para minimizar exposição de dados
+  });
+
+  // --- Log de auditoria obrigatório (LGPD — rastreabilidade) ---
+  await _logCpfSearch(actor, appointments.length);
+
+  return appointments.map(processAppointment);
+};
+
+/** Registra auditoria de consulta por CPF sem armazenar o CPF em si. */
+const _logCpfSearch = async (actor, resultCount) => {
+  await prisma.log.create({
+    data: {
+      userId: actor.id,
+      crasId: actor.cras || null,
+      action: 'consulta_por_cpf',
+      details: `Consulta de agendamentos por CPF — ${resultCount} resultado(s) encontrado(s)`,
+    },
+  });
 };
 
 // =============================================================================
@@ -451,6 +584,9 @@ const _emptyPage = () => ({
   totalPages: 0, hasNextPage: false, hasPrevPage: false,
 });
 
+/** Campos permitidos para ordenação (whitelist). */
+const SORTABLE_FIELDS = ['data', 'status', 'motivo', 'createdAt'];
+
 /** Constrói orderBy para Prisma a partir dos query params. */
 const _buildOrderBy = (sortBy, order) => {
   const dir = order === 'desc' ? 'desc' : 'asc';
@@ -459,6 +595,7 @@ const _buildOrderBy = (sortBy, order) => {
   if (sortBy === 'cras') return { cras: { nome: dir } };
   if (sortBy === 'entrevistador') return { entrevistador: { name: dir } };
 
+  if (!SORTABLE_FIELDS.includes(sortBy)) return { data: 'asc' };
   return { [sortBy]: dir };
 };
 

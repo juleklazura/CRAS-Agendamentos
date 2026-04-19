@@ -1,18 +1,7 @@
-/**
- * ModalEdicao - Modal para edição de agendamentos (AgendaRecepcao)
- * 
- * Versão refatorada usando AppointmentForm reutilizável
- * 
- * @module AgendaRecepcao/ModalEdicao
- */
-
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button
-} from '@mui/material';
+import { Button } from '@mui/material';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import { ModalBase } from '../UI';
 import { AppointmentForm } from '../Form';
 
 export default function ModalEdicao({
@@ -25,27 +14,29 @@ export default function ModalEdicao({
   const isFormValid = dadosEdicao.pessoa?.trim() && dadosEdicao.cpf?.trim();
 
   return (
-    <Dialog open={aberto} onClose={onFechar} maxWidth="sm" fullWidth>
-      <DialogTitle>✏️ Editar Agendamento</DialogTitle>
-      <DialogContent>
-        <AppointmentForm
-          data={dadosEdicao}
-          onChange={setDadosEdicao}
-        />
-      </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onFechar} size="large">
-          Cancelar
-        </Button>
-        <Button 
-          onClick={onSalvar} 
-          variant="contained" 
-          size="large"
-          disabled={!isFormValid}
-        >
-          Salvar Alterações
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <ModalBase
+      open={aberto}
+      onClose={onFechar}
+      icon={EditRoundedIcon}
+      title="Editar Agendamento"
+      actions={
+        <>
+          <Button onClick={onFechar} variant="outlined" size="large">
+            Cancelar
+          </Button>
+          <Button
+            onClick={onSalvar}
+            variant="contained"
+            size="large"
+            disabled={!isFormValid}
+            startIcon={<CheckRoundedIcon />}
+          >
+            Salvar Alterações
+          </Button>
+        </>
+      }
+    >
+      <AppointmentForm data={dadosEdicao} onChange={setDadosEdicao} />
+    </ModalBase>
   );
 }

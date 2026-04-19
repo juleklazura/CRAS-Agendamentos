@@ -128,3 +128,30 @@ export const createAppointmentLimiter = rateLimit({
     });
   }
 });
+
+/**
+ * 🔒 Rate Limiter para consulta de agendamentos por CPF (LGPD)
+ * Previne enumeração de CPFs e acesso massivo a dados pessoais sensíveis.
+ * Limite estrito: 30 consultas a cada 15 minutos por usuário autenticado.
+ */
+export const cpfSearchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Chave por ID do usuário autenticado — a rota exige auth, portanto req.user.id
+  // está sempre presente. Evita fallback para req.ip e o problema de IPv6.
+  keyGenerator: (req) => `cpf-search:${req.user.id}`,
+  handler: (req, res) => {
+    logger.warn('🔒 Rate limit de consulta por CPF atingido', {
+      userId: req.user?.id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+    res.status(429).json({
+      message: 'Limite de consultas por CPF atingido. Aguarde 15 minutos antes de tentar novamente.',
+      code: 'RATE_LIMIT_CPF_SEARCH',
+      retryAfter: '15 minutos',
+    });
+  },
+});

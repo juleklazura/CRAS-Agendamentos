@@ -1,6 +1,6 @@
 import prisma from '../utils/prisma.js';
 import logger from '../utils/logger.js';
-import { formatDateTime } from '../utils/timezone.js';
+import { formatDateTime, parseDate, isWeekend } from '../utils/timezone.js';
 import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 
 // Controller para gerenciamento de bloqueios de horário
@@ -10,6 +10,24 @@ import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 export const createBlockedSlot = async (req, res) => {
   try {
     const { data, motivo } = req.body;
+
+    // --- Validação de data ---
+    if (!data) {
+      return apiError(res, 'Data é obrigatória', 400);
+    }
+
+    const parsed = parseDate(data);
+    if (!parsed || isNaN(parsed.getTime())) {
+      return apiError(res, 'Data inválida', 400);
+    }
+
+    if (parsed < new Date()) {
+      return apiError(res, 'Não é permitido bloquear horários no passado', 400);
+    }
+
+    if (isWeekend(parsed)) {
+      return apiError(res, 'Não é permitido bloquear horários em fins de semana', 400);
+    }
 
     const entrevistadorId = req.user.id;
     const crasId = req.user.cras;
@@ -91,14 +109,9 @@ export const deleteBlockedSlot = async (req, res) => {
   try {
     const { id } = req.params;
 
-    logger.debug('Tentando deletar bloqueio', { id, role: req.user.role, userId: req.user.id });
+    logger.debug('Tentando deletar bloqueio', { id, userId: req.user.id });
 
-    let slot;
-    if (req.user.role === 'admin') {
-      slot = await prisma.blockedSlot.findFirst({ where: { id, crasId: req.user.cras } });
-    } else {
-      slot = await prisma.blockedSlot.findFirst({ where: { id, entrevistadorId: req.user.id } });
-    }
+    const slot = await prisma.blockedSlot.findFirst({ where: { id, entrevistadorId: req.user.id } });
 
     if (!slot) {
       logger.warn('Bloqueio não encontrado', { id, userId: req.user.id });

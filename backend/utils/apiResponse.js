@@ -10,6 +10,9 @@
 //   error.response.data.message         (para erros — já funciona nativamente)
 // =============================================================================
 
+import logger from './logger.js';
+import { BusinessError } from './errors.js';
+
 /**
  * Resposta de sucesso com dados (objetos, arrays, dados paginados).
  * @param {Response} res - Express response
@@ -40,4 +43,19 @@ export const apiMessage = (res, message, statusCode = 200) => {
  */
 export const apiError = (res, message, statusCode = 400, extras = {}) => {
   return res.status(statusCode).json({ success: false, message, ...extras });
+};
+
+/**
+ * Handler centralizado de erros de controller.
+ * BusinessError → status e mensagem do domínio; outros erros → 500.
+ * @param {Response} res - Express response
+ * @param {Error} error - Erro capturado
+ * @param {string} fallbackMessage - Mensagem genérica para erros inesperados
+ */
+export const handleControllerError = (res, error, fallbackMessage) => {
+  if (error instanceof BusinessError) {
+    return apiError(res, error.message, error.statusCode, error.code ? { code: error.code } : {});
+  }
+  logger.error(fallbackMessage, error);
+  return apiError(res, fallbackMessage, 500);
 };

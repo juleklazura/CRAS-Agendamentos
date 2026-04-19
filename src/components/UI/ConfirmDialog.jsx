@@ -135,12 +135,13 @@ const ConfirmDialog = memo(({
         <Typography
           variant="h6"
           sx={{
-            color: '#fff',
+            color: '#fff !important',
             fontWeight: 700,
             textAlign: 'center',
             textShadow: '0 1px 2px rgba(0,0,0,0.1)',
             position: 'relative',
             zIndex: 1,
+            mt: '0 !important',
           }}
         >
           {title}

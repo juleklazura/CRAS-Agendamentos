@@ -22,26 +22,21 @@ const CBC_IV_LENGTH = 16;  // 128 bits — usado no formato antigo
 const AUTH_TAG_LENGTH = 16; // 128 bits
 
 /**
- * Gera chave de criptografia de 32 bytes (256 bits) a partir de secret
- * 
- * FUNCIONAMENTO:
- * 1. Busca ENCRYPTION_KEY ou JWT_SECRET do .env
- * 2. Cria hash SHA-256 do secret (sempre 32 bytes)
- * 3. Retorna Buffer de 32 bytes para uso no AES-256
+ * Gera chave de criptografia de 32 bytes (256 bits) a partir de ENCRYPTION_KEY
  * 
  * SEGURANÇA:
+ * - ENCRYPTION_KEY deve ser um secret separado e independente do JWT_SECRET
  * - Mesmo secret sempre gera mesma chave (determinístico)
  * - SHA-256 garante que chave tem exatamente 256 bits
- * - Chave é derivada, não o secret bruto
  * 
  * @returns {Buffer} - Chave de 32 bytes para AES-256
- * @throws {Error} - Se secrets não estiverem configurados
+ * @throws {Error} - Se ENCRYPTION_KEY não estiver configurada
  */
 const getEncryptionKey = () => {
-  const secret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
+  const secret = process.env.ENCRYPTION_KEY;
   
   if (!secret) {
-    throw new Error('ENCRYPTION_KEY ou JWT_SECRET não definidos no .env');
+    throw new Error('ENCRYPTION_KEY não definida no .env. Configure uma chave separada do JWT_SECRET.');
   }
   
   // Criar hash SHA-256 de 32 bytes do secret

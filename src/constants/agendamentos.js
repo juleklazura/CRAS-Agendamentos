@@ -6,11 +6,9 @@
  * Define todos os possíveis estados de um agendamento no sistema
  */
 export const STATUS_OPTIONS = [
-  { value: 'agendado', label: 'Agendado' },    // Status inicial após criação
+  { value: 'agendado',  label: 'Agendado'  },  // Status inicial após criação
   { value: 'realizado', label: 'Realizado' },  // Atendimento foi concluído
-  { value: 'cancelado', label: 'Cancelado' },  // Cancelado pelo usuário/sistema
-  { value: 'reagendar', label: 'Reagendar' },  // Precisa ser reagendado
-  { value: 'faltou', label: 'Faltou' }         // Pessoa não compareceu
+  { value: 'ausente',   label: 'Ausente'   },  // Pessoa não compareceu
 ];
 
 /**

@@ -1,13 +1,10 @@
 // Controller de autenticação
 // Gerencia login, validação de credenciais e geração de tokens JWT
 import prisma from '../utils/prisma.js';
-import bcrypt from 'bcryptjs';  // Para comparação segura de senhas
-import jwt from 'jsonwebtoken';  // Para geração de tokens de autenticação
-import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
 import { apiSuccess, apiError } from '../utils/apiResponse.js';
-
-dotenv.config();
 
 // =============================================================================
 // 🔒 CONFIGURAÇÃO SEGURA DE COOKIES
@@ -54,20 +51,20 @@ const buildAgenda = (user) => {
 // Função principal de login do sistema
 // Valida credenciais, gera token JWT e registra ação em log
 export const login = async (req, res) => {
-  const { matricula, password, senha } = req.body;
-  const senhaParaValidar = password || senha; // Aceita tanto 'password' quanto 'senha'
-  
+  const { matricula, password } = req.body;
+
   try {
     // Busca usuário pela matrícula única
     const user = await prisma.user.findUnique({ where: { matricula } });
     if (!user) {
-      return apiError(res, 'Usuário não encontrado');
+      // 🔒 SEGURANÇA: Mensagem genérica para evitar enumeração de matrículas
+      return apiError(res, 'Credenciais inválidas', 401);
     }
     
     // Compara senha fornecida com hash armazenado no banco
-    const isMatch = await bcrypt.compare(senhaParaValidar, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return apiError(res, 'Senha incorreta');
+      return apiError(res, 'Credenciais inválidas', 401);
     }
     
     // 🔒 SEGURANÇA: Valida que JWT_SECRET está configurado
@@ -173,11 +170,9 @@ export const logout = async (req, res) => {
     }
     
     // Limpa os cookies de autenticação (access e refresh tokens)
+    // path deve ser idêntico ao usado no set — ambos foram setados com path: '/'
     res.clearCookie('token', CLEAR_COOKIE_OPTIONS);
-    res.clearCookie('refreshToken', {
-      ...CLEAR_COOKIE_OPTIONS,
-      path: '/api/auth/refresh'
-    });
+    res.clearCookie('refreshToken', CLEAR_COOKIE_OPTIONS);
     
     apiSuccess(res, { message: 'Logout realizado com sucesso' });
   } catch (err) {

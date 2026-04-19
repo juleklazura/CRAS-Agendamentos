@@ -1,13 +1,6 @@
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Box,
-  Paper
-} from '@mui/material';
+import { Button, Typography, Paper, Box } from '@mui/material';
+import NotesRoundedIcon from '@mui/icons-material/NotesRounded';
+import { ModalBase } from '../UI';
 
 export default function ModalObservacoes({
   aberto,
@@ -16,44 +9,35 @@ export default function ModalObservacoes({
   nomeAgendamento
 }) {
   return (
-    <Dialog open={aberto} onClose={onFechar} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>
-        📝 Observações do Agendamento
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ mt: 1 }}>
-          <Typography variant="subtitle1" color="primary" gutterBottom>
-            👤 {nomeAgendamento}
-          </Typography>
-          <Paper 
-            variant="outlined" 
-            sx={{ 
-              p: 2, 
-              mt: 2, 
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #e9ecef',
-              borderRadius: 2
-            }}
-          >
-            <Typography 
-              variant="body1" 
-              style={{ 
-                whiteSpace: 'pre-wrap', 
-                lineHeight: 1.6,
-                color: '#495057',
-                fontSize: '1rem'
-              }}
-            >
-              {observacoes || 'Nenhuma observação registrada'}
-            </Typography>
-          </Paper>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
+    <ModalBase
+      open={aberto}
+      onClose={onFechar}
+      maxWidth="md"
+      icon={NotesRoundedIcon}
+      title="Observações do Agendamento"
+      subtitle={nomeAgendamento}
+      actions={
         <Button onClick={onFechar} variant="contained" size="large">
           Fechar
         </Button>
-      </DialogActions>
-    </Dialog>
+      }
+    >
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2.5,
+          backgroundColor: 'grey.50',
+          borderRadius: 2,
+          minHeight: 80,
+        }}
+      >
+        <Typography
+          variant="body1"
+          sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: 'text.primary' }}
+        >
+          {observacoes || 'Nenhuma observação registrada.'}
+        </Typography>
+      </Paper>
+    </ModalBase>
   );
 }

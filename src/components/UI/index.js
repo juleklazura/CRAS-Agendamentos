@@ -10,6 +10,7 @@ export { default as GlobalLoader } from './GlobalLoader';
 
 // Dialog Components
 export { default as ConfirmDialog } from './ConfirmDialog';
+export { default as ModalBase } from './ModalBase';
 
 // Layout Components
 export { default as PageContainer } from './PageContainer';

@@ -15,7 +15,7 @@ import './utils/validateSecrets.js';
 // Importação de configurações modulares
 import { corsOptions } from './config/cors.js';
 import { helmetOptions } from './config/security.js';
-import { shouldTrustProxy } from './config/rateLimiting.js';
+import { shouldTrustProxy, globalLimiter } from './config/rateLimiting.js';
 
 // Importação de middlewares modulares
 import { sanitizationMiddleware } from './middlewares/sanitization.js';
@@ -54,7 +54,8 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(helmet(helmetOptions));
 app.use(securityHeadersMiddleware);
-app.use(express.json({ limit: '10mb' }));
+app.use('/api/', globalLimiter);
+app.use(express.json({ limit: '100kb' }));
 app.use(timeoutMiddleware);
 app.use(sanitizationMiddleware);
 
@@ -131,6 +132,18 @@ prisma.$connect()
       logger.info('PostgreSQL (Neon) conectado com sucesso');
       logger.info(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
     });
+
+    // Mantém o compute do Neon aquecido para evitar cold start (1–3s).
+    // Neon hiberna após ~5 min de inatividade — ping a cada 4 min previne isso.
+    if (process.env.NODE_ENV === 'production') {
+      setInterval(async () => {
+        try {
+          await prisma.$queryRaw`SELECT 1`;
+        } catch (err) {
+          logger.warn('Keep-alive Neon: falhou', { error: err.message });
+        }
+      }, 4 * 60 * 1000);
+    }
   })
   .catch((err) => {
     logger.error('Erro ao conectar ao PostgreSQL', err);

@@ -18,6 +18,22 @@ export const validateSecrets = () => {
   const warnings = [];
   
   // -------------------------------------------------------------------------
+  // Validar ENCRYPTION_KEY
+  // -------------------------------------------------------------------------
+
+  if (!process.env.ENCRYPTION_KEY) {
+    errors.push('❌ ENCRYPTION_KEY não está definida no .env. Obrigatória para proteção de dados LGPD (CPF, nome, telefone).');
+  } else {
+    const encKey = process.env.ENCRYPTION_KEY;
+    if (encKey.length < 32) {
+      errors.push(`❌ ENCRYPTION_KEY muito curta (${encKey.length} caracteres). Mínimo recomendado: 64 caracteres`);
+    }
+    if (process.env.JWT_SECRET && encKey === process.env.JWT_SECRET) {
+      errors.push('❌ ENCRYPTION_KEY deve ser DIFERENTE do JWT_SECRET. Use secrets independentes para cada propósito.');
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Validar JWT_SECRET
   // -------------------------------------------------------------------------
   

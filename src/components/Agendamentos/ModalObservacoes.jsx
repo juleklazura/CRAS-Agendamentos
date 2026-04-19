@@ -1,69 +1,48 @@
-// Modal para visualização de observações
-// Componente separado para melhor organização
+import { memo } from 'react';
+import { Button, Typography, Paper } from '@mui/material';
+import NotesRoundedIcon from '@mui/icons-material/NotesRounded';
+import { ModalBase } from '../UI';
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Paper,
-  Box
-} from '@mui/material';
-
-/**
- * Modal de visualização de observações do agendamento
- * @param {Object} props
- * @param {boolean} props.open - Se o modal está aberto
- * @param {Function} props.onClose - Callback para fechar
- * @param {string} props.observacoes - Texto das observações (já sanitizado)
- * @param {string} props.nomePessoa - Nome da pessoa do agendamento
- */
-export default function ModalObservacoes({ 
-  open, 
-  onClose, 
+const ModalObservacoes = memo(function ModalObservacoes({
+  open,
+  onClose,
   observacoes,
-  nomePessoa 
+  nomePessoa
 }) {
   return (
-    <Dialog
+    <ModalBase
       open={open}
       onClose={onClose}
       maxWidth="md"
-      fullWidth
+      icon={NotesRoundedIcon}
+      title="Observações do Agendamento"
+      subtitle={nomePessoa}
+      actions={
+        <Button onClick={onClose} variant="contained" size="large">
+          Fechar
+        </Button>
+      }
     >
-      <DialogTitle sx={{ pb: 1 }}>
-        📝 Observações do Agendamento
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ mt: 1 }}>
-          <Typography variant="subtitle1" color="primary" gutterBottom>
-            👤 {nomePessoa}
-          </Typography>
-          <Paper 
-            variant="outlined" 
-            sx={{ 
-              p: 2, 
-              mt: 2,
-              backgroundColor: 'grey.50',
-              minHeight: '100px',
-              maxHeight: '400px',
-              overflow: 'auto'
-            }}
-          >
-            <Typography 
-              variant="body1" 
-              style={{ whiteSpace: 'pre-wrap' }}
-            >
-              {observacoes}
-            </Typography>
-          </Paper>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Fechar</Button>
-      </DialogActions>
-    </Dialog>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2.5,
+          backgroundColor: 'grey.50',
+          borderRadius: 2,
+          minHeight: 100,
+          maxHeight: 400,
+          overflow: 'auto',
+        }}
+      >
+        <Typography
+          variant="body1"
+          sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: 'text.primary' }}
+        >
+          {observacoes || 'Nenhuma observação registrada.'}
+        </Typography>
+      </Paper>
+    </ModalBase>
   );
-}
+});
+
+export default ModalObservacoes;

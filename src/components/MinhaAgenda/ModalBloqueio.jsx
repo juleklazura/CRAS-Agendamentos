@@ -1,33 +1,26 @@
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography
-} from '@mui/material';
+import { ConfirmDialog } from '../UI';
+import BlockIcon from '@mui/icons-material/Block';
 
-export default function ModalBloqueio({ 
-  open, 
-  onClose, 
+export default function ModalBloqueio({
+  open,
+  onClose,
   horarioParaBloqueio,
   dataSelecionada,
   onConfirmar
 }) {
+  const dataFormatada = dataSelecionada?.toLocaleDateString('pt-BR');
+
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Bloquear Horário</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Deseja bloquear o horário {horarioParaBloqueio} do dia {dataSelecionada?.toLocaleDateString('pt-BR')}?
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button onClick={onConfirmar} variant="contained" color="warning">
-          Bloquear
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onCancel={onClose}
+      onConfirm={onConfirmar}
+      title="Bloquear Horário"
+      message={`Deseja bloquear o horário ${horarioParaBloqueio} do dia ${dataFormatada}? Este horário não estará disponível para novos agendamentos.`}
+      confirmText="Bloquear"
+      cancelText="Cancelar"
+      severity="warning"
+      confirmIcon={BlockIcon}
+    />
   );
 }
