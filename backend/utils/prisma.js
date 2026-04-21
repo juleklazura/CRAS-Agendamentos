@@ -4,7 +4,8 @@
 // Garante uma única instância do PrismaClient durante toda a vida do processo.
 // Previne problemas de conexão em ambientes serverless e hot-reload.
 
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg;
 import logger from './logger.js';
 
 const prisma = new PrismaClient({

@@ -6,7 +6,8 @@
 // request/response; toda lógica de domínio fica aqui.
 
 import prisma from '../utils/prisma.js';
-import { Prisma } from '@prisma/client';
+import pkg from '@prisma/client';
+const { Prisma } = pkg;
 import EncryptionService from '../utils/encryption.js';
 import { validarCPF, validarTelefone } from '../utils/validators.js';
 import { parseDate, isWeekend, formatDateTime, now } from '../utils/timezone.js';

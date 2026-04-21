@@ -8,8 +8,8 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm install && npx prisma generate
-    startCommand: npx prisma db push && npm start
+    buildCommand: npm install
+    startCommand: npx prisma generate && npx prisma db push && node scripts/createAdmin.js && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -25,5 +25,9 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false  # URL do Vercel após deploy
+      - key: ADMIN_MATRICULA
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
     healthCheckPath: /health
     autoDeploy: true
