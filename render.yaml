@@ -9,7 +9,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install
-    startCommand: ./node_modules/.bin/prisma generate && ./node_modules/.bin/prisma db push && node scripts/createAdmin.js && npm start
+    startCommand: ./node_modules/.bin/prisma db push && node scripts/createAdmin.js && npm start
     envVars:
       - key: NODE_ENV
         value: production
