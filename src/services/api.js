@@ -7,10 +7,11 @@
 
 import axios from 'axios';
 
-// Base URL da API
-// Em produção: usa variável de ambiente VITE_API_BASE_URL configurada no Vercel
+// Em produção: usa proxy do Vercel (/api/* → cras-agendamentos.onrender.com/api/*)
 // Em desenvolvimento: usa localhost:5000
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api')
+  : '/api';
 
 // Criar instância do axios com configurações seguras
 const api = axios.create({
