@@ -107,7 +107,7 @@ export const login = async (req, res) => {
         userId: user.id,
         crasId: user.crasId,
         action: 'login',
-        details: `Login realizado por ${user.name} (${user.role}) - Matrícula: ${user.matricula}`,
+        details: `Login realizado por ${user.name} (${user.role}) - ID: ${user.id}`,
       },
     });
     

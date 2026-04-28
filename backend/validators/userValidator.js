@@ -38,6 +38,14 @@ const matriculaRule = Joi.string().trim().min(1).max(50).messages({
 const crasRule = Joi.string().trim().min(1).max(50).messages({
   'string.base': 'CRAS deve ser um ID válido',
 });
+
+const cargaHorariaRule = Joi.number().valid(4, 6, 8).messages({
+  'any.only': 'Carga horária deve ser 4, 6 ou 8 horas',
+});
+
+const horaEntradaRule = Joi.string().pattern(/^\d{2}:\d{2}$/).messages({
+  'string.pattern.base': 'Hora de entrada deve estar no formato HH:MM',
+});
 // Schema para CRIAÇÃO de usuário
 // =============================================================================
 export const createUserSchema = Joi.object({
@@ -46,11 +54,14 @@ export const createUserSchema = Joi.object({
   role: roleRule.required(),
   matricula: matriculaRule.required(),
   cras: crasRule.optional().allow(null, ''),
+  cargaHoraria: cargaHorariaRule.optional().default(8),
+  horaEntrada: horaEntradaRule.optional().allow(null, ''),
 })
   .custom((value, helpers) => {
     // Normalizar string vazia para null
     if (value.cras === '') value.cras = null;
-    const { role, cras } = value;
+    if (value.horaEntrada === '') value.horaEntrada = null;
+    const { role, cras, cargaHoraria, horaEntrada } = value;
 
     // Admin NÃO deve ter CRAS
     if (role === 'admin' && cras) {
@@ -63,6 +74,13 @@ export const createUserSchema = Joi.object({
     if ((role === 'entrevistador' || role === 'recepcao') && !cras) {
       return helpers.error('any.custom', {
         message: 'CRAS é obrigatório para entrevistadores e recepção',
+      });
+    }
+
+    // Para entrevistador com carga < 8hrs, hora de entrada é obrigatória
+    if (role === 'entrevistador' && cargaHoraria && cargaHoraria < 8 && !horaEntrada) {
+      return helpers.error('any.custom', {
+        message: 'Hora de entrada é obrigatória para cargas horárias de 4h ou 6h',
       });
     }
 
@@ -81,6 +99,8 @@ export const updateUserSchema = Joi.object({
   role: roleRule.optional(),
   matricula: matriculaRule.optional(),
   cras: crasRule.optional().allow(null, ''),
+  cargaHoraria: cargaHorariaRule.optional(),
+  horaEntrada: horaEntradaRule.optional().allow(null, ''),
   agenda: Joi.object({
     horariosDisponiveis: Joi.array().items(
       Joi.string().pattern(/^\d{2}:\d{2}$/).messages({
@@ -98,7 +118,8 @@ export const updateUserSchema = Joi.object({
   .custom((value, helpers) => {
     // Normalizar string vazia para null
     if (value.cras === '') value.cras = null;
-    const { role, cras } = value;
+    if (value.horaEntrada === '') value.horaEntrada = null;
+    const { role, cras, cargaHoraria, horaEntrada } = value;
 
     if (role === 'admin' && cras) {
       return helpers.error('any.custom', {
@@ -109,6 +130,13 @@ export const updateUserSchema = Joi.object({
     if ((role === 'entrevistador' || role === 'recepcao') && !cras) {
       return helpers.error('any.custom', {
         message: 'CRAS é obrigatório para entrevistadores e recepção',
+      });
+    }
+
+    // Para entrevistador com carga < 8hrs, hora de entrada é obrigatória
+    if (cargaHoraria && cargaHoraria < 8 && !horaEntrada) {
+      return helpers.error('any.custom', {
+        message: 'Hora de entrada é obrigatória para cargas horárias de 4h ou 6h',
       });
     }
 

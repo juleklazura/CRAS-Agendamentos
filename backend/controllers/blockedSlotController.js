@@ -11,6 +11,11 @@ export const createBlockedSlot = async (req, res) => {
   try {
     const { data, motivo } = req.body;
 
+    // 🔒 Limita tamanho do motivo para evitar persistência de payloads grandes
+    if (motivo && motivo.length > 500) {
+      return apiError(res, 'Motivo deve ter no máximo 500 caracteres', 400);
+    }
+
     // --- Validação de data ---
     if (!data) {
       return apiError(res, 'Data é obrigatória', 400);

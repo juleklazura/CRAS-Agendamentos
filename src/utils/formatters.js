@@ -20,7 +20,9 @@ export const sanitizeText = (text) => {
   // Depois faz escape HTML adicional para garantir segurança
   const div = document.createElement('div');
   div.textContent = String(purified).trim();
-  return div.innerHTML;
+  // Retorna textContent (não innerHTML) para evitar que React exiba entidades
+  // HTML como &amp;, &lt; etc. literalmente na tela
+  return div.textContent;
 };
 
 /**

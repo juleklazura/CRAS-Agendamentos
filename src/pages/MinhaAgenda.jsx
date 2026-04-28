@@ -95,6 +95,7 @@ export default function MinhaAgenda() {
           dataSelecionada={dataSelecionada}
           obterAgendamento={obterAgendamento}
           verificarHorarioBloqueado={verificarHorarioBloqueado}
+          horariosDisponiveis={user.agenda?.horariosDisponiveis}
           onAgendar={(horario) => {
             setContexto(prev => ({ ...prev, horarioSelecionado: horario }));
             updateModal('agendamento', true);

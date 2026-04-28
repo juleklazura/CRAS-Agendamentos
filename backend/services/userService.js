@@ -9,7 +9,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../utils/prisma.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
-import { getDefaultAgenda } from '../config/agendaDefaults.js';
+import { getDefaultAgenda, generateHorarios } from '../config/agendaDefaults.js';
 import { BusinessError } from '../utils/errors.js';
 export { BusinessError } from '../utils/errors.js'; // re-export para compatibilidade
 
@@ -44,8 +44,12 @@ export const createUser = async (data, actor) => {
       }
       if (role === 'entrevistador') {
         const defaults = getDefaultAgenda();
-        userData.horariosDisponiveis = defaults.horariosDisponiveis;
+        const cargaHoraria = data.cargaHoraria || 8;
+        const horaEntrada = data.horaEntrada || null;
+        userData.horariosDisponiveis = generateHorarios(cargaHoraria, horaEntrada);
         userData.diasAtendimento = defaults.diasAtendimento;
+        userData.cargaHoraria = cargaHoraria;
+        userData.horaEntrada = horaEntrada;
       }
 
       // Criar usuário dentro da transação
@@ -61,7 +65,7 @@ export const createUser = async (data, actor) => {
           userId: actor.id,
           crasId: actor.cras || null,
           action: 'criar_usuario',
-          details: `Usuário criado: ${name} (${role}) - Matrícula: ${matricula}`,
+          details: `Usuário criado: ${user.name} (${role}) - ID: ${user.id}`,
         },
       });
 
@@ -143,7 +147,7 @@ export const getEntrevistadoresByCras = async (crasId) => {
 export const updateUser = async (id, data, actor) => {
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const { name, password, role, cras, matricula, agenda } = data;
+      const { name, password, role, cras, matricula, agenda, cargaHoraria, horaEntrada } = data;
 
       // Impedir que admin altere o próprio role
       if (role && actor.id === id && role !== actor.role) {
@@ -185,6 +189,15 @@ export const updateUser = async (id, data, actor) => {
         update.diasAtendimento = agenda.diasAtendimento || defaults.diasAtendimento;
       }
 
+      // Recalcular horários por cargaHoraria/horaEntrada (prevalece sobre agenda manual)
+      if (cargaHoraria !== undefined) {
+        const ch = cargaHoraria;
+        const he = horaEntrada !== undefined ? horaEntrada : null;
+        update.horariosDisponiveis = generateHorarios(ch, he);
+        update.cargaHoraria = ch;
+        update.horaEntrada = he;
+      }
+
       const user = await tx.user.update({
         where: { id },
         data: update,
@@ -198,7 +211,7 @@ export const updateUser = async (id, data, actor) => {
           userId: actor.id,
           crasId: actor.cras || null,
           action: 'editar_usuario',
-          details: `Usuário editado: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
+          details: `Usuário editado: ${user.name} (${user.role}) - ID: ${user.id}`,
         },
       });
 
@@ -284,7 +297,7 @@ export const deleteUser = async (id, actor) => {
           userId: actor.id,
           crasId: actor.cras || null,
           action: 'desativar_usuario',
-          details: `Usuário desativado: ${user.name} (${user.role}) - Matrícula: ${user.matricula || 'N/A'}`,
+          details: `Usuário desativado: ${user.name} (${user.role}) - ID: ${user.id}`,
         },
       });
     });

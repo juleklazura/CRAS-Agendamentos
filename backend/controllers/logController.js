@@ -4,10 +4,31 @@ import { apiSuccess, apiError } from '../utils/apiResponse.js';
 
 // Controller para sistema de logs e auditoria
 
+// 🔒 SEGURANÇA: Whitelist de ações permitidas — previne inserção de dados arbitrários
+const ALLOWED_ACTIONS = [
+  'login', 'logout',
+  'criar_usuario', 'editar_usuario', 'excluir_usuario',
+  'criar_agendamento', 'editar_agendamento', 'excluir_agendamento',
+  'confirmar_presenca', 'remover_confirmacao',
+  'criar_cras', 'editar_cras', 'excluir_cras',
+  'bloquear_horario', 'desbloquear_horario',
+  'exportar_agendamentos', // LGPD — rastreabilidade de exportações de dados pessoais
+];
+
 // Função para criar novo registro de log
 export const createLog = async (req, res) => {
   try {
     const { action, details, cras } = req.body;
+
+    // 🔒 Valida que a ação é uma das permitidas
+    if (!action || !ALLOWED_ACTIONS.includes(action)) {
+      return apiError(res, 'Ação inválida', 400);
+    }
+
+    // 🔒 Limita tamanho dos detalhes para evitar persistência de payloads grandes
+    if (details && details.length > 1000) {
+      return apiError(res, 'Detalhes devem ter no máximo 1000 caracteres', 400);
+    }
 
     const log = await prisma.log.create({
       data: {

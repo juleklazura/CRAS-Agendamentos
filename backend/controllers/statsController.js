@@ -22,15 +22,32 @@ export const getDashboardStats = async (req, res) => {
       cras,
     } = req.query;
 
-    // Construir filtro base
+    const actor = req.user;
+
+    // 🔒 SEGURANÇA: Escopo por role — impede IDOR (acesso a dados de outros)
     const where = {};
 
-    if (entrevistador) {
-      where.entrevistadorId = entrevistador;
-    }
-
-    if (cras) {
-      where.crasId = cras;
+    if (actor.role === 'entrevistador') {
+      // Entrevistador só vê as próprias estatísticas — ignora filtros externos
+      where.entrevistadorId = actor.id;
+    } else if (actor.role === 'recepcao') {
+      // Recepção só vê dados do próprio CRAS
+      where.crasId = actor.cras;
+      if (entrevistador) {
+        // Garante que o entrevistador filtrado pertence ao CRAS da recepção
+        const entrevistadorDoc = await prisma.user.findUnique({
+          where: { id: entrevistador },
+          select: { crasId: true },
+        });
+        if (!entrevistadorDoc || entrevistadorDoc.crasId !== actor.cras) {
+          return apiError(res, 'Você não tem permissão para ver estatísticas deste entrevistador', 403);
+        }
+        where.entrevistadorId = entrevistador;
+      }
+    } else if (actor.role === 'admin') {
+      // Admin pode filtrar livremente
+      if (entrevistador) where.entrevistadorId = entrevistador;
+      if (cras) where.crasId = cras;
     }
 
     // Filtro por período
@@ -47,8 +64,19 @@ export const getDashboardStats = async (req, res) => {
       where.data = { gte: startDate, lte: endDate };
     }
 
-    // Cache de 5 minutos
-    const cacheKey = `stats:dashboard:${viewMode}:${entrevistador || 'all'}:${cras || 'all'}:${currentYear}:${currentMonth}`;
+    // 🔒 Chave de cache com escopo por role+identidade para evitar cache poisoning cross-user.
+    // Cada usuário/CRAS tem uma chave isolada; dados de um nunca vazam para outro.
+    let cacheKey;
+    if (actor.role === 'entrevistador') {
+      // Entrevistador só acessa os próprios dados — escopo pelo id do ator
+      cacheKey = `stats:dashboard:${viewMode}:user:${actor.id}:${currentYear}:${currentMonth}`;
+    } else if (actor.role === 'recepcao') {
+      // Recepção é escopada ao CRAS; pode filtrar por entrevistador dentro dele
+      cacheKey = `stats:dashboard:${viewMode}:cras:${actor.cras}:${entrevistador || 'all'}:${currentYear}:${currentMonth}`;
+    } else {
+      // Admin: usa os filtros externos como discriminadores
+      cacheKey = `stats:dashboard:${viewMode}:admin:${entrevistador || 'all'}:${cras || 'all'}:${currentYear}:${currentMonth}`;
+    }
 
     const formattedData = await cache.cached(
       cacheKey,

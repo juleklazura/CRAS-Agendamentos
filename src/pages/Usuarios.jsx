@@ -34,13 +34,17 @@ export default function Usuarios() {
   
   // Estados principais para dados
   const [usuarios, setUsuarios] = useState([]);              // Lista de usuários carregados
-  const [form, setForm] = useState({                         // Formulário de criação/edição
-    name: '', 
-    matricula: '', 
-    password: '', 
-    role: 'entrevistador',  // Valor padrão
-    cras: '' 
-  });
+  const FORM_DEFAULT = {
+    name: '',
+    matricula: '',
+    password: '',
+    role: 'entrevistador',
+    cras: '',
+    cargaHoraria: 8,
+    horaEntrada: '',
+  };
+
+  const [form, setForm] = useState(FORM_DEFAULT);
   const [editId, setEditId] = useState(null);               // ID do usuário em edição
   const [crasList, setCrasList] = useState([]);             // Lista de CRAS disponíveis
   
@@ -97,15 +101,44 @@ export default function Usuarios() {
    * Limpa mensagens de erro/sucesso ao editar
    * @param {Event} e - Evento de mudança do input
    */
+  // Gera opções de hora de entrada válidas para a carga horária selecionada
+  function gerarOpcoesHoraEntrada(cargaHoraria) {
+    const opcoes = [];
+    const maxEntradaH = 17 - Number(cargaHoraria); // ex: 6h → max 11:00, 4h → max 13:00
+    for (let h = 8; h <= maxEntradaH; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        if (h === maxEntradaH && m > 0) break;
+        const hh = String(h).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        opcoes.push(`${hh}:${mm}`);
+      }
+    }
+    return opcoes;
+  }
+
   function handleChange(e) {
     const { name, value } = e.target;
     const newForm = { ...form, [name]: value };
-    
-    // Se mudar para admin, limpa o campo CRAS
+
+    // Se mudar para admin, limpa CRAS, cargaHoraria e horaEntrada
     if (name === 'role' && value === 'admin') {
       newForm.cras = '';
+      newForm.cargaHoraria = 8;
+      newForm.horaEntrada = '';
     }
-    
+
+    // Se mudar cargaHoraria para 8hrs, limpa horaEntrada
+    if (name === 'cargaHoraria' && Number(value) === 8) {
+      newForm.horaEntrada = '';
+    }
+
+    // Se mudar cargaHoraria, verifica se a horaEntrada atual ainda é válida
+    if (name === 'cargaHoraria' && Number(value) < 8 && form.horaEntrada) {
+      const maxH = 17 - Number(value);
+      const [entH] = form.horaEntrada.split(':').map(Number);
+      if (entH > maxH) newForm.horaEntrada = '';
+    }
+
     setForm(newForm);
     setError('');
     setSuccess('');
@@ -127,7 +160,7 @@ export default function Usuarios() {
       setError('Preencha todos os campos obrigatórios.');
       return;
     }
-    
+
     // Validação específica: CRAS obrigatório para não-admin
     if (form.role !== 'admin' && !form.cras) {
       setError('CRAS é obrigatório para entrevistadores e recepção.');
@@ -137,20 +170,29 @@ export default function Usuarios() {
       setError('A senha deve ter pelo menos 8 caracteres.');
       return;
     }
+    // Hora de entrada obrigatória para carga < 8hrs
+    if (form.role === 'entrevistador' && Number(form.cargaHoraria) < 8 && !form.horaEntrada) {
+      setError('Informe a hora de entrada para cargas horárias de 4h ou 6h.');
+      return;
+    }
     try {
       if (editId) {
-        const payload = { ...form };
+        const payload = { ...form, cargaHoraria: Number(form.cargaHoraria) };
         // Converter string vazia de cras para null (Joi não aceita "")
         if (!payload.cras) payload.cras = null;
         // Não enviar senha se não foi preenchida na edição
         if (!payload.password) delete payload.password;
+        // Hora de entrada nula quando carga = 8hrs
+        if (Number(payload.cargaHoraria) === 8) payload.horaEntrada = null;
         await api.put(`/users/${editId}`, payload);
         setSuccess('Usuário atualizado com sucesso!');
       } else {
-        await api.post('/users', form);
+        const payload = { ...form, cargaHoraria: Number(form.cargaHoraria) };
+        if (Number(payload.cargaHoraria) === 8) payload.horaEntrada = null;
+        await api.post('/users', payload);
         setSuccess('Usuário criado com sucesso!');
       }
-      setForm({ name: '', matricula: '', password: '', role: 'entrevistador', cras: '' });
+      setForm(FORM_DEFAULT);
       setEditId(null);
       fetchUsuarios();
     } catch (err) {
@@ -159,7 +201,15 @@ export default function Usuarios() {
   }
 
   function handleEdit(u) {
-    setForm({ name: u.name, matricula: u.matricula, password: '', role: u.role, cras: u.cras?.id || '' });
+    setForm({
+      name: u.name,
+      matricula: u.matricula,
+      password: '',
+      role: u.role,
+      cras: u.cras?.id || '',
+      cargaHoraria: u.cargaHoraria ?? 8,
+      horaEntrada: u.horaEntrada || '',
+    });
     setEditId(u.id);
     setError('');
     setSuccess('');
@@ -238,8 +288,29 @@ export default function Usuarios() {
                 </Select>
               </FormControl>
             )}
+            {form.role === 'entrevistador' && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Carga Horária</InputLabel>
+                <Select name="cargaHoraria" value={form.cargaHoraria} onChange={handleChange} label="Carga Horária">
+                  <MenuItem value={8}>8 horas (padrão)</MenuItem>
+                  <MenuItem value={6}>6 horas</MenuItem>
+                  <MenuItem value={4}>4 horas</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            {form.role === 'entrevistador' && Number(form.cargaHoraria) < 8 && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Hora de Entrada</InputLabel>
+                <Select name="horaEntrada" value={form.horaEntrada} onChange={handleChange} required label="Hora de Entrada">
+                  <MenuItem value="">Selecione</MenuItem>
+                  {gerarOpcoesHoraEntrada(form.cargaHoraria).map(h => (
+                    <MenuItem key={h} value={h}>{h}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
             <Button type="submit" variant="contained" color="success">{editId ? 'Salvar' : 'Criar'}</Button>
-            {editId && <Button type="button" onClick={() => { setEditId(null); setForm({ name: '', matricula: '', password: '', role: 'entrevistador', cras: '' }); }} color="inherit">Cancelar</Button>}
+            {editId && <Button type="button" onClick={() => { setEditId(null); setForm(FORM_DEFAULT); }} color="inherit">Cancelar</Button>}
             <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={exportToExcel}>Exportar</Button>
           </form>
         </Paper>

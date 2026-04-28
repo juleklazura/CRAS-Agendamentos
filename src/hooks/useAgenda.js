@@ -172,7 +172,12 @@ export default function useAgenda() {
       const userId = user?.id;
       
       if (isEntrevistador && userId) {
-        setEntrevistadores([{ ...user }]);
+        // user.agenda.horariosDisponiveis → aplainar para campo direto que horariosAgenda espera
+        setEntrevistadores([{
+          ...user,
+          horariosDisponiveis: user.agenda?.horariosDisponiveis,
+          diasAtendimento: user.agenda?.diasAtendimento,
+        }]);
         setSelectedEntrevistador(userId);
         return;
       }
@@ -329,8 +334,10 @@ export default function useAgenda() {
 
   // ===== VALORES COMPUTADOS (continuação) =====
   const horariosAgenda = useMemo(() => 
-    entrevistadorSelecionado?.horariosDisponiveis || horariosDisponiveis,
-    [entrevistadorSelecionado?.horariosDisponiveis]
+    entrevistadorSelecionado?.horariosDisponiveis ||
+    entrevistadorSelecionado?.agenda?.horariosDisponiveis ||
+    horariosDisponiveis,
+    [entrevistadorSelecionado?.horariosDisponiveis, entrevistadorSelecionado?.agenda?.horariosDisponiveis]
   );
 
   const agendamentosArray = useMemo(() => {

@@ -8,7 +8,7 @@ import {
   Paper 
 } from '@mui/material';
 import LinhaHorario from './LinhaHorario';
-import { horariosDisponiveis } from '../../utils/agendamentoUtils';
+import { horariosDisponiveis as horariosDefault } from '../../utils/agendamentoUtils';
 
 export default function TabelaAgenda({ 
   dataSelecionada,
@@ -22,8 +22,12 @@ export default function TabelaAgenda({
   onExcluir,
   onBloquear,
   onDesbloquear,
-  onVisualizarObservacoes
+  onVisualizarObservacoes,
+  horariosDisponiveis
 }) {
+  const horarios = (horariosDisponiveis && horariosDisponiveis.length > 0)
+    ? horariosDisponiveis
+    : horariosDefault;
   return (
     <TableContainer component={Paper} sx={{ 
       width: '100%',
@@ -46,7 +50,7 @@ export default function TabelaAgenda({
           </TableRow>
         </TableHead>
         <TableBody>
-          {horariosDisponiveis.map(horario => (
+          {horarios.map(horario => (
             <LinhaHorario
               key={horario}
               horario={horario}

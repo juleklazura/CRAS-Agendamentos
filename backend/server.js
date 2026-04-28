@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import logger, { pseudonymizeIp } from './utils/logger.js';
 import prisma from './utils/prisma.js';
@@ -53,6 +54,8 @@ if (shouldTrustProxy()) {
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(helmet(helmetOptions));
+// Compressão gzip/brotli das respostas — reduz banda significativamente
+app.use(compression());
 app.use(securityHeadersMiddleware);
 app.use('/api/', globalLimiter);
 app.use(express.json({ limit: '100kb' }));

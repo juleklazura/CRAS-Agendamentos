@@ -10,10 +10,16 @@ import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 // Criar novo CRAS (apenas admin)
 export const createCras = async (req, res) => {
   try {
+    // Body já validado e sanitizado pelo middleware Joi (validate)
     const { nome, endereco, telefone } = req.body;
 
     const cras = await prisma.cras.create({
-      data: { nome, endereco, telefone },
+      data: {
+        nome,
+        endereco,
+        // Não persiste undefined — converte string vazia para null
+        ...(telefone ? { telefone } : {}),
+      },
     });
 
     // Registrar log
@@ -80,11 +86,16 @@ export const getCrasById = async (req, res) => {
 export const updateCras = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, endereco, telefone } = req.body;
+    // Body já validado e sanitizado pelo middleware Joi (validate)
+    // Apenas campos presentes no body são atualizados (sem sobrescrever com undefined)
+    const update = {};
+    if (req.body.nome !== undefined) update.nome = req.body.nome;
+    if (req.body.endereco !== undefined) update.endereco = req.body.endereco;
+    if (req.body.telefone !== undefined) update.telefone = req.body.telefone || null;
 
     const cras = await prisma.cras.update({
       where: { id },
-      data: { nome, endereco, telefone },
+      data: update,
     }).catch(() => null);
 
     if (!cras) {

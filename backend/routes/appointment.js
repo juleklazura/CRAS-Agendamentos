@@ -6,13 +6,14 @@ import { createAppointment, getAppointments, updateAppointment, deleteAppointmen
 import { auth, authorize } from '../middlewares/auth.js';
 import { validateId, validateQueryIds } from '../middlewares/validateId.js';
 import { createAppointmentLimiter, deleteLimiter, cpfSearchLimiter } from '../middlewares/rateLimiters.js';
+import { validate, createAppointmentSchema, updateAppointmentSchema } from '../validators/appointmentValidator.js';
 
 const router = express.Router();
 
 // POST /api/appointments - Criar novo agendamento
 // Permite entrevistador, recepção e admin criarem agendamentos
 // Body: { entrevistador, cras, pessoa, cpf, telefone1, telefone2?, motivo, data, observacoes? }
-router.post('/', auth, authorize(['entrevistador', 'recepcao', 'admin']), createAppointmentLimiter, createAppointment);
+router.post('/', auth, authorize(['entrevistador', 'recepcao', 'admin']), createAppointmentLimiter, validate(createAppointmentSchema), createAppointment);
 
 // GET /api/appointments - Listar agendamentos com filtros
 // Admin vê todos, entrevistador vê apenas os seus, recepção vê os do CRAS
@@ -39,12 +40,12 @@ router.patch('/:id/unconfirm', auth, validateId('id'), authorize(['entrevistador
 
 // PATCH /api/appointments/:id - Atualizar campos específicos do agendamento
 // Permite atualização parcial (ex: apenas status)
-router.patch('/:id', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), updateAppointment);
+router.patch('/:id', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), validate(updateAppointmentSchema), updateAppointment);
 
 // PUT /api/appointments/:id - Editar agendamento existente
 // Permite alterar dados do agendamento como nome, telefone, motivo, etc.
 // Valida se o usuário tem permissão para editar o agendamento específico
-router.put('/:id', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), updateAppointment);
+router.put('/:id', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), validate(updateAppointmentSchema), updateAppointment);
 
 // DELETE /api/appointments/:id - Excluir agendamento
 // Remove o agendamento do sistema completamente
