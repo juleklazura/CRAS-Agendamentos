@@ -8,8 +8,8 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm install
-    startCommand: ./node_modules/.bin/prisma db push && node scripts/createAdmin.js && npm start
+    buildCommand: npm install && ./node_modules/.bin/prisma generate
+    startCommand: ./node_modules/.bin/prisma migrate deploy && node scripts/createAdmin.js && npm start
     envVars:
       - key: NODE_ENV
         value: production
