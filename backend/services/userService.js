@@ -39,8 +39,8 @@ export const createUser = async (data, actor) => {
 
       // Montar dados do usuário
       const userData = { name, password: hashedPassword, role, matricula };
-      if (role !== 'admin') {
-        userData.crasId = cras;
+      if (role !== 'admin' && cras) {
+        userData.cras = { connect: { id: cras } };
       }
       if (role === 'entrevistador') {
         const defaults = getDefaultAgenda();
@@ -174,9 +174,9 @@ export const updateUser = async (id, data, actor) => {
       if (matricula !== undefined) update.matricula = matricula;
 
       if (role === 'admin') {
-        update.crasId = null;
+        update.cras = { disconnect: true };
       } else if (cras !== undefined) {
-        update.crasId = cras;
+        update.cras = cras ? { connect: { id: cras } } : { disconnect: true };
       }
 
       if (password) {
