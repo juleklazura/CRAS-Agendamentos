@@ -9,6 +9,7 @@ generator client {
   // omitApi: necessário no Prisma 5.x para usar `omit: { password: true }` nas queries.
   // Quando atualizar para Prisma 6+, `omitApi` vira API estável e esta linha pode ser removida.
   previewFeatures = ["omitApi"]
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
