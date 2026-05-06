@@ -1,9 +1,6 @@
-// =============================================================================
-// 🎮 CONTROLLER DE AGENDAMENTOS — CAMADA FINA DE ORQUESTRAÇÃO
-// =============================================================================
-// Responsável APENAS por: extrair dados do request, chamar o service,
-// e retornar a resposta HTTP. Toda lógica de negócio está em
-// services/appointmentService.js.
+// Controller de agendamentos: camada fina de orquestração.
+// Extrai dados do request, delega ao service e retorna a resposta HTTP.
+// Toda lógica de negócio (validações, ownership, criptografia) está em appointmentService.js.
 
 import { apiSuccess, apiMessage, apiError, handleControllerError } from '../utils/apiResponse.js';
 import * as appointmentService from '../services/appointmentService.js';

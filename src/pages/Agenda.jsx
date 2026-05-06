@@ -4,7 +4,7 @@
  */
 
 import React, { memo } from 'react';
-import { Box, Container, CircularProgress, Snackbar, Alert } from '@mui/material';
+import { Box, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import ptBR from 'date-fns/locale/pt-BR';
@@ -94,7 +94,7 @@ const AgendaEntrevistadores = memo(() => {
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
       <Sidebar />
       
-      <Container component="main" maxWidth={false} className="main-content">
+      <Box className="main-content">
         {/* Cabeçalho com título e descrição */}
         <AgendaHeader isEntrevistador={isEntrevistador} />
 
@@ -177,7 +177,7 @@ const AgendaEntrevistadores = memo(() => {
             {feedbackState.success}
           </Alert>
         </Snackbar>
-      </Container>
+      </Box>
     </LocalizationProvider>
   );
 });

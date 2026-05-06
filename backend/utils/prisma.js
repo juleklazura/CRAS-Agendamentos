@@ -1,5 +1,7 @@
 // =============================================================================
-// 🗄️ PRISMA CLIENT SINGLETON
+// Singleton do PrismaClient.
+// Em desenvolvimento, recriações de módulos (HMR) gerariam múltiplas conexões.
+// O singleton armazenado em `globalThis` garante que apenas uma instância exista.
 // =============================================================================
 // Garante uma única instância do PrismaClient durante toda a vida do processo.
 // Previne problemas de conexão em ambientes serverless e hot-reload.

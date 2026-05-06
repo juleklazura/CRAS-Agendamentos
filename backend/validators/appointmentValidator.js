@@ -1,6 +1,4 @@
-// =============================================================================
-// 📋 VALIDAÇÃO DE DADOS DE AGENDAMENTO COM JOI
-// =============================================================================
+// Validação de dados de agendamento com Joi.
 // stripUnknown: true em todos os schemas previne mass-assignment
 // (campos não declarados são silenciosamente removidos antes de chegar ao service)
 

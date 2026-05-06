@@ -17,34 +17,24 @@ router.post('/', auth, authorize(['entrevistador', 'recepcao', 'admin']), create
 
 // GET /api/appointments - Listar agendamentos com filtros
 // Admin vê todos, entrevistador vê apenas os seus, recepção vê os do CRAS
-// Query params: ?entrevistador=id&cras=id&data=yyyy-mm-dd&status=agendado|realizado
-// 🔒 SEGURANÇA: Validação de IDs nos filtros
+// Valida IDs nos query params antes da query
 router.get('/', auth, validateQueryIds(['cras', 'entrevistador']), getAppointments);
 
 // GET /api/appointments/by-cpf - Buscar agendamentos por CPF do titular
-// 🔒 LGPD: acesso restrito a usuários autorizados; toda consulta gera log de auditoria.
+// LGPD: acesso restrito por role; toda consulta gera log de auditoria.
 // Rate limit estrito para prevenir enumeração de dados pessoais.
-// Query params: ?cpf=XXX.XXX.XXX-XX (com ou sem máscara)
 router.get('/by-cpf', auth, authorize(['entrevistador', 'recepcao', 'admin']), cpfSearchLimiter, getAppointmentsByCpf);
 
-// PATCH /api/appointments/:id/confirm - Confirmar presença no agendamento
-// Muda status para 'realizado' indicando que a pessoa compareceu
-// Usado pelos entrevistadores durante o atendimento
-// 🔒 SEGURANÇA: Validação de ID no parâmetro
+// PATCH /api/appointments/:id/confirm - Confirmar presença (status → 'realizado')
 router.patch('/:id/confirm', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), confirmPresence);
 
-// PATCH /api/appointments/:id/unconfirm - Remover confirmação de presença
-// Volta status para 'agendado' caso tenha sido marcado como realizado por engano
-// Permite reverter a confirmação de presença
+// PATCH /api/appointments/:id/unconfirm - Reverter confirmação de presença (status → 'agendado')
 router.patch('/:id/unconfirm', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), removePresenceConfirmation);
 
-// PATCH /api/appointments/:id - Atualizar campos específicos do agendamento
-// Permite atualização parcial (ex: apenas status)
+// PATCH /api/appointments/:id - Atualização parcial (ex: apenas status)
 router.patch('/:id', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), validate(updateAppointmentSchema), updateAppointment);
 
-// PUT /api/appointments/:id - Editar agendamento existente
-// Permite alterar dados do agendamento como nome, telefone, motivo, etc.
-// Valida se o usuário tem permissão para editar o agendamento específico
+// PUT /api/appointments/:id - Editar agendamento completo
 router.put('/:id', auth, validateId('id'), authorize(['entrevistador', 'recepcao', 'admin']), validate(updateAppointmentSchema), updateAppointment);
 
 // DELETE /api/appointments/:id - Excluir agendamento

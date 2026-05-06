@@ -3,22 +3,18 @@ import logger from '../utils/logger.js';
 import { formatDateTime, parseDate, isWeekend } from '../utils/timezone.js';
 import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 
-// Controller para gerenciamento de bloqueios de horário
-// Permite que APENAS ENTREVISTADORES bloqueiem horários específicos em suas próprias agendas
+// Controller de bloqueios de horário.
+// Entrevistadores bloqueiam slots próprios para impedir agendamentos naqueles horários.
 
-// Função para criar bloqueio de horário (APENAS entrevistador)
+// POST /api/blocked-slots — Cria bloqueio de horário (restrito a entrevistador)
 export const createBlockedSlot = async (req, res) => {
   try {
     const { data, motivo } = req.body;
 
-    // 🔒 Limita tamanho do motivo para evitar persistência de payloads grandes
+    // Validação de tamanho redundante: o schema Joi já aplica max(500),
+    // mas mantida como segunda barreira no caso de body parcialmente validado.
     if (motivo && motivo.length > 500) {
       return apiError(res, 'Motivo deve ter no máximo 500 caracteres', 400);
-    }
-
-    // --- Validação de data ---
-    if (!data) {
-      return apiError(res, 'Data é obrigatória', 400);
     }
 
     const parsed = parseDate(data);
@@ -67,12 +63,13 @@ export const createBlockedSlot = async (req, res) => {
   }
 };
 
-// Função para listar bloqueios com controle de permissões
+// GET /api/blocked-slots — Lista bloqueios conforme permissões do usuário
 export const getBlockedSlots = async (req, res) => {
   try {
     const where = {};
 
-    // 🔒 SEGURANÇA: Define filtros baseados no perfil do usuário
+    // Controle de acesso por role e CRAS:
+    // entrevistador → apenas os próprios; recepção → do CRAS (informando entrevistador); admin → todos.
     if (req.user.role === 'entrevistador') {
       where.entrevistadorId = req.user.id;
       where.crasId = req.user.cras;
@@ -80,7 +77,8 @@ export const getBlockedSlots = async (req, res) => {
       where.crasId = req.user.cras;
 
       if (req.query.entrevistador) {
-        // Validar que o entrevistador pertence ao CRAS da recepção
+        // Valida que o entrevistador informado pertence ao CRAS da recepção.
+        // Sem essa verificação, a recepção poderia listar bloqueios de outro CRAS.
         const entrevistadorDoc = await prisma.user.findUnique({
           where: { id: req.query.entrevistador },
           select: { id: true, crasId: true },
@@ -109,13 +107,14 @@ export const getBlockedSlots = async (req, res) => {
   }
 };
 
-// Remover bloqueio (APENAS do próprio entrevistador ou admin)
+// DELETE /api/blocked-slots/:id — Remove bloqueio (apenas o próprio entrevistador)
 export const deleteBlockedSlot = async (req, res) => {
   try {
     const { id } = req.params;
 
     logger.debug('Tentando deletar bloqueio', { id, userId: req.user.id });
 
+    // findFirst com entrevistadorId garante que o usuário só remove os próprios bloqueios.
     const slot = await prisma.blockedSlot.findFirst({ where: { id, entrevistadorId: req.user.id } });
 
     if (!slot) {

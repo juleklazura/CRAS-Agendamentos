@@ -16,7 +16,7 @@ router.get('/', auth, getCras);
 router.get('/:id', auth, validateId('id'), getCrasById);
 
 // PUT /api/cras/:id - Editar unidade CRAS existente (apenas admin)
-// 🔒 SEGURANÇA: Validação Joi (stripUnknown) previne mass-assignment
+// Joi (stripUnknown) previne mass-assignment
 router.put('/:id', auth, validateId('id'), authorize(['admin']), validate(updateCrasSchema), updateCras);
 
 // DELETE /api/cras/:id - Excluir unidade CRAS (apenas admin)

@@ -1,5 +1,5 @@
 // =============================================================================
-// 🔒 VALIDADOR DE SEGURANÇA - JWT SECRETS
+// Valida secrets obrigatórios (JWT, ENCRYPTION_KEY, DATABASE_URL) na inicialização.
 // =============================================================================
 // Garante que JWT_SECRET e JWT_REFRESH_SECRET estão configurados corretamente
 // Executado na inicialização do servidor para prevenir configurações inseguras
@@ -74,7 +74,14 @@ export const validateSecrets = () => {
   // -------------------------------------------------------------------------
   
   if (!process.env.JWT_REFRESH_SECRET) {
-    warnings.push('⚠️  JWT_REFRESH_SECRET não definido. Usando JWT_SECRET (menos seguro). Configure um secret separado!');
+    // P5: Em produção JWT_REFRESH_SECRET é obrigatório — usar o mesmo JWT_SECRET
+    // para assinar refresh tokens anula o benefício de ter tokens separados e
+    // amplifica o impacto de um vazamento do secret principal.
+    if (process.env.NODE_ENV === 'production') {
+      errors.push('❌ PRODUÇÃO: JWT_REFRESH_SECRET é obrigatório em produção. Configure um secret separado e diferente do JWT_SECRET!');
+    } else {
+      warnings.push('⚠️  JWT_REFRESH_SECRET não definido. Usando JWT_SECRET (menos seguro). Configure um secret separado!');
+    }
   } else {
     const refreshSecret = process.env.JWT_REFRESH_SECRET;
     

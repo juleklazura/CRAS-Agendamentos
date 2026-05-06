@@ -1,5 +1,5 @@
 // =============================================================================
-// 📅 CONSTANTES DE AGENDA - CONFIGURAÇÃO CENTRALIZADA
+// Constantes de agenda — regras de horário centralizadas.
 // =============================================================================
 // Centraliza valores padrão de horários e dias de atendimento.
 // Evita valores mágicos espalhados pelo código.

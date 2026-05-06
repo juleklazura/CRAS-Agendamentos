@@ -1,9 +1,6 @@
-// =============================================================================
-// 🏗️ CAMADA DE SERVIÇO — LÓGICA DE NEGÓCIO DE AGENDAMENTOS
-// =============================================================================
-// Separa a lógica de negócio do controller, facilitando manutenção,
-// reutilização e testabilidade. O controller apenas orquestra
-// request/response; toda lógica de domínio fica aqui.
+// Camada de serviço — lógica de negócio de agendamentos.
+// Aqui ficam: regras RBAC, validações cross-field, criptografia de CPF e queries Prisma.
+// O controller é apenas um adaptador HTTP; toda decisão de negócio passa por aqui.
 
 import prisma from '../utils/prisma.js';
 import pkg from '@prisma/client';
@@ -182,6 +179,30 @@ export const createAppointment = async (data, actor) => {
   if (!motivo) throw new BusinessError('Motivo é obrigatório');
   if (!dataAgendamento) throw new BusinessError('Data é obrigatória');
 
+  // --- Verificações de autorização (IDOR e cross-CRAS) ---
+  // P6: Entrevistador só pode criar agendamentos para si mesmo
+  if (actor.role === 'entrevistador' && entrevistador !== actor.id) {
+    throw new BusinessError(
+      'Entrevistadores só podem criar agendamentos para si mesmos',
+      403,
+      'FORBIDDEN'
+    );
+  }
+  // P8: Recepção só pode criar agendamentos para entrevistadores do próprio CRAS
+  if (actor.role === 'recepcao') {
+    const entrevistadorRecord = await prisma.user.findUnique({
+      where: { id: entrevistador },
+      select: { crasId: true },
+    });
+    if (!entrevistadorRecord || entrevistadorRecord.crasId !== actor.cras) {
+      throw new BusinessError(
+        'Você só pode criar agendamentos para entrevistadores do seu CRAS',
+        403,
+        'FORBIDDEN_CROSS_CRAS'
+      );
+    }
+  }
+
   // --- Validação de status ---
   if (status && !STATUS_ALLOWED.includes(status)) {
     throw new BusinessError(`Status inválido. Valores permitidos: ${STATUS_ALLOWED.join(', ')}`, 400, 'INVALID_STATUS');
@@ -240,15 +261,15 @@ export const createAppointment = async (data, actor) => {
     throw error;
   }
 
-  // --- Log de auditoria ---
-  await prisma.log.create({
+  // --- Log de auditoria (fire-and-forget: não bloqueia a resposta) ---
+  prisma.log.create({
     data: {
       userId: actor.id,
       crasId: cras,
       action: 'criar_agendamento',
       details: `Agendamento #${appointment.id} criado para ${formatDateTime(dataAgendamento)} - Motivo: ${motivo}`,
     },
-  });
+  }).catch((err) => logger.error('Falha ao gravar log de auditoria (criar_agendamento)', { error: err.message, id: appointment.id }));
 
   // --- Invalidar cache ---
   cache.invalidateAppointments(cras, entrevistador);
@@ -322,10 +343,14 @@ export const getAppointments = async (queryParams, actor) => {
   // --- Query principal ---
   if (searchTerm) {
     // Busca textual: precisa descriptografar em memória para filtrar.
-    // Limite de 7200 registros para evitar OOM — equivale a ~5 anos de agenda
-    // diária cheia (8h × 6 slots × 250 dias úteis). Suficiente para o volume
-    // real do sistema sem risco de esgotamento de memória.
-    const SEARCH_MAX_ROWS = 7200;
+    // O limite é proporcional ao escopo do actor para reduzir consumo de CPU/RAM:
+    //   - entrevistador: apenas a própria agenda (~1 ano útil ≈ 1500 slots)
+    //   - recepcao/admin com cras: todos os entrevistadores do CRAS (~3000)
+    //   - admin global: teto absoluto (~7200 ≈ 5 anos de agenda cheia)
+    const SEARCH_MAX_ROWS =
+      actor.role === 'entrevistador' ? 1500
+      : where.entrevistadorId ? 3000
+      : 7200;
     let results = await prisma.appointment.findMany({
       where,
       include: INCLUDE_LIST,
@@ -394,7 +419,24 @@ export const updateAppointment = async (id, body, actor) => {
 
   // Whitelist e mapeamento de campos
   const data = {};
-  if (body.entrevistador !== undefined) data.entrevistadorId = body.entrevistador;
+  if (body.entrevistador !== undefined) {
+    // Valida que o novo entrevistador pertence ao mesmo CRAS do agendamento.
+    // Sem isso, a recepção do CRAS A pode reatribuir agendamentos para entrevistadores do CRAS B.
+    if (actor.role !== 'admin') {
+      const novoEntrevistador = await prisma.user.findUnique({
+        where: { id: body.entrevistador },
+        select: { crasId: true },
+      });
+      if (!novoEntrevistador || novoEntrevistador.crasId !== existing.crasId) {
+        throw new BusinessError(
+          'Não é permitido reatribuir agendamento para entrevistador de outro CRAS',
+          403,
+          'FORBIDDEN_CROSS_CRAS'
+        );
+      }
+    }
+    data.entrevistadorId = body.entrevistador;
+  }
   if (body.cras !== undefined) data.crasId = body.cras;
   if (body.pessoa !== undefined) data.pessoa = encryptField(body.pessoa);
   if (body.cpf !== undefined) {
@@ -424,15 +466,14 @@ export const updateAppointment = async (id, body, actor) => {
 
   const result = processAppointment(updated, actor);
 
-  // Log de auditoria
-  await prisma.log.create({
+  prisma.log.create({
     data: {
       userId: actor.id,
       crasId: updated.crasId,
       action: 'editar_agendamento',
       details: `Agendamento #${updated.id} editado em ${formatDateTime(updated.data)}`,
     },
-  });
+  }).catch((err) => logger.error('Falha ao gravar log de auditoria (editar_agendamento)', { error: err.message, id: updated.id }));
 
   cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
@@ -447,19 +488,20 @@ export const updateAppointment = async (id, body, actor) => {
  * Remove um agendamento e registra log de auditoria.
  */
 export const deleteAppointment = async (id, actor) => {
-  const appointment = await findOrFail(id, { cras: { select: { id: true, nome: true } } });
+  // select mínimo: apenas campos necessários para ownership + cache invalidation
+  const appointment = await findOrFail(id);
   await checkOwnership(appointment, actor, 'excluir');
 
   await prisma.appointment.delete({ where: { id } });
 
-  await prisma.log.create({
+  prisma.log.create({
     data: {
       userId: actor.id,
       crasId: appointment.crasId,
       action: 'excluir_agendamento',
       details: `Agendamento #${id} excluído (data: ${formatDateTime(appointment.data)})`,
     },
-  });
+  }).catch((err) => logger.error('Falha ao gravar log de auditoria (excluir_agendamento)', { error: err.message, id }));
 
   cache.invalidateAppointments(appointment.crasId, appointment.entrevistadorId);
 };
@@ -470,6 +512,8 @@ export const deleteAppointment = async (id, actor) => {
 
 /**
  * Confirma presença — muda status para 'realizado'.
+ * Ordem correta: findOrFail → checkOwnership → update
+ * Garante que o ownership é verificado ANTES de qualquer escrita no banco.
  */
 export const confirmPresence = async (id, actor) => {
   const existing = await findOrFail(id);
@@ -481,14 +525,14 @@ export const confirmPresence = async (id, actor) => {
     include: INCLUDE_FULL,
   });
 
-  await prisma.log.create({
+  prisma.log.create({
     data: {
       userId: actor.id,
       crasId: updated.crasId,
       action: 'confirmar_presenca',
       details: `Presença confirmada no agendamento #${id} (data: ${formatDateTime(updated.data)})`,
     },
-  });
+  }).catch((err) => logger.error('Falha ao gravar log de auditoria (confirmar_presenca)', { error: err.message, id }));
 
   cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 
@@ -497,6 +541,8 @@ export const confirmPresence = async (id, actor) => {
 
 /**
  * Remove confirmação de presença — volta status para 'agendado'.
+ * Ordem correta: findOrFail → checkOwnership → update
+ * Garante que o ownership é verificado ANTES de qualquer escrita no banco.
  */
 export const removePresenceConfirmation = async (id, actor) => {
   const existing = await findOrFail(id);
@@ -508,14 +554,14 @@ export const removePresenceConfirmation = async (id, actor) => {
     include: INCLUDE_FULL,
   });
 
-  await prisma.log.create({
+  prisma.log.create({
     data: {
       userId: actor.id,
       crasId: updated.crasId,
       action: 'remover_confirmacao_presenca',
       details: `Confirmação de presença removida do agendamento #${id} (data: ${formatDateTime(updated.data)})`,
     },
-  });
+  }).catch((err) => logger.error('Falha ao gravar log de auditoria (remover_confirmacao_presenca)', { error: err.message, id }));
 
   cache.invalidateAppointments(updated.crasId, updated.entrevistadorId);
 

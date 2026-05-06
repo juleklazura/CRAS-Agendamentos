@@ -1,5 +1,6 @@
 // =============================================================================
-// 🏗️ CAMADA DE SERVIÇO - LÓGICA DE NEGÓCIO DE USUÁRIOS
+// Camada de serviço — lógica de negócio de usuários.
+// Gerencia: criação, atualização, desativação e hash de senhas.
 // =============================================================================
 // Separa a lógica de negócio do controller, facilitando manutenção,
 // reutilização e testabilidade. O controller apenas orquestra
@@ -94,18 +95,42 @@ export const createUser = async (data, actor) => {
 
 /**
  * Lista usuários com controle de permissões baseado no role do solicitante.
+ * Suporta paginação opcional (page + pageSize). Sem parâmetros → retorna lista
+ * completa (usado em dropdowns). Com parâmetros → retorna { data, total, page, pageSize }.
  */
-export const getUsers = async (role) => {
-  const cacheKey = `users:all:role:${role}`;
+export const getUsers = async (role, { page, pageSize } = {}) => {
+  const where = role !== 'admin' ? { role: 'entrevistador', ativo: true } : { ativo: true };
 
-  return cache.cached(cacheKey, async () => {
-    const where = role !== 'admin' ? { role: 'entrevistador', ativo: true } : { ativo: true };
-    return prisma.user.findMany({
+  // Sem paginação — comportamento original (cached para dropdowns)
+  if (!page && !pageSize) {
+    const cacheKey = `users:all:role:${role}`;
+    return cache.cached(cacheKey, async () => {
+      return prisma.user.findMany({
+        where,
+        omit: { password: true },
+        include: { cras: true },
+      });
+    });
+  }
+
+  // Com paginação — nunca cacheia (resultado depende de offset)
+  const p = Math.max(1, parseInt(page) || 1);
+  const size = Math.min(100, Math.max(1, parseInt(pageSize) || 20));
+  const skip = (p - 1) * size;
+
+  const [data, total] = await prisma.$transaction([
+    prisma.user.findMany({
       where,
       omit: { password: true },
       include: { cras: true },
-    });
-  });
+      skip,
+      take: size,
+      orderBy: { name: 'asc' },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return { data, total, page: p, pageSize: size };
 };
 
 /**

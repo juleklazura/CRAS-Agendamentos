@@ -1,28 +1,21 @@
 /**
- * Middleware de timeouts
- * 
- * Configura timeouts para requisições e respostas
- * 
- * @module middlewares/timeout
+ * Aplica timeout de 30s em requisições e respostas.
+ * Previne que requisições presas (ex: query Neon em cold start) ocupem slots indefinidamente.
+ * Retorna 408 se a resposta não foi enviada dentro do prazo.
  */
 
 import logger, { pseudonymizeIp } from '../utils/logger.js';
 
-const TIMEOUT_MS = 30000; // 30 segundos
+const TIMEOUT_MS = 30000;
 
-/**
- * Middleware que configura timeouts
- */
 export const timeoutMiddleware = (req, res, next) => {
-  // Timeout de requisição
   req.setTimeout(TIMEOUT_MS, () => {
-    logger.warn(`Request timeout: ${req.method} ${req.path} - IP: ${pseudonymizeIp(req.ip)}`);
+    logger.warn(`Timeout de requisição: ${req.method} ${req.path} — IP: ${pseudonymizeIp(req.ip)}`);
   });
   
-  // Timeout de resposta
   res.setTimeout(TIMEOUT_MS, () => {
     if (!res.headersSent) {
-      logger.error(`Response timeout: ${req.method} ${req.path} - IP: ${pseudonymizeIp(req.ip)}`);
+      logger.error(`Timeout de resposta: ${req.method} ${req.path} — IP: ${pseudonymizeIp(req.ip)}`);
       res.status(408).json({ error: 'Tempo de requisição excedido' });
     }
   });

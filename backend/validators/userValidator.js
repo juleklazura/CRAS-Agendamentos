@@ -1,6 +1,4 @@
-// =============================================================================
-// 📋 VALIDAÇÃO DE DADOS DE USUÁRIO COM JOI
-// =============================================================================
+// Validação de dados de usuário com Joi.
 // Centraliza todas as regras de validação para operações de usuário,
 // eliminando validação manual repetitiva nos controllers.
 

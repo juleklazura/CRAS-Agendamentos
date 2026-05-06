@@ -1,5 +1,5 @@
 // =============================================================================
-// 🌎 CONFIGURAÇÃO DE TIMEZONE - HORÁRIO DE BRASÍLIA
+// Configuração de timezone — horário de Brasília (America/Sao_Paulo).
 // =============================================================================
 // Centraliza todas operações com datas para garantir consistência
 // Timezone: America/Sao_Paulo (UTC-3)
@@ -192,7 +192,7 @@ export const toISOString = (date) => {
 };
 
 // =============================================================================
-// 🔒 VALIDAÇÕES DE DATA
+// Validações de data
 // =============================================================================
 
 /**
@@ -226,7 +226,7 @@ export const isPastDate = (date) => {
 };
 
 // =============================================================================
-// 📊 INFORMAÇÕES DO SISTEMA
+// Informações do sistema
 // =============================================================================
 
 /**
@@ -243,7 +243,7 @@ export const getTimezoneInfo = () => {
   };
 };
 
-// 🔒 SEGURANÇA: Usar logger ao invés de console.log
+// Usar logger (não console.log) para manter o padrão de logging do sistema
 import('./logger.js').then(({ default: logger }) => {
   logger.info('✓ Timezone configurado', {
     timezone: TIMEZONE,

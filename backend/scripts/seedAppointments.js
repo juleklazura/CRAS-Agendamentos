@@ -1,12 +1,12 @@
 /**
  * ============================================================================
- * 📋 SCRIPT DE SEED DE AGENDAMENTOS
+ * Script de seed de agendamentos
  * ============================================================================
  * 
  * Cria agendamentos de teste para validar paginação e performance
  * 
  * Executar: node backend/scripts/seedAppointments.js
- * ⚠️ IMPORTANTE: Apenas para ambiente de desenvolvimento/teste
+ * IMPORTANTE: Apenas para ambiente de desenvolvimento/teste
  * ============================================================================
  */
 

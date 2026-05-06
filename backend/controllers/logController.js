@@ -2,30 +2,30 @@ import prisma from '../utils/prisma.js';
 import logger from '../utils/logger.js';
 import { apiSuccess, apiError } from '../utils/apiResponse.js';
 
-// Controller para sistema de logs e auditoria
-
-// 🔒 SEGURANÇA: Whitelist de ações permitidas — previne inserção de dados arbitrários
+// Whitelist de ações válidas para o campo `action`.
+// Impede persistência de strings arbitrárias na tabela de auditoria.
 const ALLOWED_ACTIONS = [
-  'login', 'logout',
+  'login', 'logout', 'login_falha',
+  'token_refresh',          // rotação de refresh token
   'criar_usuario', 'editar_usuario', 'excluir_usuario',
   'criar_agendamento', 'editar_agendamento', 'excluir_agendamento',
-  'confirmar_presenca', 'remover_confirmacao',
+  'confirmar_presenca', 'remover_confirmacao', 'remover_confirmacao_presenca',
   'criar_cras', 'editar_cras', 'excluir_cras',
   'bloquear_horario', 'desbloquear_horario',
-  'exportar_agendamentos', // LGPD — rastreabilidade de exportações de dados pessoais
+  'exportar_agendamentos',  // LGPD — rastreabilidade de exportações de dados pessoais
+  'consulta_por_cpf',       // LGPD — rastreabilidade de acesso a dados pessoais
+  'acesso_negado',          // auditoria de tentativas de escalonamento de privilégio
 ];
 
-// Função para criar novo registro de log
+// POST /api/logs — Criar log via API (restrito a admin; services usam prisma.log.create() diretamente)
 export const createLog = async (req, res) => {
   try {
     const { action, details, cras } = req.body;
 
-    // 🔒 Valida que a ação é uma das permitidas
     if (!action || !ALLOWED_ACTIONS.includes(action)) {
       return apiError(res, 'Ação inválida', 400);
     }
 
-    // 🔒 Limita tamanho dos detalhes para evitar persistência de payloads grandes
     if (details && details.length > 1000) {
       return apiError(res, 'Detalhes devem ter no máximo 1000 caracteres', 400);
     }
@@ -45,16 +45,15 @@ export const createLog = async (req, res) => {
   }
 };
 
-// Tamanhos de página permitidos para logs
-const ALLOWED_PAGE_SIZES = [20, 50, 100, 200];
-const DEFAULT_PAGE_SIZE = 50;
-
-// Função para consultar logs com filtros por perfil de usuário
+// GET /api/logs — Consultar logs com filtros baseados no perfil do usuário
 export const getLogs = async (req, res) => {
   try {
     const where = {};
 
-    // Aplica filtros baseados no perfil do usuário
+    // Escopo dos logs por role:
+    // - entrevistador: apenas os próprios logs
+    // - recepção: todos os logs do seu CRAS
+    // - admin: todos os logs (com filtro opcional por CRAS via query)
     if (req.user.role === 'entrevistador') {
       where.userId = req.user.id;
     } else if (req.user.role === 'recepcao') {
@@ -63,10 +62,10 @@ export const getLogs = async (req, res) => {
       where.crasId = req.query.cras;
     }
 
-    // Paginação
     const page = Math.max(0, parseInt(req.query.page) || 0);
     let pageSize = parseInt(req.query.pageSize) || DEFAULT_PAGE_SIZE;
     if (!ALLOWED_PAGE_SIZES.includes(pageSize)) {
+      // Snap para o tamanho mais próximo da whitelist
       pageSize = ALLOWED_PAGE_SIZES.reduce((prev, curr) =>
         Math.abs(curr - pageSize) < Math.abs(prev - pageSize) ? curr : prev
       );

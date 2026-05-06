@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * 🗑️  SCRIPT DE LIMPEZA DE DADOS DE TESTE
+ * Script de limpeza de dados de teste
  * ============================================================================
  * 
  * Remove todos os agendamentos de teste (marcados com [TESTE])

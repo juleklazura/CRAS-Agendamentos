@@ -4,7 +4,9 @@
 import express from 'express';
 import * as authController from '../controllers/authController.js';
 import { auth } from '../middlewares/auth.js';
-import { loginLimiter } from '../middlewares/rateLimiters.js';
+import { loginLimiter, loginByMatriculaLimiter, refreshLimiter } from '../middlewares/rateLimiters.js';
+import { validate } from '../validators/userValidator.js';
+import { loginSchema } from '../validators/authValidator.js';
 
 const router = express.Router();
 
@@ -12,19 +14,19 @@ const router = express.Router();
 // Recebe matrícula e senha, retorna token JWT se credenciais válidas
 // Body: { matricula: string, password: string }
 // Response: { user: { id, name, role, cras } } + httpOnly cookie com token
-router.post('/login', loginLimiter, authController.login);
+router.post('/login', loginLimiter, loginByMatriculaLimiter, validate(loginSchema), authController.login);
 
 // GET /api/auth/me - Retorna dados do usuário autenticado
-// 🔒 Requer autenticação via cookie httpOnly
+
 router.get('/me', auth, authController.getCurrentUser);
 
 // POST /api/auth/logout - Limpa cookie de autenticação
-// 🔒 Requer autenticação via cookie httpOnly
+
 router.post('/logout', auth, authController.logout);
 
 // POST /api/auth/refresh - Renova access token usando refresh token
 // Permite manter sessão ativa sem reautenticação
-// 🔒 SEGURANÇA: Usa refresh token separado com path restrito
-router.post('/refresh', loginLimiter, authController.refreshToken);
+// POST /auth/refresh — refreshLimiter separado do loginLimiter (evita auto-DoS em múltiplas abas)
+router.post('/refresh', refreshLimiter, authController.refreshToken);
 
 export default router;

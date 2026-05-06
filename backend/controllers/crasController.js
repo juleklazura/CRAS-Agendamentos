@@ -3,26 +3,22 @@ import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
 import { apiSuccess, apiMessage, apiError } from '../utils/apiResponse.js';
 
-// =============================================================================
-//  GERENCIAMENTO DE UNIDADES CRAS
-// =============================================================================
+// Controller de gerenciamento de unidades CRAS.
 
-// Criar novo CRAS (apenas admin)
+// POST /api/cras — Criar CRAS (admin)
 export const createCras = async (req, res) => {
   try {
-    // Body já validado e sanitizado pelo middleware Joi (validate)
     const { nome, endereco, telefone } = req.body;
 
     const cras = await prisma.cras.create({
       data: {
         nome,
         endereco,
-        // Não persiste undefined — converte string vazia para null
+        // Converte string vazia para null; undefined não é persistido pelo Prisma.
         ...(telefone ? { telefone } : {}),
       },
     });
 
-    // Registrar log
     await prisma.log.create({
       data: {
         userId: req.user.id,
@@ -32,7 +28,6 @@ export const createCras = async (req, res) => {
       },
     });
 
-    // Invalidar cache
     cache.invalidateCras();
 
     apiSuccess(res, cras, 201);
@@ -82,28 +77,22 @@ export const getCrasById = async (req, res) => {
   }
 };
 
-// Atualizar CRAS
+// PUT /api/cras/:id — Atualizar CRAS (admin)
 export const updateCras = async (req, res) => {
   try {
     const { id } = req.params;
-    // Body já validado e sanitizado pelo middleware Joi (validate)
-    // Apenas campos presentes no body são atualizados (sem sobrescrever com undefined)
+    // Atualiza apenas os campos presentes; undefined não sobrescreve dados existentes.
     const update = {};
     if (req.body.nome !== undefined) update.nome = req.body.nome;
     if (req.body.endereco !== undefined) update.endereco = req.body.endereco;
     if (req.body.telefone !== undefined) update.telefone = req.body.telefone || null;
 
-    const cras = await prisma.cras.update({
-      where: { id },
-      data: update,
-    }).catch(() => null);
-
-    if (!cras) {
-      return apiError(res, 'CRAS não encontrado', 404);
-    }
-
-    // Registrar log
-    await prisma.log.create({
+    let cras;
+    try {
+      cras = await prisma.cras.update({ where: { id }, data: update });
+    } catch (err) {
+      // P2025: not found. Outros erros sobem para o handler externo.
+      if (err.code === 'P2025') {
       data: {
         userId: req.user.id,
         crasId: cras.id,
@@ -122,18 +111,17 @@ export const updateCras = async (req, res) => {
   }
 };
 
-// Remover CRAS
+// DELETE /api/cras/:id — Remover CRAS (admin)
 export const deleteCras = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 🔒 SEGURANÇA: Verificar se o CRAS existe antes de tudo
     const cras = await prisma.cras.findUnique({ where: { id } });
     if (!cras) {
       return apiError(res, 'CRAS não encontrado', 404);
     }
 
-    // 🔒 VERIFICAÇÃO DE DEPENDÊNCIAS: Não permitir exclusão se houver dados vinculados
+    // Bloqueia exclusão se houver dados vinculados — informa ao admin o que precisa ser removido antes.
     const [usuariosVinculados, agendamentosAtivos, bloqueiosAtivos] = await Promise.all([
       prisma.user.count({ where: { crasId: id } }),
       prisma.appointment.count({ where: { crasId: id, status: { in: ['agendado'] } } }),
@@ -169,7 +157,6 @@ export const deleteCras = async (req, res) => {
 
     await prisma.cras.delete({ where: { id } });
 
-    // Registrar log
     await prisma.log.create({
       data: {
         userId: req.user.id,
@@ -178,7 +165,6 @@ export const deleteCras = async (req, res) => {
       },
     });
 
-    // Invalidar cache
     cache.invalidateCras();
 
     apiMessage(res, 'CRAS removido com sucesso');

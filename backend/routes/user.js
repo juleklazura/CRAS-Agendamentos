@@ -14,10 +14,8 @@ const router = express.Router();
 // Filtros aplicados no controller baseados no perfil do usuário
 router.get('/', auth, getUsers);
 
-// GET /api/users/entrevistadores/cras/:crasId - Buscar entrevistadores por CRAS específico
-// Usado pela recepção para filtrar apenas entrevistadores do próprio CRAS
-// Facilita criação de agendamentos com escopo restrito
-// 🔒 SEGURANÇA: Validação de ID no parâmetro
+// GET /api/users/entrevistadores/cras/:crasId - Entrevistadores por CRAS
+// Recepção usa para filtrar entrevistadores do próprio CRAS
 router.get('/entrevistadores/cras/:crasId', auth, validateId('crasId'), authorize(['recepcao', 'admin']), getEntrevistadoresByCras);
 
 // Rotas restritas apenas para administradores
@@ -29,9 +27,7 @@ router.get('/entrevistadores/cras/:crasId', auth, validateId('crasId'), authoriz
 router.post('/', auth, authorize(['admin']), validate(createUserSchema), createUser);
 
 // PUT /api/users/:id - Editar usuário existente
-// Permite alterar dados pessoais, papel e vinculação a CRAS
-// Body: { name?, matricula?, password?, role?, cras?, agenda? }
-// 🔒 SEGURANÇA: Validação de ID + Validação Joi dos dados
+// Valida ID no param e body via Joi
 router.put('/:id', auth, validateId('id'), authorize(['admin']), validate(updateUserSchema), updateUser);
 
 // DELETE /api/users/:id - Excluir usuário do sistema

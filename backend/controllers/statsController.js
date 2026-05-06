@@ -3,10 +3,104 @@
  * Endpoint otimizado para dashboard com queries SQL nativas
  */
 import prisma from '../utils/prisma.js';
+import pkg from '@prisma/client';
+const { Prisma } = pkg;
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { apiSuccess, apiError } from '../utils/apiResponse.js';
 import cache from '../utils/cache.js';
 import logger from '../utils/logger.js';
+
+// =============================================================================
+// HELPERS DE QUERY SQL AGREGADA
+// =============================================================================
+
+/**
+ * Constrói fragmentos Prisma.Sql WHERE a partir do objeto where.
+ * where.data é sempre definido antes de chamar esta função.
+ */
+function buildWhereConditions(where) {
+  const parts = [];
+  if (where.data?.gte) parts.push(Prisma.sql`data >= ${where.data.gte}`);
+  if (where.data?.lte) parts.push(Prisma.sql`data <= ${where.data.lte}`);
+  if (typeof where.entrevistadorId === 'string') {
+    parts.push(Prisma.sql`entrevistador_id = ${where.entrevistadorId}`);
+  } else if (Array.isArray(where.entrevistadorId?.in)) {
+    parts.push(Prisma.sql`entrevistador_id = ANY(${where.entrevistadorId.in})`);
+  }
+  if (where.crasId) {
+    parts.push(Prisma.sql`cras_id = ${where.crasId}`);
+  }
+  return parts;
+}
+
+/**
+ * Chart data para view mensal — agrupa por semana (1–5) no banco.
+ * AT TIME ZONE garante bucket correto no fuso de Brasília.
+ */
+async function fetchWeeklyChartData(where) {
+  const conditions = buildWhereConditions(where);
+  const whereClause = Prisma.join(conditions, ' AND ');
+
+  const rows = await prisma.$queryRaw`
+    SELECT
+      LEAST(CEIL(EXTRACT(DAY FROM data AT TIME ZONE 'America/Sao_Paulo') / 7.0), 5)::int AS semana,
+      status::text,
+      COUNT(*)::int AS total
+    FROM appointments
+    WHERE ${whereClause}
+    GROUP BY 1, 2
+    ORDER BY 1
+  `;
+
+  const weeks = Array.from({ length: 5 }, (_, i) => ({
+    name: `Sem ${i + 1}`,
+    realizados: 0,
+    ausentes: 0,
+    agendados: 0,
+  }));
+
+  for (const row of rows) {
+    const idx = row.semana - 1;
+    if (idx < 0 || idx > 4) continue;
+    if (row.status === 'realizado') weeks[idx].realizados = row.total;
+    else if (row.status === 'ausente') weeks[idx].ausentes = row.total;
+    else if (row.status === 'agendado') weeks[idx].agendados = row.total;
+  }
+
+  return weeks;
+}
+
+/**
+ * Chart data para view anual — agrupa por mês no banco.
+ */
+async function fetchMonthlyChartData(where) {
+  const conditions = buildWhereConditions(where);
+  const whereClause = Prisma.join(conditions, ' AND ');
+
+  const rows = await prisma.$queryRaw`
+    SELECT
+      EXTRACT(MONTH FROM data AT TIME ZONE 'America/Sao_Paulo')::int AS mes,
+      status::text,
+      COUNT(*)::int AS total
+    FROM appointments
+    WHERE ${whereClause}
+    GROUP BY 1, 2
+    ORDER BY 1
+  `;
+
+  const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const months = MONTH_NAMES.map((name) => ({ name, realizados: 0, ausentes: 0, agendados: 0 }));
+
+  for (const row of rows) {
+    const idx = row.mes - 1;
+    if (idx < 0 || idx > 11) continue;
+    if (row.status === 'realizado') months[idx].realizados = row.total;
+    else if (row.status === 'ausente') months[idx].ausentes = row.total;
+    else if (row.status === 'agendado') months[idx].agendados = row.total;
+  }
+
+  return months;
+}
 
 /**
  * Busca estatísticas agregadas para o dashboard
@@ -24,7 +118,8 @@ export const getDashboardStats = async (req, res) => {
 
     const actor = req.user;
 
-    // 🔒 SEGURANÇA: Escopo por role — impede IDOR (acesso a dados de outros)
+    // Escopo por role: impede IDOR (acesso a dados de outros CRAS).
+    // Admin vê todos; entrevistador vê apenas a si; outros veem o próprio CRAS.
     const where = {};
 
     if (actor.role === 'entrevistador') {
@@ -64,7 +159,7 @@ export const getDashboardStats = async (req, res) => {
       where.data = { gte: startDate, lte: endDate };
     }
 
-    // 🔒 Chave de cache com escopo por role+identidade para evitar cache poisoning cross-user.
+    // Chave de cache com escopo por role+identidade para evitar cache poisoning cross-user.
     // Cada usuário/CRAS tem uma chave isolada; dados de um nunca vazam para outro.
     let cacheKey;
     if (actor.role === 'entrevistador') {
@@ -81,16 +176,27 @@ export const getDashboardStats = async (req, res) => {
     const formattedData = await cache.cached(
       cacheKey,
       async () => {
-        // Buscar agendamentos agrupados
-        const appointments = await prisma.appointment.findMany({
+        // Totais por status — aggregação no banco (O(log n) via index scan)
+        const statusGroups = await prisma.appointment.groupBy({
+          by: ['status'],
           where,
-          select: {
-            data: true,
-            status: true,
-          },
+          _count: { _all: true },
         });
 
-        return formatStatsResults(appointments, viewMode, currentMonth, currentYear);
+        const stats = { realizados: 0, ausentes: 0, agendados: 0, total: 0 };
+        for (const g of statusGroups) {
+          if (g.status === 'realizado') stats.realizados = g._count._all;
+          else if (g.status === 'ausente') stats.ausentes = g._count._all;
+          else if (g.status === 'agendado') stats.agendados = g._count._all;
+        }
+        stats.total = stats.realizados + stats.ausentes + stats.agendados;
+
+        // Chart data — bucketing por semana ou mês feito inteiramente no banco
+        const chartData = viewMode === 'mensal'
+          ? await fetchWeeklyChartData(where)
+          : await fetchMonthlyChartData(where);
+
+        return { chartData, stats };
       },
       300
     );
@@ -101,119 +207,3 @@ export const getDashboardStats = async (req, res) => {
     apiError(res, 'Erro ao buscar estatísticas do dashboard', 500);
   }
 };
-
-/**
- * Formata resultados para o formato do dashboard
- */
-function formatStatsResults(appointments, viewMode, selectedMonth, selectedYear) {
-  if (viewMode === 'mensal') {
-    return formatWeeklyStats(appointments, selectedMonth, selectedYear);
-  } else {
-    return formatMonthlyStats(appointments, selectedYear);
-  }
-}
-
-/**
- * Formata estatísticas semanais (para visualização mensal)
- */
-function formatWeeklyStats(appointments, selectedMonth, selectedYear) {
-  const weeks = {};
-
-  // Inicializar semanas (1 a 5)
-  for (let week = 1; week <= 5; week++) {
-    weeks[week] = {
-      name: `Sem ${week}`,
-      realizados: 0,
-      ausentes: 0,
-      agendados: 0,
-    };
-  }
-
-  // Preencher com dados reais
-  appointments.forEach((item) => {
-    const date = new Date(item.data);
-    if (date.getMonth() !== selectedMonth) return;
-
-    const dayOfMonth = date.getDate();
-    const status = item.status;
-
-    const week = Math.ceil(dayOfMonth / 7);
-
-    if (!weeks[week]) {
-      weeks[week] = {
-        name: `Sem ${week}`,
-        realizados: 0,
-        ausentes: 0,
-        agendados: 0,
-      };
-    }
-
-    if (status === 'realizado') {
-      weeks[week].realizados += 1;
-    } else if (status === 'ausente') {
-      weeks[week].ausentes += 1;
-    } else if (status === 'agendado') {
-      weeks[week].agendados += 1;
-    }
-  });
-
-  // Calcular totais
-  const stats = { realizados: 0, ausentes: 0, agendados: 0, total: 0 };
-
-  Object.values(weeks).forEach((week) => {
-    stats.realizados += week.realizados;
-    stats.ausentes += week.ausentes;
-    stats.agendados += week.agendados;
-  });
-
-  stats.total = stats.realizados + stats.ausentes + stats.agendados;
-
-  return { chartData: Object.values(weeks), stats };
-}
-
-/**
- * Formata estatísticas mensais (para visualização anual)
- */
-function formatMonthlyStats(appointments, selectedYear) {
-  const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  const months = {};
-
-  monthNames.forEach((month) => {
-    months[month] = {
-      name: month.charAt(0).toUpperCase() + month.slice(1),
-      realizados: 0,
-      ausentes: 0,
-      agendados: 0,
-    };
-  });
-
-  appointments.forEach((item) => {
-    const date = new Date(item.data);
-    if (date.getFullYear() !== selectedYear) return;
-
-    const monthIndex = date.getMonth();
-    const monthKey = monthNames[monthIndex];
-    const status = item.status;
-
-    if (status === 'realizado') {
-      months[monthKey].realizados += 1;
-    } else if (status === 'ausente') {
-      months[monthKey].ausentes += 1;
-    } else if (status === 'agendado') {
-      months[monthKey].agendados += 1;
-    }
-  });
-
-  // Calcular totais
-  const stats = { realizados: 0, ausentes: 0, agendados: 0, total: 0 };
-
-  Object.values(months).forEach((month) => {
-    stats.realizados += month.realizados;
-    stats.ausentes += month.ausentes;
-    stats.agendados += month.agendados;
-  });
-
-  stats.total = stats.realizados + stats.ausentes + stats.agendados;
-
-  return { chartData: Object.values(months), stats };
-}

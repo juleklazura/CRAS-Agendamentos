@@ -129,6 +129,8 @@ model Appointment {
   @@unique([entrevistadorId, data])
   @@index([entrevistadorId, data, status])
   @@index([crasId, data])
+  @@index([crasId, status, data])
+  @@index([data, status])
   @@index([cpfHash])
   @@index([status])
   @@index([data])
@@ -164,8 +166,8 @@ model BlockedSlot {
 model Log {
   id String @id @default(cuid())
 
-  userId String @map("user_id")
-  user   User   @relation(fields: [userId], references: [id])
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id])
 
   crasId String? @map("cras_id")
   cras   Cras?   @relation(fields: [crasId], references: [id])
@@ -180,4 +182,19 @@ model Log {
   @@index([userId, date(sort: Desc)])
   @@index([crasId, date(sort: Desc)])
   @@map("logs")
+}
+
+// ─── RevokedToken ─────────────────────────────────────────────────────────────
+// Blacklist persistente de tokens JWT revogados (logout + rotação de refresh).
+// Sobrevive a restarts/deploys — diferente do node-cache in-memory (OWASP A07).
+// Job de limpeza: purgeOldAppointments.js pode ser estendido para purgar aqui também,
+// mas o índice em expiresAt é suficiente para o Postgres ignorar linhas expiradas.
+
+model RevokedToken {
+  jti       String   @id               // JWT ID único — PK garante unicidade e lookup O(log n)
+  expiresAt DateTime @map("expires_at") // Quando o token expiraria naturalmente
+  revokedAt DateTime @default(now()) @map("revoked_at")
+
+  @@index([expiresAt])                  // usado pelo job de limpeza
+  @@map("revoked_tokens")
 }

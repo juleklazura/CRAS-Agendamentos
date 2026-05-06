@@ -1,6 +1,4 @@
-// =============================================================================
-// 🔄 MAPEAMENTO DE MOTIVOS — ENUM PRISMA ↔ LABEL FRONTEND
-// =============================================================================
+// Mapeamento de motivos: enum Prisma <-> label para frontend.
 // No banco anterior os motivos eram strings com acentos.
 // No PostgreSQL usamos enum sem acentos. Este módulo faz a conversão.
 

@@ -4,6 +4,7 @@
 import express from 'express';
 import { createLog, getLogs } from '../controllers/logController.js';
 import { auth, authorize } from '../middlewares/auth.js';
+import { validateQueryIds } from '../middlewares/validateId.js';
 
 const router = express.Router();
 
@@ -12,10 +13,7 @@ const router = express.Router();
 router.post('/', auth, authorize(['admin']), createLog);
 
 // GET /api/logs - Consultar logs com filtros baseados no perfil do usuário
-// Entrevistadores veem apenas seus próprios logs
-// Recepção vê logs do CRAS onde trabalha
-// Admin vê todos os logs do sistema
-// Query params: ?action=tipo&startDate=yyyy-mm-dd&endDate=yyyy-mm-dd&user=id
-router.get('/', auth, authorize(['admin', 'entrevistador', 'recepcao']), getLogs);
+// validateQueryIds garante que ?cras= e ?user= são CUIDs válidos antes da query
+router.get('/', auth, authorize(['admin', 'entrevistador', 'recepcao']), validateQueryIds(['cras', 'user']), getLogs);
 
 export default router;

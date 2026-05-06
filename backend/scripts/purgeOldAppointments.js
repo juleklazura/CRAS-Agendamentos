@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * 🗑️  SCRIPT DE PURGA DE AGENDAMENTOS ANTIGOS (LGPD)
+ * Script de purga de agendamentos antigos (LGPD)
  * ============================================================================
  *
  * Remove agendamentos com dados pessoais que ultrapassaram o prazo de retenção,

@@ -1,16 +1,13 @@
 /**
- * Middleware de sanitização de entrada
- * 
- * Protege contra injeção e ataques de manipulação de entrada.
- * Com Prisma/PostgreSQL, SQL injection é prevenido por queries parametrizadas.
- * Este middleware oferece defesa em profundidade.
+ * Sanitização de entrada como defesa em profundidade.
+ * O Prisma usa queries parametrizadas (SQL injection não é uma ameaça direta),
+ * mas este middleware remove chaves com `$` que poderiam ser usadas para
+ * injetar operadores em ORMs que aceitam objetos arbitrários no `where`.
  */
 
 import logger from '../utils/logger.js';
 
-/**
- * Sanitiza objeto recursivamente removendo chaves perigosas
- */
+// Remove chaves que começam com `$` (ex: `$where`, `$or`) — defesa contra injeção de operadores.
 export const sanitizeInput = (obj) => {
   if (!obj || typeof obj !== 'object') return obj;
   
@@ -22,7 +19,7 @@ export const sanitizeInput = (obj) => {
     // Remove chaves com $ (defesa em profundidade)
     if (key.includes('$')) {
       delete obj[key];
-      logger.security(`Campo removido (chave perigosa): ${key}`);
+      logger.security(`Campo com operador removido: ${key}`);
       return;
     }
     
@@ -36,15 +33,13 @@ export const sanitizeInput = (obj) => {
   return obj;
 };
 
-/**
- * Verifica caracteres perigosos em objeto
- */
+// Detecta chaves perigosas de forma recursiva sem modificar o objeto (usado em query/params).
 const checkDangerousChars = (obj, source) => {
   if (!obj || typeof obj !== 'object') return false;
   
   for (const key in obj) {
     if (key.includes('$')) {
-      logger.security(`🚨 Tentativa de injeção detectada em ${source} - Campo: ${key}`);
+      logger.security(`Tentativa de injeção de operador detectada em ${source} — campo: ${key}`);
       return true;
     }
     
@@ -58,9 +53,7 @@ const checkDangerousChars = (obj, source) => {
   return false;
 };
 
-/**
- * Middleware que sanitiza body, query e params
- */
+// Aplica sanitização ao body (mutando o objeto) e valida query/params sem modificar.
 export const sanitizationMiddleware = (req, res, next) => {
   if (req.body && typeof req.body === 'object') {
     sanitizeInput(req.body);

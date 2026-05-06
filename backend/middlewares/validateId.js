@@ -1,23 +1,18 @@
-// =============================================================================
-// 🔒 MIDDLEWARE DE VALIDAÇÃO DE ID
-// =============================================================================
-// Valida se parâmetros de ID são strings válidas (CUIDs do Prisma)
-// Previne crashes e comportamento inesperado com IDs malformados
+// Valida parâmetros de ID (CUIDs do Prisma) em params e query strings.
+// Previne crashes causados por IDs malformados e expeções Prisma com detalhes internos.
 
 import logger, { pseudonymizeIp } from '../utils/logger.js';
 
+// CUIDs têm ~25 caracteres alfanuméricos. O padrão admite também IDs legados mais curtos.
 const ID_PATTERN = /^[a-z0-9]+$/i;
 
-/**
- * Valida se uma string é um ID válido (CUID)
- */
 function isValidId(value) {
   return typeof value === 'string' && value.length >= 1 && value.length <= 50 && ID_PATTERN.test(value);
 }
 
 /**
- * Middleware para validar parâmetro :id como string válida
- * CUIDs têm ~25 caracteres alfanuméricos
+ * Valida o parâmetro de rota `:id` (ou outro param nomeado).
+ * Rejeita com 400 antes de qualquer query ao banco.
  */
 export const validateId = (paramName = 'id') => {
   return (req, res, next) => {
@@ -28,7 +23,7 @@ export const validateId = (paramName = 'id') => {
     }
     
     if (!isValidId(id)) {
-      logger.warn('🔒 ID inválido recebido', {
+      logger.warn('ID inválido recebido em param', {
         paramName,
         value: String(id).substring(0, 50),
         ip: pseudonymizeIp(req.ip),
@@ -47,8 +42,8 @@ export const validateId = (paramName = 'id') => {
 };
 
 /**
- * Middleware para validar IDs em query string
- * Ex: ?cras=abc123&entrevistador=def456
+ * Valida IDs informados em query strings (ex: ?cras=abc123&entrevistador=def456).
+ * Previne PrismaClientValidationError que poderia expor mensagens de erro internas.
  */
 export const validateQueryIds = (paramNames = []) => {
   return (req, res, next) => {
@@ -58,7 +53,7 @@ export const validateQueryIds = (paramNames = []) => {
       if (!value) continue;
       
       if (!isValidId(value)) {
-        logger.warn('🔒 ID inválido em query', {
+        logger.warn('ID inválido em query string', {
           paramName,
           value: String(value).substring(0, 50),
           ip: pseudonymizeIp(req.ip),

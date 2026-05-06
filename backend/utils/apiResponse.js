@@ -1,5 +1,5 @@
 // =============================================================================
-// 📦 UTILITÁRIO DE RESPOSTAS PADRONIZADAS DA API
+// Respostas HTTP padronizadas para manter formato consistente na API. DA API
 // =============================================================================
 // Todas as respostas seguem o formato:
 //   Sucesso: { success: true,  data: <payload>, message: <string|null> }

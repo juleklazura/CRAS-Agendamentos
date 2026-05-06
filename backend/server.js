@@ -2,6 +2,7 @@
 // Refatorado para arquitetura modular
 
 import dotenv from 'dotenv';
+import * as Sentry from '@sentry/node';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -10,7 +11,7 @@ import cookieParser from 'cookie-parser';
 import logger, { pseudonymizeIp } from './utils/logger.js';
 import prisma from './utils/prisma.js';
 
-// 🔒 SEGURANÇA: Validar configurações de segurança antes de iniciar
+// Validação das secrets obrigatórias antes de qualquer inicialização.
 import './utils/validateSecrets.js';
 
 // Importação de configurações modulares
@@ -24,6 +25,7 @@ import { timeoutMiddleware } from './middlewares/timeout.js';
 import { securityHeadersMiddleware } from './middlewares/securityHeaders.js';
 
 // Importação das rotas organizadas por funcionalidade
+import { startCleanupJob } from './utils/tokenBlacklist.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
 import crasRoutes from './routes/cras.js';
@@ -35,12 +37,32 @@ import statsRoutes from './routes/stats.js';
 // Carrega variáveis de ambiente
 dotenv.config();
 
+// Sentry: deve ser inicializado antes de qualquer outro código
+// para capturar erros de startup. Desabilitado sem SENTRY_DSN.
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV || 'development',
+  tracesSampleRate: 0.1,
+  enabled: !!process.env.SENTRY_DSN,
+
+  // LGPD Art. 33: remove dados pessoais antes de enviar ao Sentry (servidores nos EUA).
+  // Corpo da requisição pode conter CPF, nome, telefone; cookies contêm JWTs.
+  beforeSend(event) {
+    if (event.request?.data) delete event.request.data;
+    if (event.request?.cookies) delete event.request.cookies;
+    if (event.request?.headers?.cookie) delete event.request.headers.cookie;
+    if (event.request?.headers?.authorization) delete event.request.headers.authorization;
+    // Mantém apenas o ID anônimo para rastreio de freqüência de erros por usuário
+    if (event.user) event.user = { id: event.user.id };
+    return event;
+  },
+});
+
 // Inicializa aplicação Express
 const app = express();
 
-// ========================================
-// 🔒 CONFIGURAÇÃO DE PROXY REVERSO
-// ========================================
+// Trust proxy: necessário para detectar IP real do cliente atrás do Render/Vercel.
+// Sem isso, req.ip seria sempre o IP do load balancer, inutilizando rate limiters por IP.
 if (shouldTrustProxy()) {
   app.set('trust proxy', 1);
   logger.info('✓ Trust proxy habilitado - IPs reais serão detectados');
@@ -48,9 +70,6 @@ if (shouldTrustProxy()) {
   logger.info('ℹ Trust proxy desabilitado');
 }
 
-// ========================================
-// 🔒 MIDDLEWARES DE SEGURANÇA
-// ========================================
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(helmet(helmetOptions));
@@ -130,6 +149,7 @@ async function bootstrapAdmin() {
 prisma.$connect()
   .then(async () => {
     await bootstrapAdmin();
+    startCleanupJob(); // Inicia limpeza periódica do L1 da blacklist (10 min)
     app.listen(PORT, '0.0.0.0', () => {
       logger.success(`Servidor rodando na porta ${PORT}`);
       logger.info('PostgreSQL (Neon) conectado com sucesso');
@@ -154,10 +174,12 @@ prisma.$connect()
   });
 
 // ========================================
-// 🔒 MIDDLEWARE DE ERRO GLOBAL
+// Handler de erros global (Express)
 // ========================================
 // DEVE SER O ÚLTIMO MIDDLEWARE (após todas as rotas)
 app.use((err, req, res, next) => {
+  // P23: Envia exceções não tratadas ao Sentry para visibilidade em produção
+  Sentry.captureException(err);
   // Logar erro completo internamente
   logger.error('❌ Erro não tratado:', {
     message: err.message,
@@ -169,7 +191,7 @@ app.use((err, req, res, next) => {
     userAgent: req.headers['user-agent']
   });
   
-  // 🔒 SEGURANÇA: Nunca expor detalhes internos em produção
+  // Não expor stack trace nem mensagens internas em produção.
   if (process.env.NODE_ENV === 'production') {
     return res.status(err.status || 500).json({ 
       message: 'Erro interno do servidor',
@@ -187,10 +209,11 @@ app.use((err, req, res, next) => {
 });
 
 // ========================================
-// 🔒 HANDLERS DE ERROS NÃO CAPTURADOS
+// Handlers de erros não capturados
 // ========================================
 // Handler de exceções não capturadas
 process.on('uncaughtException', (error) => {
+  Sentry.captureException(error);
   logger.error('🚨 Uncaught Exception:', {
     message: error.message,
     stack: error.stack
@@ -204,6 +227,7 @@ process.on('uncaughtException', (error) => {
 
 // Handler de promises rejeitadas não tratadas
 process.on('unhandledRejection', (reason, promise) => {
+  Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
   logger.error('🚨 Unhandled Rejection:', {
     reason: reason instanceof Error ? reason.message : reason,
     stack: reason instanceof Error ? reason.stack : undefined
@@ -211,7 +235,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // ========================================
-// 🔒 GRACEFUL SHUTDOWN
+// Graceful shutdown: fecha a conexão Prisma antes de sair
 // ========================================
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} recebido, encerrando servidor gracefully...`);

@@ -1,63 +1,21 @@
 /**
- * ============================================================================
- * 🚀 SISTEMA DE CACHE EM MEMÓRIA - OTIMIZAÇÃO DE PERFORMANCE
- * ============================================================================
- * 
- * Implementa cache em memória usando Node-Cache para reduzir drasticamente
- * o número de queries ao banco.
- * 
- * ⚡ IMPACTO ESPERADO: Redução de 80% das queries ao banco
- * 
- * 🔒 SEGURANÇA:
- * - Cache APENAS de dados não sensíveis ou já descriptografados
- * - TTL curto (5 minutos padrão) para dados atualizados
- * - Invalidação automática em operações CUD (Create, Update, Delete)
- * - Chaves únicas por contexto (CRAS, usuário, data)
- * - Sem persistência (apenas memória - não grava em disco)
- * 
- * 💡 ALTERNATIVA AO REDIS:
- * - Node-Cache é mais simples (sem servidor externo)
- * - Perfeito para aplicações pequenas/médias
- * - Se escalar muito, migrar para Redis é fácil (mesma interface)
- * 
- * 📋 USO:
- * import cache from './utils/cache.js';
- * 
- * // Armazenar
- * cache.set('key', data, 300); // TTL 5min
- * 
- * // Recuperar
- * const data = cache.get('key');
- * 
- * // Deletar padrão (ex: invalidar todos os appointments de um CRAS)
- * cache.delPattern('appointments:cras123');
- * 
- * ============================================================================
+ * Cache em memória (node-cache) para reduzir queries ao banco.
+ *
+ * Armazena apenas dados não sensíveis ou já processados.
+ * TTL curto (2 min padrão) minimiza janela de dados desatualizados.
+ * Invalidação explícita em operações CUD garante consistência.
+ * Sem persistência — ao reiniciar, o cache é recriado do banco sob demanda.
  */
 
 import NodeCache from 'node-cache';
 import logger from './logger.js';
 
 // ============================================================================
-// 🔒 SANITIZAÇÃO DE LOGS - PROTEÇÃO DE DADOS SENSÍVEIS
+// Sanitiza chave antes de logar, removendo CPF, telefone e dados pessoais.
 // ============================================================================
 
-/**
- * Sanitiza chaves de cache removendo dados sensíveis antes de logar
- * 
- * 🔒 SEGURANÇA:
- * - Remove CPFs (formato 123.456.789-00 ou 12345678900)
- * - Remove telefones (formato (XX) XXXXX-XXXX)
- * - Remove nomes completos em parâmetros de busca
- * - Remove qualquer dado pessoal em query strings
- * 
- * @param {string} key - Chave de cache a ser sanitizada
- * @returns {string} Chave sanitizada segura para logs
- * 
- * @example
- * sanitizeCacheKey('appointments:busca=João Silva CPF 123.456.789-00')
- * // Retorna: 'appointments:busca=[REDACTED]'
- */
+// Sanitiza a chave antes de logar, removendo CPF, telefone e dados pessoais
+// que podem ser incluídos como parte das chaves de cache.
 const sanitizeCacheKey = (key) => {
   if (!key || typeof key !== 'string') return key;
   
@@ -92,19 +50,19 @@ const sanitizeCacheKey = (key) => {
  * Cache principal com configuração otimizada
  * 
  * Opções:
- * - stdTTL: Tempo de vida padrão (2 minutos = 120 segundos) 🚀
- * - checkperiod: Intervalo de limpeza de cache expirado (30 segundos) 🚀
+ * - stdTTL: Tempo de vida padrão (2 minutos = 120 segundos)
+ * - checkperiod: Intervalo de limpeza de cache expirado (30 segundos)
  * - useClones: false para melhor performance (não clona objetos)
  * - deleteOnExpire: true (remove automaticamente quando expira)
- * - maxKeys: 2000 (aumentado para suportar mais dados) 🚀
+ * - maxKeys: 2000
  */
 const cache = new NodeCache({
-  stdTTL: 120,              // 🚀 2 minutos (mais agressivo)
-  checkperiod: 30,          // 🚀 Limpar a cada 30s
-  useClones: false,         // Performance (não clona - cuidado com mutações!)
-  deleteOnExpire: true,     // Remove automaticamente
-  maxKeys: 2000,            // 🚀 Aumentado para 2000 chaves
-  errorOnMissing: false     // Não lança erro se chave não existe
+  stdTTL: 120,              // 2 minutos
+  checkperiod: 30,          // limpeza de chaves expiradas a cada 30s
+  useClones: false,         // sem clone — cuidado com mutações externas
+  deleteOnExpire: true,
+  maxKeys: 2000,            // acima disso o cache rejeita novas chaves
+  errorOnMissing: false
 });
 
 // ============================================================================
@@ -130,27 +88,17 @@ cache.on('flush', () => {
 // ============================================================================
 
 /**
- * Obter valor do cache
- * 
- * @param {string} key - Chave única do cache
- * @returns {any|undefined} Valor armazenado ou undefined se não existe/expirou
- * 
- * @example
- * const appointments = cache.get('appointments:cras123:2025-11-24');
- * if (!appointments) {
- *   // Cache miss - buscar no banco
- * }
+ * Retorna o valor cacheado para `key`, ou `undefined` se ausente/expirado.
  */
 export const get = (key) => {
   try {
     const value = cache.get(key);
     
-    // Log de cache hit/miss (apenas em desenvolvimento)
     if (process.env.NODE_ENV === 'development') {
       if (value !== undefined) {
-        logger.debug('✅ Cache HIT', { key: sanitizeCacheKey(key) });
+        logger.debug('Cache HIT', { key: sanitizeCacheKey(key) });
       } else {
-        logger.debug('❌ Cache MISS', { key: sanitizeCacheKey(key) });
+        logger.debug('Cache MISS', { key: sanitizeCacheKey(key) });
       }
     }
     
@@ -162,22 +110,15 @@ export const get = (key) => {
 };
 
 /**
- * Definir valor no cache
- * 
- * @param {string} key - Chave única do cache
- * @param {any} value - Valor a ser armazenado
- * @param {number} ttl - Tempo de vida em segundos (padrão: 300 = 5min)
- * @returns {boolean} true se sucesso, false se erro
- * 
- * @example
- * cache.set('appointments:cras123', appointments, 300);
+ * Armazena `value` em `key` com TTL em segundos (padrão: 300s = 5min).
+ * Retorna `true` se sucesso.
  */
 export const set = (key, value, ttl = 300) => {
   try {
     const success = cache.set(key, value, ttl);
     
     if (process.env.NODE_ENV === 'development') {
-      logger.debug('💾 Cache SET', { 
+      logger.debug('Cache SET', { 
         key: sanitizeCacheKey(key), 
         ttl, 
         success,
@@ -263,20 +204,13 @@ export const delPattern = (pattern) => {
   }
 };
 
-/**
- * Limpar todo o cache
- * 
- * @returns {void}
- * 
- * @example
- * cache.flush(); // Limpa tudo (use com cuidado!)
- */
+/** Remove todas as entradas do cache. Use com parcimônia. */
 export const flush = () => {
   try {
     cache.flushAll();
     
     if (process.env.NODE_ENV !== 'test') {
-      logger.info('🧹 Cache completamente limpo (flush)');
+      logger.info('Cache completamente limpo (flush)');
     }
   } catch (error) {
     logger.error('Erro ao limpar cache', { error: error.message });
@@ -284,45 +218,25 @@ export const flush = () => {
 };
 
 /**
- * Wrapper para funções com cache automático
- * 
- * Padrão comum: tentar obter do cache, se não existir executar função e cachear.
- * 
- * @param {string} key - Chave do cache
- * @param {Function} fn - Função async a ser executada em cache miss
- * @param {number} ttl - Tempo de vida em segundos (padrão: 300 = 5min)
- * @returns {Promise<any>} Resultado (do cache ou da função)
- * 
- * @example
- * const appointments = await cache.cached(
- *   'appointments:cras123',
- *   async () => await Appointment.find({ cras: '123' }),
- *   300
- * );
+ * Wrapper cache-aside: tenta o cache; em miss executa `fn()`, armazena e retorna o resultado.
+ * Em caso de erro no cache, executa `fn()` diretamente para não bloquear a requisição.
  */
 export const cached = async (key, fn, ttl = 300) => {
   try {
-    // Tentar obter do cache
     const cachedValue = get(key);
     
     if (cachedValue !== undefined) {
-      // Cache hit - retornar imediatamente
       return cachedValue;
     }
     
-    // Cache miss - executar função
     const result = await fn();
-    
-    // Armazenar resultado no cache
     set(key, result, ttl);
-    
     return result;
   } catch (error) {
     logger.error('Erro em cached wrapper', { 
       key: sanitizeCacheKey(key), 
       error: error.message 
     });
-    // Em caso de erro, tentar executar função diretamente
     return await fn();
   }
 };
