@@ -231,13 +231,27 @@ export default function Usuarios() {
     }
     setLoading(false);
   }
-  function exportToExcel() {
+  async function exportToExcel() {
     const data = usuarios.map(u => ({ 
       Nome: u.name, 
       Matrícula: u.matricula, 
       Papel: u.role, 
       CRAS: u.cras?.nome || '-' 
     }));
+
+    // LGPD — rastreabilidade (Art. 37): registra exportação server-side antes de gerar arquivo
+    try {
+      await api.post('/logs', {
+        action: 'exportar_agendamentos',
+        details: `Exportação de ${data.length} usuário(s) para CSV por ${currentUser?.name} (${currentUser?.role})`,
+      });
+    } catch {
+      // Falha silenciosa: não bloqueia a exportação, mas registra no console em dev
+      if (import.meta.env.DEV) {
+        console.warn('Falha ao registrar auditoria de exportação de usuários');
+      }
+    }
+
     exportToCSV(data, 'usuarios.csv');
   }
 

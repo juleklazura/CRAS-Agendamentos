@@ -45,6 +45,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
 const DEFAULT_RETENTION_YEARS = 2;
+const DEFAULT_LOG_RETENTION_YEARS = 5; // LGPD + CGU: logs de auditoria de órgão público por no mínimo 5 anos
 const MIN_RETENTION_YEARS = 1;
 const MAX_RETENTION_YEARS = 10;
 
@@ -53,6 +54,7 @@ function parseArgs() {
   const config = {
     dryRun: false,
     retentionYears: DEFAULT_RETENTION_YEARS,
+    logRetentionYears: DEFAULT_LOG_RETENTION_YEARS,
   };
 
   for (const arg of args) {
@@ -65,14 +67,22 @@ function parseArgs() {
         process.exit(1);
       }
       config.retentionYears = value;
+    } else if (arg.startsWith('--log-retention-years=')) {
+      const value = parseInt(arg.split('=')[1], 10);
+      if (isNaN(value) || value < MIN_RETENTION_YEARS || value > MAX_RETENTION_YEARS) {
+        console.error(`❌ Valor inválido para --log-retention-years. Use entre ${MIN_RETENTION_YEARS} e ${MAX_RETENTION_YEARS}.`);
+        process.exit(1);
+      }
+      config.logRetentionYears = value;
     } else if (arg === '--help' || arg === '-h') {
       console.log(`
 Uso: node backend/scripts/purgeOldAppointments.js [opções]
 
 Opções:
-  --dry-run                Simula a purga sem excluir dados
-  --retention-years=N      Define o prazo de retenção em anos (padrão: ${DEFAULT_RETENTION_YEARS})
-  --help, -h               Exibe esta ajuda
+  --dry-run                    Simula a purga sem excluir dados
+  --retention-years=N          Prazo de retenção de agendamentos em anos (padrão: ${DEFAULT_RETENTION_YEARS})
+  --log-retention-years=N      Prazo de retenção de logs de auditoria em anos (padrão: ${DEFAULT_LOG_RETENTION_YEARS})
+  --help, -h                   Exibe esta ajuda
       `);
       process.exit(0);
     } else {
@@ -91,12 +101,13 @@ const prisma = new PrismaClient();
 async function purgeOldData() {
   const config = parseArgs();
   const cutoffDate = subYears(new Date(), config.retentionYears);
+  const logCutoffDate = subYears(new Date(), config.logRetentionYears);
 
   console.log('\n' + '='.repeat(80));
   console.log('🗑️  PURGA DE DADOS ANTIGOS — LGPD (Lei 13.709/2018)');
   console.log('='.repeat(80));
-  console.log(`\n📅 Prazo de retenção: ${config.retentionYears} ano(s)`);
-  console.log(`📅 Data de corte: ${cutoffDate.toISOString().split('T')[0]}`);
+  console.log(`\n📅 Prazo de retenção (agendamentos/bloqueios): ${config.retentionYears} ano(s) → corte: ${cutoffDate.toISOString().split('T')[0]}`);
+  console.log(`📅 Prazo de retenção (logs de auditoria):       ${config.logRetentionYears} ano(s) → corte: ${logCutoffDate.toISOString().split('T')[0]}`);
   console.log(`🔒 Modo: ${config.dryRun ? 'SIMULAÇÃO (dry-run) — nenhum dado será excluído' : 'EXECUÇÃO REAL'}`);
   console.log('');
 
@@ -134,9 +145,21 @@ async function purgeOldData() {
       where: { data: { lt: cutoffDate } },
     });
 
-    // ── 4. Contar logs antigos ──
+    // ── 4. Contar logs antigos (prazo maior: logRetentionYears) ──
     const logCount = await prisma.log.count({
-      where: { date: { lt: cutoffDate } },
+      where: { date: { lt: logCutoffDate } },
+    });
+
+    // ── 5. Identificar usuários desativados a anonimizar (Art. 15/16 LGPD) ──
+    // Critério: ativo=false E sem agendamentos pendentes (todos já purgados ou nunca houve).
+    // Esses usuários não têm mais finalidade de tratamento — nome e matrícula devem ser
+    // anonimizados para minimizar dados pessoais de funcionários desligados.
+    const inactiveUsersToAnonymize = await prisma.user.findMany({
+      where: {
+        ativo: false,
+        appointments: { none: {} },
+      },
+      select: { id: true, name: true },
     });
 
     // ── Exibir resumo ──
@@ -169,10 +192,11 @@ async function purgeOldData() {
     }
 
     console.log(`  Bloqueios de horário: ${blockedSlotCount.toLocaleString('pt-BR')}`);
-    console.log(`  Logs de auditoria:    ${logCount.toLocaleString('pt-BR')}`);
+    console.log(`  Logs de auditoria:    ${logCount.toLocaleString('pt-BR')} (corte: ${config.logRetentionYears} anos)`);
+    console.log(`  Usuários a anonimizar: ${inactiveUsersToAnonymize.length.toLocaleString('pt-BR')} (desativados sem agendamentos)`);
     console.log('');
 
-    const totalRecords = appointmentCount + blockedSlotCount + logCount;
+    const totalRecords = appointmentCount + blockedSlotCount + logCount + inactiveUsersToAnonymize.length;
 
     if (totalRecords === 0) {
       console.log('✅ Nenhum dado antigo encontrado para purgar.\n');
@@ -199,14 +223,31 @@ async function purgeOldData() {
         where: { data: { lt: cutoffDate } },
       });
 
+      // Logs usam prazo maior (logRetentionYears) — documentos de conformidade
       const deletedLogs = await tx.log.deleteMany({
-        where: { date: { lt: cutoffDate } },
+        where: { date: { lt: logCutoffDate } },
       });
+
+      // Anonimizar usuários desativados sem agendamentos (Art. 15/16 LGPD).
+      // Atualização individual necessária pois `matricula` é unique.
+      let anonymizedUsers = 0;
+      for (const u of inactiveUsersToAnonymize) {
+        await tx.user.update({
+          where: { id: u.id },
+          data: {
+            name: '[Anonimizado]',
+            // Prefixo fixo + slice do ID garante unicidade sem expor dados
+            matricula: `anon_${u.id.slice(0, 12)}`,
+          },
+        });
+        anonymizedUsers++;
+      }
 
       return {
         appointments: deletedAppointments.count,
         blockedSlots: deletedBlockedSlots.count,
         logs: deletedLogs.count,
+        anonymizedUsers,
       };
     });
 
@@ -226,6 +267,7 @@ async function purgeOldData() {
           agendamentos: result.appointments,
           bloqueiosHorario: result.blockedSlots,
           logsAuditoria: result.logs,
+          usuariosAnonimizados: result.anonymizedUsers,
         },
         estatisticasPorStatus: statsByStatus.map((s) => ({
           status: s.status,
@@ -248,9 +290,10 @@ async function purgeOldData() {
     console.log('─'.repeat(60));
     console.log(`\n  Agendamentos excluídos:         ${result.appointments.toLocaleString('pt-BR')}`);
     console.log(`  Bloqueios de horário excluídos:  ${result.blockedSlots.toLocaleString('pt-BR')}`);
-    console.log(`  Logs de auditoria excluídos:     ${result.logs.toLocaleString('pt-BR')}`);
+    console.log(`  Logs de auditoria excluídos:     ${result.logs.toLocaleString('pt-BR')} (> ${config.logRetentionYears} anos)`);
+    console.log(`  Usuários anonimizados:           ${result.anonymizedUsers.toLocaleString('pt-BR')}`);
     console.log(`\n  📝 Log de auditoria registrado (ação: PURGA_LGPD)`);
-    console.log(`  🔒 Dados pessoais eliminados conforme LGPD Art. 16`);
+    console.log(`  🔒 Dados pessoais eliminados/anonimizados conforme LGPD Arts. 15 e 16`);
     console.log('─'.repeat(60) + '\n');
   } catch (error) {
     console.error('\n❌ Erro durante a purga:', error.message);
