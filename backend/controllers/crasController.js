@@ -93,6 +93,12 @@ export const updateCras = async (req, res) => {
     } catch (err) {
       // P2025: not found. Outros erros sobem para o handler externo.
       if (err.code === 'P2025') {
+        return apiError(res, 'CRAS não encontrado', 404);
+      }
+      throw err;
+    }
+
+    await prisma.log.create({
       data: {
         userId: req.user.id,
         crasId: cras.id,

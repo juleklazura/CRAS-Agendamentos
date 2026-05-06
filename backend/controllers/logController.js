@@ -2,6 +2,9 @@ import prisma from '../utils/prisma.js';
 import logger from '../utils/logger.js';
 import { apiSuccess, apiError } from '../utils/apiResponse.js';
 
+const ALLOWED_PAGE_SIZES = [10, 20, 50, 100, 200];
+const DEFAULT_PAGE_SIZE = 20;
+
 // Whitelist de ações válidas para o campo `action`.
 // Impede persistência de strings arbitrárias na tabela de auditoria.
 const ALLOWED_ACTIONS = [
