@@ -26,7 +26,9 @@ const HorarioTableRow = memo(({
   abrirModalObservacoes, 
   abrirModalAgendamento,
   abrirModalEdicao,
-  isEntrevistador
+  isEntrevistador,
+  canSchedule,
+  showActionsColumn
 }) => (
   <TableRow 
     sx={{
@@ -99,8 +101,9 @@ const HorarioTableRow = memo(({
     
     <TableCell>{agendamento?.createdBy?.name || bloqueio?.createdBy?.name || '-'}</TableCell>
     
+    {showActionsColumn && (
     <TableCell align="center">
-      {status === 'livre' && (
+      {status === 'livre' && canSchedule && (
         <Button
           variant="contained"
           size="small"
@@ -156,6 +159,7 @@ const HorarioTableRow = memo(({
         />
       )}
     </TableCell>
+    )}
   </TableRow>
 ));
 

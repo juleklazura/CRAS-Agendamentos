@@ -34,11 +34,15 @@ const AgendaEntrevistadores = memo(() => {
     // Autenticação
     user,
     isEntrevistador,
+    canSchedule,
     authLoading,
     
     // Estados principais
     data,
     setData,
+    crasList,
+    selectedCras,
+    setSelectedCras,
     entrevistadores,
     selectedEntrevistador,
     setSelectedEntrevistador,
@@ -98,15 +102,20 @@ const AgendaEntrevistadores = memo(() => {
         {/* Cabeçalho com título e descrição */}
         <AgendaHeader isEntrevistador={isEntrevistador} />
 
-        {/* Filtros: seleção de entrevistador e data (apenas para admin/recepção) */}
+        {/* Filtros em cascata: CRAS → Entrevistador → Data (apenas para admin/recepção) */}
         {!isEntrevistador && (
           <AgendaFilters
+            crasList={crasList}
+            selectedCras={selectedCras}
+            onCrasChange={setSelectedCras}
             entrevistadores={entrevistadores}
             selectedEntrevistador={selectedEntrevistador}
             onEntrevistadorChange={setSelectedEntrevistador}
             data={data}
             onDataChange={setData}
             loading={loading}
+            isAdmin={user?.role === 'admin'}
+            allowPast={user?.role === 'admin'}
           />
         )}
 
@@ -122,6 +131,7 @@ const AgendaEntrevistadores = memo(() => {
             abrirModalAgendamento={abrirModalAgendamento}
             abrirModalEdicao={abrirModalEdicao}
             isEntrevistador={isEntrevistador}
+            canSchedule={canSchedule}
             loading={loading}
           />
         )}

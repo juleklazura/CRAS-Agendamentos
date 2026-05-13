@@ -24,6 +24,7 @@ const AgendaTable = memo(({
   abrirModalAgendamento,
   abrirModalEdicao,
   isEntrevistador,
+  canSchedule,
   loading
 }) => {
   if (loading) {
@@ -50,7 +51,9 @@ const AgendaTable = memo(({
             <TableCell sx={{ fontWeight: 'bold' }}>Motivo</TableCell>
             <TableCell sx={{ fontWeight: 'bold' }}>Observações</TableCell>
             <TableCell sx={{ fontWeight: 'bold' }}>Criado Por</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Ações</TableCell>
+            {canSchedule && (
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Ações</TableCell>
+            )}
           </TableRow>
         </TableHead>
         
@@ -68,6 +71,8 @@ const AgendaTable = memo(({
                 abrirModalAgendamento={abrirModalAgendamento}
                 abrirModalEdicao={abrirModalEdicao}
                 isEntrevistador={isEntrevistador}
+                canSchedule={canSchedule}
+                showActionsColumn={canSchedule}
               />
             );
           })}

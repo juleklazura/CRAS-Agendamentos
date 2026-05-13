@@ -41,6 +41,10 @@ export default function useAgenda() {
   const user = useMemo(() => authUser || {}, [authUser]);
   const isEntrevistador = useMemo(() => user?.role === 'entrevistador', [user?.role]);
 
+  // Admin tem acesso somente-leitura à agenda; apenas entrevistador e receção podem criar/editar.
+  // Usado para ocultar botões de ação na UI (o backend também bloqueia via authorize()).
+  const canSchedule = useMemo(() => user?.role === 'entrevistador' || user?.role === 'recepcao', [user?.role]);
+
   // ===== ESTADOS PRINCIPAIS =====
   const [data, setData] = useState(() => {
     const hoje = new Date();
@@ -59,6 +63,8 @@ export default function useAgenda() {
 
   const [entrevistadores, setEntrevistadores] = useState([]);
   const [selectedEntrevistador, setSelectedEntrevistador] = useState('');
+  const [crasList, setCrasList] = useState([]);
+  const [selectedCras, setSelectedCras] = useState('');
   const [agendamentos, setAgendamentos] = useState([]);
   const [bloqueios, setBloqueios] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -166,6 +172,18 @@ export default function useAgenda() {
   }, [fecharModal]);
 
   // ===== FUNÇÕES DE API =====
+  // Carrega a lista de CRAS disponíveis (usado apenas pelo admin para o filtro em cascata).
+  const fetchCrasList = useCallback(async () => {
+    if (user?.role !== 'admin') return;
+    try {
+      const response = await api.get('/cras');
+      setCrasList(response.data || []);
+    } catch (error) {
+      console.error('Erro ao carregar lista de CRAS:', error);
+      setError(mensagens.erro.conexaoFalhou);
+    }
+  }, [user?.role, setError]);
+
   const fetchEntrevistadores = useCallback(async () => {
     try {
       setLoading(true);
@@ -181,7 +199,19 @@ export default function useAgenda() {
         setSelectedEntrevistador(userId);
         return;
       }
-      
+
+      if (user?.role === 'admin') {
+        // Admin precisa selecionar o CRAS primeiro; sem seleção, lista fica vazia.
+        if (!selectedCras) {
+          setEntrevistadores([]);
+          return;
+        }
+        const response = await api.get(`/users/entrevistadores/cras/${selectedCras}`);
+        setEntrevistadores(response.data || []);
+        return;
+      }
+
+      // Outros roles (receção): busca todos e filtra por role.
       const response = await api.get('/users');
       const entrevistadoresFiltrados = response.data.filter(usuario => usuario.role === 'entrevistador');
       setEntrevistadores(entrevistadoresFiltrados);
@@ -191,7 +221,7 @@ export default function useAgenda() {
     } finally {
       setLoading(false);
     }
-  }, [user, isEntrevistador, setError]);
+  }, [user, isEntrevistador, selectedCras, setError]);
 
   const fetchAgendamentos = useCallback(async () => {
     if (!selectedEntrevistador || !data) {
@@ -240,6 +270,13 @@ export default function useAgenda() {
 
   // ===== FUNÇÕES DE CRUD =====
   const criarAgendamento = useCallback(async () => {
+    // Guarda de segurança de UX: admin não cria agendamentos.
+    // O backend também recusa com HTTP 403 (defesa em profundidade).
+    if (user?.role === 'admin') {
+      setError('Administradores não podem criar agendamentos');
+      return;
+    }
+
     // Validações
     if (!dadosAgendamento.pessoa.trim()) {
       setError('👤 Por favor, informe o nome completo do cidadão');
@@ -304,6 +341,12 @@ export default function useAgenda() {
 
   const salvarEdicao = useCallback(async () => {
     if (!agendamentoParaEditar) return;
+
+    // Guarda de segurança de UX: admin não edita agendamentos.
+    if (user?.role === 'admin') {
+      setError('Administradores não podem editar agendamentos');
+      return;
+    }
 
     if (!dadosEdicao.pessoa?.trim() || !dadosEdicao.cpf?.trim()) {
       setError('Nome e CPF são obrigatórios');
@@ -384,9 +427,20 @@ export default function useAgenda() {
   }, [data, agendamentosArray, bloqueios]);
 
   // ===== EFEITOS =====
+  // Carrega CRAS ao montar (somente admin).
+  useEffect(() => {
+    fetchCrasList();
+  }, [fetchCrasList]);
+
+  // Carrega entrevistadores na montagem (entrevistador/receção) e quando selectedCras muda (admin).
   useEffect(() => {
     fetchEntrevistadores();
   }, [fetchEntrevistadores]);
+
+  // Ao trocar o CRAS (admin), limpa o entrevistador selecionado para forçar nova seleção.
+  useEffect(() => {
+    setSelectedEntrevistador('');
+  }, [selectedCras]);
 
   useEffect(() => {
     if (selectedEntrevistador) {
@@ -401,10 +455,14 @@ export default function useAgenda() {
     user,
     authLoading,
     isEntrevistador,
+    canSchedule,
 
     // Estados principais
     data,
     setData,
+    crasList,
+    selectedCras,
+    setSelectedCras,
     entrevistadores,
     selectedEntrevistador,
     setSelectedEntrevistador,
