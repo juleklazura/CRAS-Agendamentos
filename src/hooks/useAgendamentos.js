@@ -137,6 +137,12 @@ export function useAgendamentos(user) {
       return false;
     }
     
+    // Admin não possui permissão operacional — bloqueio de UX (backend também rejeita com 403).
+    if (user?.role === 'admin') {
+      setError('Administradores não podem excluir agendamentos');
+      return false;
+    }
+
     // Validação frontend (adicional à validação backend)
     if (user?.role === 'entrevistador') {
       if (agendamento.entrevistador?.id !== user.id) {

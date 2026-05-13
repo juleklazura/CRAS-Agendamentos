@@ -27,13 +27,19 @@ const registrarAuditoria = async (user, quantidade) => {
 };
 
 /**
- * Verifica se usuário pode deletar agendamento
- * Memoizado para evitar recriação
+ * Verifica se usuário pode deletar agendamento.
+ * Memoizado para evitar recriação.
+ *
+ * REGRA DE PERMISSÃO:
+ * - Admin: NÃO pode excluir (bloqueio aplicado também no backend).
+ * - Entrevistador: pode excluir apenas seus próprios agendamentos.
+ * - Recepção: a validação de CRAS ocorre em useAgendamentos (por ter acesso ao objeto completo).
  */
 export const canDeleteAgendamento = (agendamento, user) => {
   if (!user || !agendamento) return false;
-  return user.role === 'admin' || 
-         user.id === agendamento.createdBy?.id ||
+  // Admin não possui permissão operacional sobre agendamentos (princípio do menor privilégio).
+  if (user.role === 'admin') return false;
+  return user.id === agendamento.createdBy?.id ||
          user.id === agendamento.entrevistador?.id;
 };
 

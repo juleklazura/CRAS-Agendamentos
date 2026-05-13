@@ -22,8 +22,8 @@ import AgendamentoRow from './AgendamentoRow';
 /**
  * Cabeçalho da tabela com ordenação
  */
-const TableHeader = ({ orderBy, order, onSort }) => {
-  const headers = [
+const TableHeader = ({ orderBy, order, onSort, isAdmin }) => {
+  const allHeaders = [
     { id: 'entrevistador', label: 'Entrevistador', sortable: true },
     { id: 'cras', label: 'CRAS', sortable: true },
     { id: 'pessoa', label: 'Nome', sortable: true },
@@ -36,6 +36,7 @@ const TableHeader = ({ orderBy, order, onSort }) => {
     { id: 'observacoes', label: 'Observações', sortable: false },
     { id: 'acoes', label: 'Ações', sortable: false }
   ];
+  const headers = isAdmin ? allHeaders.filter(h => h.id !== 'acoes') : allHeaders;
 
   return (
     <TableHead>
@@ -70,9 +71,9 @@ const TableHeader = ({ orderBy, order, onSort }) => {
 /**
  * Estado vazio da tabela
  */
-const EmptyState = ({ search }) => (
+const EmptyState = ({ search, isAdmin }) => (
   <TableRow>
-    <TableCell colSpan={11} align="center">
+    <TableCell colSpan={isAdmin ? 10 : 11} align="center">
       <Box py={4}>
         <DescriptionIcon color="disabled" sx={{ fontSize: 48, mb: 2 }} />
         <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -93,11 +94,11 @@ const EmptyState = ({ search }) => (
 /**
  * Loading skeleton da tabela
  */
-const LoadingSkeleton = ({ rowsPerPage }) => (
+const LoadingSkeleton = ({ rowsPerPage, isAdmin }) => (
   <>
     {Array.from({ length: rowsPerPage }).map((_, index) => (
       <TableRow key={`skeleton-${index}`}>
-        {Array.from({ length: 11 }).map((_, cellIndex) => (
+        {Array.from({ length: isAdmin ? 10 : 11 }).map((_, cellIndex) => (
           <TableCell key={`cell-${cellIndex}`}>
             <Skeleton animation="wave" height={20} />
           </TableCell>
@@ -124,19 +125,21 @@ export default function AgendamentosTable({
   deleting,
   user
 }) {
+  const isAdmin = user?.role === 'admin';
   return (
     <TableContainer component={Paper} elevation={2}>
       <Table>
         <TableHeader 
           orderBy={orderBy} 
           order={order} 
-          onSort={onSort} 
+          onSort={onSort}
+          isAdmin={isAdmin}
         />
         <TableBody>
           {loading ? (
-            <LoadingSkeleton rowsPerPage={rowsPerPage} />
+            <LoadingSkeleton rowsPerPage={rowsPerPage} isAdmin={isAdmin} />
           ) : agendamentos.length === 0 ? (
-            <EmptyState search={search} />
+            <EmptyState search={search} isAdmin={isAdmin} />
           ) : (
             agendamentos.map((agendamento) => (
               <AgendamentoRow
@@ -146,6 +149,7 @@ export default function AgendamentosTable({
                 onDelete={onDelete}
                 onViewObservacoes={onViewObservacoes}
                 deleting={deleting}
+                isAdmin={isAdmin}
               />
             ))
           )}

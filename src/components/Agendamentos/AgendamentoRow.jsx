@@ -25,7 +25,8 @@ const AgendamentoRow = memo(({
   canDelete, 
   onDelete, 
   onViewObservacoes,
-  deleting 
+  deleting,
+  isAdmin
 }) => {
   return (
     <TableRow hover>
@@ -67,6 +68,7 @@ const AgendamentoRow = memo(({
           <DescriptionIcon fontSize="small" />
         </IconButton>
       </TableCell>
+      {!isAdmin && (
       <TableCell align="center">
         {canDelete ? (
           <IconButton
@@ -85,6 +87,7 @@ const AgendamentoRow = memo(({
           </Typography>
         )}
       </TableCell>
+      )}
     </TableRow>
   );
 }, (prevProps, nextProps) => {
@@ -92,7 +95,8 @@ const AgendamentoRow = memo(({
   return (
     prevProps.agendamento.id === nextProps.agendamento.id &&
     prevProps.canDelete === nextProps.canDelete &&
-    prevProps.deleting === nextProps.deleting
+    prevProps.deleting === nextProps.deleting &&
+    prevProps.isAdmin === nextProps.isAdmin
   );
 });
 

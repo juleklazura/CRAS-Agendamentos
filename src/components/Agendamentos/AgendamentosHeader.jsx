@@ -4,7 +4,15 @@
  */
 import { Typography, Box } from '@mui/material';
 
-export default function AgendamentosHeader() {
+const SUBTITLES = {
+  admin:        'Consulte e audite agendamentos de todos os CRAS e entrevistadores',
+  entrevistador: 'Consulte seus agendamentos. Para criar novos, acesse "Minha Agenda"',
+  recepcao:     'Consulte agendamentos do seu CRAS. Para criar novos, acesse "Agenda Recepção"',
+};
+
+export default function AgendamentosHeader({ role }) {
+  const subtitle = SUBTITLES[role] || 'Consulte e gerencie agendamentos';
+
   return (
     <Box mb={3}>
       <Typography 
@@ -16,7 +24,7 @@ export default function AgendamentosHeader() {
         sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}
         component="h1"
       >
-        Agendamentos
+        Buscar Agendamentos
       </Typography>
 
       <Typography 
@@ -24,7 +32,7 @@ export default function AgendamentosHeader() {
         color="text.secondary" 
         textAlign="center"
       >
-        Para criar novos agendamentos, acesse a página "Agenda"
+        {subtitle}
       </Typography>
     </Box>
   );

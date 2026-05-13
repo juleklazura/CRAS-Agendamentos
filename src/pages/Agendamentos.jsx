@@ -152,7 +152,7 @@ export default function Agendamentos() {
         }}
       >
         {/* Cabeçalho */}
-        <AgendamentosHeader />
+        <AgendamentosHeader role={user?.role} />
 
         {/* Conteúdo Principal */}
         <Box sx={{ width: '100%' }}>

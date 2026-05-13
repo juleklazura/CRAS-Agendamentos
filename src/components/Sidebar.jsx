@@ -91,7 +91,8 @@ import {
   Event as EventIcon,
   CalendarToday as CalendarIcon,
   History as HistoryIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 
 import { useAuth } from '../hooks/useAuth';
@@ -104,7 +105,7 @@ const MENU_CONFIG = {
     { label: 'Painel Principal', path: '/dashboard', icon: DashboardIcon },
     { label: 'Usuários', path: '/usuarios', icon: PeopleIcon },
     { label: 'Unidades CRAS', path: '/cras', icon: BusinessIcon },
-    { label: 'Agendamentos', path: '/agendamentos', icon: EventIcon },
+    { label: 'Buscar Agendamentos', path: '/agendamentos', icon: SearchIcon },
     { label: 'Agenda Geral', path: '/agenda', icon: CalendarIcon },
     { label: 'Histórico', path: '/logs', icon: HistoryIcon },
   ],
@@ -112,13 +113,13 @@ const MENU_CONFIG = {
   entrevistador: [
     { label: 'Painel Principal', path: '/dashboard', icon: DashboardIcon },
     { label: 'Minha Agenda', path: '/minha-agenda', icon: CalendarIcon },
-    { label: 'Agendamentos', path: '/agendamentos', icon: EventIcon }
+    { label: 'Buscar Agendamentos', path: '/agendamentos', icon: SearchIcon }
   ],
   // Menu para recepção - foco no atendimento
   recepcao: [
     { label: 'Painel Principal', path: '/dashboard', icon: DashboardIcon },
     { label: 'Agenda Recepção', path: '/agenda-recepcao', icon: AssignmentIcon },
-    { label: 'Agendamentos', path: '/agendamentos', icon: EventIcon }
+    { label: 'Buscar Agendamentos', path: '/agendamentos', icon: SearchIcon }
   ]
 };
 
