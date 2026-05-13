@@ -176,12 +176,17 @@ export const getDashboardStats = async (req, res) => {
     const formattedData = await cache.cached(
       cacheKey,
       async () => {
-        // Totais por status — aggregação no banco (O(log n) via index scan)
-        const statusGroups = await prisma.appointment.groupBy({
-          by: ['status'],
-          where,
-          _count: { _all: true },
-        });
+        // Executa aggregação de totais e chart data em paralelo (queries independentes)
+        const [statusGroups, chartData] = await Promise.all([
+          prisma.appointment.groupBy({
+            by: ['status'],
+            where,
+            _count: { _all: true },
+          }),
+          viewMode === 'mensal'
+            ? fetchWeeklyChartData(where)
+            : fetchMonthlyChartData(where),
+        ]);
 
         const stats = { realizados: 0, ausentes: 0, agendados: 0, total: 0 };
         for (const g of statusGroups) {
@@ -190,11 +195,6 @@ export const getDashboardStats = async (req, res) => {
           else if (g.status === 'agendado') stats.agendados = g._count._all;
         }
         stats.total = stats.realizados + stats.ausentes + stats.agendados;
-
-        // Chart data — bucketing por semana ou mês feito inteiramente no banco
-        const chartData = viewMode === 'mensal'
-          ? await fetchWeeklyChartData(where)
-          : await fetchMonthlyChartData(where);
 
         return { chartData, stats };
       },
