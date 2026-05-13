@@ -96,6 +96,44 @@ export const revokeToken = (jti, ttlSeconds) => {
     });
 };
 
+/**
+ * Versão persistente e aguardada de revokeToken — usada no logout para o
+ * refresh token (7 dias de vida útil).
+ *
+ * O access token aceita fire-and-forget (janela de 8h é tolerável), mas o
+ * refresh token de 7 dias exige persistência garantida: sem ela, um restart
+ * do servidor (ex: deploy no Render) apagaria o L1 e o token revogado voltaria
+ * a funcionar por até 7 dias — risco inaceitável para uma operação de logout.
+ *
+ * Trata P2002 (unique violation) como sucesso silencioso — token já revogado.
+ * Demais erros são relançados para que o caller decida como lidar.
+ *
+ * @param {string} jti       JWT ID (claim `jti`)
+ * @param {number} ttlSeconds Segundos restantes até o token expirar
+ */
+export const revokeTokenPersistent = async (jti, ttlSeconds) => {
+  if (!jti || ttlSeconds <= 0) return;
+
+  const expiresAtMs = Date.now() + ttlSeconds * 1000;
+
+  // L1 — imediato (garante rejeição antes mesmo do await do L2)
+  memBlacklist.set(jti, expiresAtMs);
+
+  try {
+    await prisma.revokedToken.create({
+      data: {
+        jti,
+        expiresAt: new Date(expiresAtMs),
+      },
+    });
+  } catch (err) {
+    // P2002 = unique violation — token já estava na blacklist, sem problema
+    if (err?.code === 'P2002') return;
+    // Falha real de banco: relança para o caller logar com nível SECURITY
+    throw err;
+  }
+};
+
 // =============================================================================
 // VERIFICAR SE ESTÁ REVOGADO
 // =============================================================================
@@ -153,4 +191,4 @@ export const isRevoked = async (jti) => {
   }
 };
 
-export default { revokeToken, isRevoked, startCleanupJob };
+export default { revokeToken, revokeTokenPersistent, isRevoked, startCleanupJob };

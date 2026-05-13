@@ -99,16 +99,40 @@ export const createUser = async (data, actor) => {
  * completa (usado em dropdowns). Com parâmetros → retorna { data, total, page, pageSize }.
  */
 export const getUsers = async (role, { page, pageSize } = {}) => {
-  const where = role !== 'admin' ? { role: 'entrevistador', ativo: true } : { ativo: true };
+  const isAdmin = role === 'admin';
+  const where = !isAdmin ? { role: 'entrevistador', ativo: true } : { ativo: true };
+
+  // LGPD — minimização de dados (Art. 6º, III): a matrícula é o identificador
+  // de login. Expô-la a entrevistadores/recepção facilita ataques de força bruta
+  // direcionados a contas específicas. Admin recebe o campo completo para gestão.
+  const selectForNonAdmin = {
+    id: true,
+    name: true,
+    role: true,
+    crasId: true,
+    ativo: true,
+    horariosDisponiveis: true,
+    diasAtendimento: true,
+    cargaHoraria: true,
+    horaEntrada: true,
+    cras: true,
+    // matricula: deliberadamente omitida para não-admin
+  };
 
   // Sem paginação — comportamento original (cached para dropdowns)
   if (!page && !pageSize) {
     const cacheKey = `users:all:role:${role}`;
     return cache.cached(cacheKey, async () => {
+      if (isAdmin) {
+        return prisma.user.findMany({
+          where,
+          omit: { password: true },
+          include: { cras: true },
+        });
+      }
       return prisma.user.findMany({
         where,
-        omit: { password: true },
-        include: { cras: true },
+        select: selectForNonAdmin,
       });
     });
   }
@@ -118,11 +142,25 @@ export const getUsers = async (role, { page, pageSize } = {}) => {
   const size = Math.min(100, Math.max(1, parseInt(pageSize) || 20));
   const skip = (p - 1) * size;
 
+  if (isAdmin) {
+    const [data, total] = await prisma.$transaction([
+      prisma.user.findMany({
+        where,
+        omit: { password: true },
+        include: { cras: true },
+        skip,
+        take: size,
+        orderBy: { name: 'asc' },
+      }),
+      prisma.user.count({ where }),
+    ]);
+    return { data, total, page: p, pageSize: size };
+  }
+
   const [data, total] = await prisma.$transaction([
     prisma.user.findMany({
       where,
-      omit: { password: true },
-      include: { cras: true },
+      select: selectForNonAdmin,
       skip,
       take: size,
       orderBy: { name: 'asc' },
@@ -135,6 +173,7 @@ export const getUsers = async (role, { page, pageSize } = {}) => {
 
 /**
  * Lista todos os entrevistadores do sistema.
+ * Matrícula omitida — endpoint acessível a todos os autenticados.
  */
 export const getEntrevistadores = async () => {
   const cacheKey = 'users:entrevistadores';
@@ -142,13 +181,18 @@ export const getEntrevistadores = async () => {
   return cache.cached(cacheKey, async () => {
     return prisma.user.findMany({
       where: { role: 'entrevistador', ativo: true },
-      omit: { password: true },
+      select: {
+        id: true, name: true, role: true, crasId: true,
+        horariosDisponiveis: true, diasAtendimento: true,
+        cargaHoraria: true, horaEntrada: true,
+      },
     });
   });
 };
 
 /**
  * Lista entrevistadores de um CRAS específico.
+ * Matrícula omitida — endpoint acessível a recepção e admin.
  */
 export const getEntrevistadoresByCras = async (crasId) => {
   const cacheKey = `users:entrevistadores:cras:${crasId}`;
@@ -156,8 +200,12 @@ export const getEntrevistadoresByCras = async (crasId) => {
   return cache.cached(cacheKey, async () => {
     return prisma.user.findMany({
       where: { role: 'entrevistador', crasId, ativo: true },
-      omit: { password: true },
-      include: { cras: true },
+      select: {
+        id: true, name: true, role: true, crasId: true,
+        horariosDisponiveis: true, diasAtendimento: true,
+        cargaHoraria: true, horaEntrada: true,
+        cras: true,
+      },
     });
   });
 };

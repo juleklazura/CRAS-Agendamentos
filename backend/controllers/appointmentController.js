@@ -65,10 +65,12 @@ export const removePresenceConfirmation = async (req, res) => {
   }
 };
 
-// GET /api/appointments/by-cpf
+// POST /api/appointments/by-cpf
+// CPF recebido via body — nunca via query string (LGPD Art. 46: dados sensíveis
+// não devem trafegar em URLs que aparecem em logs de acesso e histórico do browser).
 export const getAppointmentsByCpf = async (req, res) => {
   try {
-    const data = await appointmentService.getAppointmentsByCpf(req.query.cpf, req.user);
+    const data = await appointmentService.getAppointmentsByCpf(req.body.cpf, req.user);
     apiSuccess(res, data);
   } catch (error) {
     handleControllerError(res, error, 'Erro ao buscar agendamentos por CPF');

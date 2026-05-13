@@ -44,10 +44,14 @@ const CLEAR_COOKIE_OPTIONS = {
   path: '/',
 };
 
-// Hash constante usado para prevenir timing oracle no login.
-// bcrypt.compare executa sempre, mesmo quando a matrícula não existe no banco,
-// tornando o tempo de resposta uniforme e impedindo enumeração de matrículas por diff de latencia.
-const DUMMY_HASH = '$2a$12$invaliddummyhashfortimingprotect.00000000000000000000000';
+// Hash bcrypt real (custo 12) de uma senha descartável.
+// Garante que bcrypt.compare() execute sem lançar exceção quando a matrícula
+// não existe no banco — tornando o tempo de resposta uniforme e impedindo
+// enumeração de matrículas por diferença de latência (timing oracle).
+// NUNCA altere este valor para uma string inválida: hashes malformados podem
+// lançar exceção em bcryptjs ≥ 3.x, quebrando a proteção e expondo status 500
+// apenas para matrículas inexistentes (vide security review 2026-05-13).
+const DUMMY_HASH = '$2b$12$H7ADTx23eA9Ey4jakbSFROVCiktguM9XAT97uPMRrYjixdMuHVVym';
 
 /** Monta o objeto `agenda` a partir dos campos do User. Retorna undefined para roles sem agenda. */
 const buildAgenda = (user) => {
@@ -228,9 +232,23 @@ export const logout = async (req, res) => {
         const decoded = jwt.decode(rawRefreshToken);
         if (decoded?.jti && decoded?.exp) {
           const remaining = decoded.exp - now;
-          if (remaining > 0) tokenBlacklist.revokeToken(decoded.jti, remaining);
+          if (remaining > 0) {
+            // Refresh token tem vida de 7 dias: persiste de forma AGUARDADA.
+            // Fire-and-forget seria perigoso aqui — um restart do servidor (ex: deploy
+            // no Render) apagaria o L1 e o token revogado voltaria a funcionar por até
+            // 7 dias, mesmo após logout explícito do usuário.
+            // Falha de banco é logada como SECURITY mas não bloqueia o logout:
+            // o cookie já foi limpo e o L1 registrou a revogação para a sessão atual.
+            await tokenBlacklist.revokeTokenPersistent(decoded.jti, remaining);
+          }
         }
-      } catch (_) { /* token malformado — ignora */ }
+      } catch (err) {
+        logger.security('Falha ao persistir revogação do refresh token no logout', {
+          userId: req.user?.id,
+          error: err.message,
+        });
+        /* Não relança — cookie já será limpo; L1 ainda protege a sessão atual */
+      }
     }
 
     if (req.user?.id) {
