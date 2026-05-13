@@ -110,9 +110,23 @@ const hashCpf = (cpf) => EncryptionService.hash(cpf.replace(/\D/g, ''));
 
 /**
  * Verifica se o usuário tem permissão para operar no agendamento.
+ *
+ * SEGURANÇA — Defesa em profundidade:
+ * Esta função é a segunda camada de proteção. A primeira é o middleware authorize()
+ * aplicado nas rotas, que bloqueia admin antes mesmo de o request chegar ao service.
+ * Mesmo assim, admin é explicitamente bloqueado aqui para neutralizar qualquer
+ * tentativa de bypass direto ao service (ex: chamada interna futura, testes mal-configurados).
  */
 const checkOwnership = async (appointment, actor, action) => {
-  if (actor.role === 'admin') return;
+  // Admin não possui permissão operacional sobre agendamentos.
+  // Este bloco funciona como segunda camada de defesa (belt-and-suspenders).
+  if (actor.role === 'admin') {
+    throw new BusinessError(
+      'Administradores não têm permissão para realizar operações de agendamento',
+      403,
+      'ADMIN_OPERATION_FORBIDDEN'
+    );
+  }
 
   if (actor.role === 'entrevistador') {
     if (appointment.entrevistadorId !== actor.id) {
@@ -126,11 +140,10 @@ const checkOwnership = async (appointment, actor, action) => {
   }
 
   if (actor.role === 'recepcao') {
-    const entrevistador = await prisma.user.findUnique({
-      where: { id: appointment.entrevistadorId },
-      select: { id: true, crasId: true },
-    });
-    if (!entrevistador || entrevistador.crasId !== actor.cras) {
+    // appointment.crasId === entrevistador.crasId (FK garantida pelo schema)
+    // Não é necessário buscar o entrevistador no banco: o crasId do agendamento
+    // já identifica o CRAS ao qual ele pertence.
+    if (appointment.crasId !== actor.cras) {
       throw new BusinessError(
         `Você não tem permissão para ${action} agendamentos de outro CRAS`,
         403,
@@ -146,7 +159,10 @@ const checkOwnership = async (appointment, actor, action) => {
 const findOrFail = async (id, include = null) => {
   const appointment = await prisma.appointment.findUnique({
     where: { id },
-    ...(include && { include }),
+    ...(include
+      ? { include }
+      : { select: { id: true, entrevistadorId: true, crasId: true, data: true } }
+    ),
   });
   if (!appointment) {
     throw new BusinessError('Agendamento não encontrado', 404, 'NOT_FOUND');
@@ -162,6 +178,16 @@ const findOrFail = async (id, include = null) => {
  * Cria um novo agendamento com validações rigorosas.
  */
 export const createAppointment = async (data, actor) => {
+  // SEGURANÇA — Defesa em profundidade: garante que admin nunca crie agendamentos,
+  // mesmo que a restrição na rota seja contornada (ex: middleware removido acidentalmente).
+  if (actor.role === 'admin') {
+    throw new BusinessError(
+      'Administradores não têm permissão para criar agendamentos',
+      403,
+      'ADMIN_OPERATION_FORBIDDEN'
+    );
+  }
+
   const {
     entrevistador, cras, pessoa, cpf, telefone1, telefone2,
     motivo, data: dataAgendamento, status, observacoes,
@@ -219,6 +245,7 @@ export const createAppointment = async (data, actor) => {
       entrevistadorId: entrevistador,
       data: new Date(dataAgendamento),
     },
+    select: { id: true },
   });
   if (existingSlot) {
     const dataFormatada = formatDateTime(dataAgendamento);
@@ -389,11 +416,11 @@ export const getAppointments = async (queryParams, actor) => {
   const sliced = hasNextPage ? rawResults.slice(0, pageSize) : rawResults;
   const results = sliced.map((doc) => processAppointment(doc, actor));
 
-  // Count só é necessário quando há mais registros além desta página.
-  // Na primeira página sem próxima, o total é o próprio tamanho do resultado.
-  const total = (!hasNextPage && page === 0)
-    ? results.length
-    : await prisma.appointment.count({ where });
+  // Count só é necessário quando há mais páginas além desta.
+  // Se não há próxima página, o total exato é skip + tamanho da página atual.
+  const total = hasNextPage
+    ? await prisma.appointment.count({ where })
+    : skip + sliced.length;
 
   return {
     results,
@@ -421,19 +448,18 @@ export const updateAppointment = async (id, body, actor) => {
   const data = {};
   if (body.entrevistador !== undefined) {
     // Valida que o novo entrevistador pertence ao mesmo CRAS do agendamento.
-    // Sem isso, a recepção do CRAS A pode reatribuir agendamentos para entrevistadores do CRAS B.
-    if (actor.role !== 'admin') {
-      const novoEntrevistador = await prisma.user.findUnique({
-        where: { id: body.entrevistador },
-        select: { crasId: true },
-      });
-      if (!novoEntrevistador || novoEntrevistador.crasId !== existing.crasId) {
-        throw new BusinessError(
-          'Não é permitido reatribuir agendamento para entrevistador de outro CRAS',
-          403,
-          'FORBIDDEN_CROSS_CRAS'
-        );
-      }
+    // Sem isso, a recepção do CRAS A poderia reatribuir agendamentos para entrevistadores do CRAS B.
+    // Nota: admin nunca alcança este ponto — bloqueado em checkOwnership acima.
+    const novoEntrevistador = await prisma.user.findUnique({
+      where: { id: body.entrevistador },
+      select: { crasId: true },
+    });
+    if (!novoEntrevistador || novoEntrevistador.crasId !== existing.crasId) {
+      throw new BusinessError(
+        'Não é permitido reatribuir agendamento para entrevistador de outro CRAS',
+        403,
+        'FORBIDDEN_CROSS_CRAS'
+      );
     }
     data.entrevistadorId = body.entrevistador;
   }
