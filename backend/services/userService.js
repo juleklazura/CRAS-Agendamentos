@@ -266,7 +266,44 @@ export const updateUser = async (id, data, actor) => {
       if (cargaHoraria !== undefined) {
         const ch = cargaHoraria;
         const he = horaEntrada !== undefined ? horaEntrada : null;
-        update.horariosDisponiveis = generateHorarios(ch, he);
+        const newHorarios = generateHorarios(ch, he);
+
+        // Verificar se slots removidos têm agendamentos futuros
+        const currentUser = await tx.user.findUnique({
+          where: { id },
+          select: { horariosDisponiveis: true },
+        });
+        const removedSlots = (currentUser?.horariosDisponiveis ?? []).filter(
+          (h) => !newHorarios.includes(h)
+        );
+
+        if (removedSlots.length > 0) {
+          const futureAppointments = await tx.appointment.findMany({
+            where: { entrevistadorId: id, status: 'agendado', data: { gte: new Date() } },
+            select: { data: true },
+          });
+
+          const fmt = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          });
+
+          const conflicting = futureAppointments.filter((apt) =>
+            removedSlots.includes(fmt.format(apt.data))
+          );
+
+          if (conflicting.length > 0) {
+            throw new BusinessError(
+              `Não é possível reduzir a carga horária: ${conflicting.length} agendamento(s) futuro(s) estão nos horários que seriam removidos (${removedSlots.join(', ')}). Reagende-os antes de alterar.`,
+              409,
+              'SCHEDULE_HAS_APPOINTMENTS'
+            );
+          }
+        }
+
+        update.horariosDisponiveis = newHorarios;
         update.cargaHoraria = ch;
         update.horaEntrada = he;
       }

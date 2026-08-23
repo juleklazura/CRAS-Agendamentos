@@ -63,8 +63,8 @@ export const generateHorarios = (cargaHoraria, horaEntrada) => {
     current += 30;
   }
 
-  // Inclui o último slot (que termina exatamente em endMinutes)
-  if (current === endMinutes && current >= MIN_MINUTOS && current <= MAX_MINUTOS) {
+  // Inclui o último slot, desde que não seja 17:00 (horário de fechamento do CRAS)
+  if (current === endMinutes && current >= MIN_MINUTOS && current < MAX_MINUTOS) {
     const h = Math.floor(current / 60);
     const m = current % 60;
     slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
