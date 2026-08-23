@@ -26,6 +26,7 @@ import { securityHeadersMiddleware } from './middlewares/securityHeaders.js';
 
 // Importação das rotas organizadas por funcionalidade
 import { startCleanupJob } from './utils/tokenBlacklist.js';
+import { startPurgeScheduler } from './utils/purgeScheduler.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
 import crasRoutes from './routes/cras.js';
@@ -149,7 +150,8 @@ async function bootstrapAdmin() {
 prisma.$connect()
   .then(async () => {
     await bootstrapAdmin();
-    startCleanupJob(); // Inicia limpeza periódica do L1 da blacklist (10 min)
+    startCleanupJob();      // Limpeza periódica da blacklist de tokens JWT (10 min)
+    startPurgeScheduler();  // Purga automática LGPD — dados antigos (diária às 3h)
     app.listen(PORT, '0.0.0.0', () => {
       logger.success(`Servidor rodando na porta ${PORT}`);
       logger.info('PostgreSQL (Neon) conectado com sucesso');

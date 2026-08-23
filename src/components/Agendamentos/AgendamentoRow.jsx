@@ -8,7 +8,9 @@ import {
   TableRow,
   TableCell,
   IconButton,
-  Typography
+  Typography,
+  Box,
+  Chip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -30,7 +32,20 @@ const AgendamentoRow = memo(({
 }) => {
   return (
     <TableRow hover>
-      <TableCell>{sanitizeText(agendamento.entrevistador?.name)}</TableCell>
+      <TableCell>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+          {sanitizeText(agendamento.entrevistador?.name)}
+          {agendamento.entrevistador?.ativo === false && (
+            <Chip
+              label="Desativado"
+              size="small"
+              color="default"
+              variant="outlined"
+              sx={{ fontSize: '0.65rem', height: 18, opacity: 0.7 }}
+            />
+          )}
+        </Box>
+      </TableCell>
       <TableCell>{sanitizeText(agendamento.cras?.nome)}</TableCell>
       <TableCell>{sanitizeText(agendamento.pessoa)}</TableCell>
       <TableCell>{formatarCPFExibicao(agendamento.cpf)}</TableCell>

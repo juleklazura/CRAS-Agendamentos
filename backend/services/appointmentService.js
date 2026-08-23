@@ -18,7 +18,8 @@ import { motivoToEnum, convertAppointmentMotivo } from '../constants/motivos.js'
 // =============================================================================
 
 const INCLUDE_DEFAULT = {
-  entrevistador: { select: { id: true, name: true, matricula: true } },
+  // `ativo` incluído para que o frontend sinalize entrevistadores desativados (LGPD — rastreabilidade).
+  entrevistador: { select: { id: true, name: true, matricula: true, ativo: true } },
   cras: { select: { id: true, nome: true, endereco: true, telefone: true } },
   createdBy: { select: { id: true, name: true, matricula: true } },
 };
@@ -29,7 +30,8 @@ const INCLUDE_FULL = {
 };
 
 const INCLUDE_LIST = {
-  entrevistador: { select: { id: true, name: true, matricula: true } },
+  // `ativo` incluído para que o frontend sinalize entrevistadores desativados (LGPD — rastreabilidade).
+  entrevistador: { select: { id: true, name: true, matricula: true, ativo: true } },
   cras: { select: { id: true, nome: true } },
 };
 
@@ -319,12 +321,15 @@ export const getAppointments = async (queryParams, actor) => {
   if (actor.role === 'entrevistador') {
     where.entrevistadorId = actor.id;
   } else if (actor.role === 'recepcao') {
-    const ids = await _getEntrevistadorIdsByCras(actor.cras);
+    // Recepção só vê agendamentos de entrevistadores ATIVOS do seu CRAS.
+    // Entrevistadores desativados não têm mais agenda operacional ativa.
+    const ids = await _getEntrevistadorIdsByCras(actor.cras, true);
     if (ids.length === 0) return _emptyPage();
     where.entrevistadorId = { in: ids };
   } else if (actor.role === 'admin') {
     if (queryParams.cras) {
-      const ids = await _getEntrevistadorIdsByCras(queryParams.cras);
+      // Admin precisa de visibilidade total para auditoria — inclui desativados.
+      const ids = await _getEntrevistadorIdsByCras(queryParams.cras, false);
       if (ids.length === 0) return _emptyPage();
       where.entrevistadorId = { in: ids };
     }
@@ -627,7 +632,12 @@ export const getAppointmentsByCpf = async (cpf, actor) => {
   if (actor.role === 'entrevistador') {
     where.entrevistadorId = actor.id;
   } else if (actor.role === 'recepcao') {
-    const ids = await _getEntrevistadorIdsByCras(actor.cras);
+    // LGPD (Art. 9º, § 3º — titular tem direito ao histórico completo):
+    // A busca por CPF abrange entrevistadores desativados para preservar o
+    // histórico de atendimentos do cidadão. Diferente da listagem operacional
+    // (que filtra apenas ativos), aqui o dado pertence ao cidadão, não ao
+    // entrevistador. Ocultar registros violaria o direito de acesso do titular.
+    const ids = await _getEntrevistadorIdsByCras(actor.cras, false);
     if (ids.length === 0) {
       await _logCpfSearch(actor, 0);
       return [];
@@ -666,14 +676,22 @@ const _logCpfSearch = async (actor, resultCount) => {
 // FUNÇÕES AUXILIARES PRIVADAS
 // =============================================================================
 
-/** Busca IDs de entrevistadores de um CRAS (com cache de 5 minutos). */
-const _getEntrevistadorIdsByCras = async (crasId) => {
-  const cacheKey = `entrevistadores:ids:cras:${crasId}`;
+/**
+ * Busca IDs de entrevistadores de um CRAS (com cache de 5 minutos).
+ *
+ * @param {string}  crasId      - ID do CRAS
+ * @param {boolean} apenasAtivos - true  → somente entrevistadores ativos (padrão, uso operacional)
+ *                                 false → todos, incluindo desativados (admin/histórico LGPD)
+ *
+ * Chave de cache prefixada com `users:` para ser invalidada automaticamente
+ * por `cache.invalidateUsers()` quando um usuário é desativado.
+ */
+const _getEntrevistadorIdsByCras = async (crasId, apenasAtivos = true) => {
+  const cacheKey = `users:entrevistadores:ids:cras:${crasId}:ativo:${apenasAtivos}`;
   return cache.cached(cacheKey, async () => {
-    const users = await prisma.user.findMany({
-      where: { crasId, role: 'entrevistador' },
-      select: { id: true },
-    });
+    const where = { crasId, role: 'entrevistador' };
+    if (apenasAtivos) where.ativo = true;
+    const users = await prisma.user.findMany({ where, select: { id: true } });
     return users.map((u) => u.id);
   }, 300);
 };

@@ -362,7 +362,11 @@ export const deleteUser = async (id, actor) => {
         }
       }
 
-      await tx.user.update({ where: { id }, data: { ativo: false } });
+      // Anonimiza a matrícula para liberar o valor único no banco
+      await tx.user.update({
+        where: { id },
+        data: { ativo: false, matricula: `deleted_${id}` },
+      });
 
       // Log de auditoria atômico com a desativação
       await tx.log.create({
